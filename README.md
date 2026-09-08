@@ -9,7 +9,8 @@ test suite wired for Test Impact Analysis.
 | --------- | ------------------------------------------------------------ |
 | Runtime   | PHP 8.5, Laravel 13                                          |
 | Frontend  | Livewire 4, Flux UI 2, Tailwind CSS 4, Vite 8 (`vite-plus`)  |
-| Auth      | Laravel Fortify                                              |
+| Auth      | Laravel Fortify (single login page)                           |
+| Admin     | Filament 5 at `/admin`                                       |
 | Testing   | Pest 5 with the Tia engine                                   |
 | Static    | Larastan / PHPStan                                           |
 | Style     | Laravel Pint                                                 |
@@ -43,6 +44,48 @@ Fortify provides the backend; the UI is Livewire components under
 Fortify actions live in `app/Actions/Fortify`, with shared validation rules
 extracted into `app/Concerns` (`PasswordValidationRules`,
 `ProfileValidationRules`).
+
+### Admin panel
+
+Filament 5 serves an admin panel at `/admin`. Access is gated on `users.is_admin`
+in two places: `User::canAccessPanel()` (Filament's `FilamentUser` contract) and
+[`FilamentAuthenticate`](app/Http/Middleware/FilamentAuthenticate.php), which
+403s non-admins and sends guests to Fortify's login page.
+
+**The panel has no login page of its own.** `filament:install --panels`
+scaffolds `->login()` in the panel provider, which would register a second login
+at `/admin/login` — bypassing Fortify and with it 2FA, passkeys, and email
+verification. That call is deliberately removed, so
+`filament.admin.auth.login` does not exist and Fortify's `/login` is the only
+way in. A test asserts the route stays absent.
+
+`is_admin` is deliberately **not** mass-assignable; promote a user explicitly.
+
+### Dev login links
+
+In `local`, the login page shows one-click login buttons for the seeded users
+via `spatie/laravel-login-link`. The partial is double-guarded — on
+`config('login-link.allowed_environments')` and on the package class existing —
+so it renders nothing in production.
+
+[`LoginLinkController`](app/Http/Controllers/LoginLinkController.php) and
+Fortify's `LoginResponse` share the
+[`ResolvesLoginRedirect`](app/Http/Responses/ResolvesLoginRedirect.php) trait, so
+a dev link lands exactly where a real login would: the intended URL if one was
+captured, else the admin panel for admins and the dashboard for everyone else.
+
+### Seeding
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+`AdminUserSeeder` creates an admin from `FIRST_USER_*` (see `config/first.php`),
+defaulting to `admin@example.com` / `password`. It is idempotent — it returns
+early if the email exists rather than resetting a changed password — and it
+**refuses to run with those defaults outside local/testing**, so a deployment
+cannot end up with a known-credential admin. `DatabaseSeeder` adds a
+non-admin `test@example.com` in local/testing only.
 
 ### Settings
 

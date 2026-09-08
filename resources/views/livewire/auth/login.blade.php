@@ -54,6 +54,10 @@
             </div>
         </form>
 
+        @env(config('login-link.allowed_environments'))
+            @includeWhen(class_exists(\Spatie\LoginLink\LoginLinkServiceProvider::class), 'partials.dev-login-links')
+        @endenv
+
         <div class="space-x-1 text-center text-sm text-zinc-600 rtl:space-x-reverse dark:text-zinc-400">
             <span>{{ __('Don\'t have an account?') }}</span>
             <flux:link :href="route('register')" wire:navigate>{{ __('Sign up') }}</flux:link>
