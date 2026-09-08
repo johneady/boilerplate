@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1600" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Abstract layered gradient artwork">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="45%" stop-color="#15243f"/>
+      <stop offset="100%" stop-color="#243a63"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0.2" y1="1" x2="0.9" y2="0">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#818cf8" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#c084fc" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="orb" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#7dd3fc" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="1600" fill="url(#sky)"/>
+  <rect width="1200" height="1600" fill="url(#glow)"/>
+  <circle cx="820" cy="330" r="360" fill="url(#orb)"/>
+  <circle cx="300" cy="960" r="240" fill="url(#orb)" opacity="0.5"/>
+
+  <g fill="none" stroke="#bae6fd" stroke-opacity="0.42" stroke-width="2">
+    <path d="M-40 1180 C 240 1050, 420 1240, 700 1110 S 1080 980, 1260 1080"/>
+    <path d="M-40 1280 C 240 1150, 420 1340, 700 1210 S 1080 1080, 1260 1180"/>
+    <path d="M-40 1380 C 240 1250, 420 1440, 700 1310 S 1080 1180, 1260 1280"/>
+  </g>
+
+  <g fill="#e2e8f0" fill-opacity="0.35">
+    <circle cx="180" cy="240" r="3"/>
+    <circle cx="420" cy="150" r="2"/>
+    <circle cx="1020" cy="820" r="2.5"/>
+    <circle cx="300" cy="700" r="2"/>
+    <circle cx="760" cy="1460" r="2.5"/>
+  </g>
+
+  <g fill="none" stroke="#c4b5fd" stroke-opacity="0.28" stroke-width="1.5">
+    <path d="M-40 620 C 260 520, 460 700, 720 600 S 1060 470, 1260 560"/>
+    <path d="M-40 720 C 260 620, 460 800, 720 700 S 1060 570, 1260 660"/>
+  </g>
+
+  <path d="M0 1600 L1200 1600 L1200 1330 C 950 1420, 700 1300, 430 1380 C 260 1430, 120 1400, 0 1440 Z" fill="#0b1220" fill-opacity="0.55"/>
+</svg>

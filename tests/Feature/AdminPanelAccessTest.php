@@ -58,3 +58,20 @@ test('non-admins are redirected to the dashboard after logging in', function () 
         'password' => 'password',
     ])->assertRedirect('/dashboard');
 });
+
+test('the dashboard has no stock Filament widgets', function () {
+    $html = $this->actingAs(User::factory()->admin()->create())
+        ->get('/admin')
+        ->assertSuccessful()
+        ->getContent();
+
+    expect($html)->not->toContain('filament-widgets-account-widget')
+        ->and($html)->not->toContain('filament-widgets-filament-info-widget');
+});
+
+test('the panel navigation links back to the website', function () {
+    $this->actingAs(User::factory()->admin()->create())
+        ->get('/admin')
+        ->assertSuccessful()
+        ->assertSee('Return to website');
+});
