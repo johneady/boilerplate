@@ -15,18 +15,18 @@ test('the home page offers login and register to guests', function () {
         ->assertSee(route('register'));
 });
 
-test('the home page links authenticated users to the dashboard', function () {
+test('the home page links non-admins to the dashboard, not the panel', function () {
     $this->actingAs(User::factory()->create())
         ->get('/')
         ->assertSee(route('dashboard'))
         ->assertDontSee('Admin');
 });
 
-test('the home page offers admins a link to the admin panel', function () {
+test('the home page links admins to the panel, not the dashboard', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->get('/')
         ->assertSee('Admin')
-        ->assertSee(route('dashboard'));
+        ->assertDontSee(route('dashboard'));
 });
 
 test('the auth pages use the split layout with the backdrop image', function () {

@@ -25,20 +25,26 @@
                     <nav class="flex items-center gap-2">
                         @auth
                             @if (auth()->user()->is_admin)
-                                <flux:button href="/admin" size="sm" variant="ghost" icon="wrench-screwdriver">
+                                <flux:button
+                                    href="/admin"
+                                    size="sm"
+                                    variant="primary"
+                                    icon="wrench-screwdriver"
+                                    icon-trailing="arrow-right"
+                                >
                                     {{ __('Admin') }}
                                 </flux:button>
+                            @else
+                                <flux:button
+                                    :href="route('dashboard')"
+                                    size="sm"
+                                    variant="primary"
+                                    icon-trailing="arrow-right"
+                                    wire:navigate
+                                >
+                                    {{ __('Dashboard') }}
+                                </flux:button>
                             @endif
-
-                            <flux:button
-                                :href="route('dashboard')"
-                                size="sm"
-                                variant="primary"
-                                icon-trailing="arrow-right"
-                                wire:navigate
-                            >
-                                {{ __('Dashboard') }}
-                            </flux:button>
                         @else
                             <flux:button :href="route('login')" size="sm" variant="ghost" wire:navigate>
                                 {{ __('Log in') }}
