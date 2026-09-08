@@ -1,0 +1,58 @@
+# Build context exclusions for the Docker image.
+
+# public/hot is the marker `npm run dev` leaves behind. If it reaches the
+# image, @vite points every asset URL at http://localhost:5173 — the visitor's
+# own machine — and the frontend silently dies.
+public/hot
+
+.git
+.github
+.claude
+.kilo
+.kilocode
+.opencode
+.vscode
+.idea
+.zed
+.direnv
+.ai
+
+node_modules
+vendor
+public/build
+public/storage
+
+# Never bake secrets into an image layer. Runtime env comes from Dokploy /
+# compose environment, not a copied file.
+.env
+.env.*
+!.env.example
+
+# Generated WITH dev dependencies locally; they name providers absent from a
+# --no-dev vendor tree and break every artisan call with "Class not found".
+# The entrypoint regenerates them at runtime.
+bootstrap/cache/packages.php
+bootstrap/cache/services.php
+bootstrap/cache/config.php
+bootstrap/cache/routes-*.php
+
+# The local SQLite development database must never enter the image; the
+# container runs against MariaDB.
+database/database.sqlite
+
+# Local dev artifacts: the named storage volume inherits image content on
+# first boot, so a dev laravel.log would ship into every deployment.
+storage/logs/*.log
+storage/framework/views/*.php
+storage/framework/cache/data/*
+storage/framework/sessions/*
+storage/framework/cache/*.php
+
+# Dev tooling and artifacts.
+tests
+phpunit.xml
+phpunit.*.xml
+phpstan.neon
+todo.txt
+screenshots
+docker-compose*.yml

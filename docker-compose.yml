@@ -1,0 +1,113 @@
+# Local verification stack for the application.
+#
+# This mirrors what Dokploy runs (docker-compose.dokploy.yml) so problems
+# surface locally. Nothing in THIS file may ever touch production: it embeds a
+# throwaway APP_KEY, a well-known database password and a published port, all
+# safe only because this stack is local and disposable.
+#
+#   docker compose up --build -d
+#   docker compose logs -f app
+#   open http://localhost:8011
+
+x-app-base: &app-base
+  build:
+    context: .
+    target: runtime
+  image: boilerplate:local
+  restart: unless-stopped
+  depends_on:
+    mysql:
+      condition: service_healthy
+  environment: &app-env
+    APP_NAME: "Boilerplate"
+    APP_ENV: production
+    # Local-only throwaway key (a valid randomly generated one — Laravel needs
+    # 32 base64-decodable bytes and SESSION_ENCRYPT=true). The real one is set
+    # per Dokploy application.
+    APP_KEY: base64:k0jmGEgk6TEVoISp1Phks72LzifX97MhYaVusSPmb+Q=
+    APP_DEBUG: "false"
+    APP_URL: http://localhost:${APP_PORT:-8011}
+
+    APP_LOCALE: en
+    APP_FALLBACK_LOCALE: en
+    APP_FAKER_LOCALE: en_US
+    APP_MAINTENANCE_DRIVER: file
+    BCRYPT_ROUNDS: "12"
+
+    LOG_CHANNEL: stack
+    LOG_STACK: single
+    LOG_LEVEL: debug
+
+    # MariaDB, matching the Dokploy-managed database.
+    DB_CONNECTION: mariadb
+    DB_HOST: mysql
+    DB_PORT: "3306"
+    DB_DATABASE: boilerplate
+    DB_USERNAME: boilerplate
+    DB_PASSWORD: secret
+
+    SESSION_DRIVER: database
+    SESSION_LIFETIME: "120"
+    SESSION_ENCRYPT: "true"
+    CACHE_STORE: database
+    QUEUE_CONNECTION: database
+    BROADCAST_CONNECTION: log
+    FILESYSTEM_DISK: local
+
+    MAIL_MAILER: log
+    MAIL_FROM_ADDRESS: hello@example.com
+    MAIL_FROM_NAME: "Boilerplate"
+
+    CONTAINER_ROLE: app
+    RUN_MIGRATIONS: "true"
+    # Seeding is idempotent, so this stays safe across redeploys.
+    RUN_SEEDERS: "true"
+
+    # AdminUserSeeder refuses the built-in defaults outside local/testing, so
+    # a non-local deploy must set these to real values.
+    FIRST_USER_NAME: "Admin User"
+    FIRST_USER_EMAIL: admin@example.test
+    FIRST_USER_PASSWORD: a-throwaway-local-password
+
+  volumes:
+    - storage-logs:/var/www/html/storage/logs
+
+services:
+  # MariaDB, matching the Dokploy production database. Pinned to 11.8 rather
+  # than a floating tag: a minor upgrade should be a decision, patch releases
+  # are fine. The service keeps the name "mysql" so DB_HOST is unchanged.
+  mysql:
+    image: mariadb:11.8
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: boilerplate
+      MARIADB_USER: boilerplate
+      MARIADB_PASSWORD: secret
+      MARIADB_ROOT_PASSWORD: rootsecret
+    ports:
+      # Exposed only for local inspection; Dokploy keeps this internal.
+      - "127.0.0.1:33063:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "127.0.0.1", "-prootsecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  app:
+    <<: *app-base
+    ports:
+      # 8010 is the host dev server; this stack defaults to 8011.
+      - "${APP_PORT:-8011}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up || exit 1"]
+      interval: 120s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  mysql-data:
+  storage-logs:

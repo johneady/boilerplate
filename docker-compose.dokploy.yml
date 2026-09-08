@@ -1,0 +1,129 @@
+# Dokploy deployment stack for the application.
+#
+# Deploy THIS file, not docker-compose.yml (that one is a local verification
+# stack with an embedded throwaway APP_KEY, a known database password and a
+# published port).
+#
+# Everything instance-specific comes from
+# the Dokploy application's own environment settings; a missing one fails the
+# deploy with a named error instead of booting on a silent default.
+#
+# Differences from the local stack, all deliberate:
+#   - no database service    — Dokploy manages MariaDB
+#   - no published ports     — Traefik reaches the app on the internal network
+#   - no literal secrets     — every setting comes from Dokploy's environment
+
+x-app-base: &app-base
+  build:
+    context: .
+    target: runtime
+  image: boilerplate:dokploy
+  restart: unless-stopped
+
+  environment:
+    APP_NAME: ${APP_NAME:-Boilerplate}
+    APP_ENV: production
+
+    # Generate once with `php artisan key:generate --show` and reuse across
+    # redeploys: SESSION_ENCRYPT is true, so a changed key logs every user out.
+    APP_KEY: ${APP_KEY:?set APP_KEY in Dokploy (php artisan key:generate --show)}
+
+    APP_DEBUG: "false"
+
+    # Must be the https:// domain Traefik serves for this instance. It is the
+    # base for every generated URL.
+    APP_URL: ${APP_URL:?set APP_URL in Dokploy (https://<domain>)}
+
+    APP_LOCALE: en
+    APP_FALLBACK_LOCALE: en
+    APP_FAKER_LOCALE: en_US
+    APP_MAINTENANCE_DRIVER: file
+    BCRYPT_ROUNDS: "12"
+
+    # Traefik terminates TLS and forwards plain HTTP, so without this Laravel
+    # reads requests as insecure and generates http:// URLs, which browsers
+    # block as mixed content. Safe here because only Traefik can reach the
+    # container — nothing is published.
+    TRUST_PROXIES: "*"
+
+    LOG_CHANNEL: stack
+    LOG_STACK: single
+    LOG_LEVEL: ${LOG_LEVEL:-warning}
+
+    # Dokploy provisions MariaDB, so DB_CONNECTION is 'mariadb', NOT 'mysql'.
+    # Laravel has a dedicated MariaDB driver and the two are not
+    # interchangeable for DDL generation. The schema itself is portable (the
+    # suite runs on SQLite locally and MariaDB here).
+    DB_CONNECTION: ${DB_CONNECTION:-mariadb}
+    DB_HOST: ${DB_HOST:?set DB_HOST in Dokploy (the managed MariaDB host, not localhost)}
+    DB_PORT: ${DB_PORT:-3306}
+    DB_DATABASE: ${DB_DATABASE:?set DB_DATABASE in Dokploy}
+    DB_USERNAME: ${DB_USERNAME:?set DB_USERNAME in Dokploy}
+    DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in Dokploy}
+
+    SESSION_DRIVER: database
+    SESSION_LIFETIME: "120"
+    SESSION_ENCRYPT: "true"
+    CACHE_STORE: database
+    QUEUE_CONNECTION: database
+    BROADCAST_CONNECTION: log
+    FILESYSTEM_DISK: local
+
+    MAIL_MAILER: ${MAIL_MAILER:-log}
+    MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
+    MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Boilerplate}
+
+    CONTAINER_ROLE: app
+    RUN_MIGRATIONS: "true"
+
+    # Seeds the 78-vehicle demo catalogue on FIRST BOOT only (probes the
+    # vehicles table for emptiness). Leaving true across redeploys is safe but
+    # inert; it never resets an existing database. To reset the demo:
+    #   dokploy console: php artisan migrate:fresh --seed --force
+    RUN_SEEDERS: ${RUN_SEEDERS:-true}
+
+    # AdminUserSeeder REFUSES to run with its built-in defaults outside
+    # local/testing, so these must be set or the deploy fails at seeding.
+    FIRST_USER_NAME: ${FIRST_USER_NAME:-Admin User}
+    FIRST_USER_EMAIL: ${FIRST_USER_EMAIL:?set FIRST_USER_EMAIL in Dokploy (not admin@example.com)}
+    FIRST_USER_PASSWORD: ${FIRST_USER_PASSWORD:?set a strong FIRST_USER_PASSWORD in Dokploy}
+
+  # Must join dokploy-network, the shared network the Dokploy-managed MariaDB
+  # lives on. Without this, Compose puts the service on a project default
+  # network and the app cannot reach the database at all.
+  networks:
+    - dokploy-network
+
+  volumes:
+    - storage-logs:/var/www/html/storage/logs
+
+  # Hard memory ceiling: a runaway request kills this container (restarted by
+  # Docker) instead of the host. pm.max_children = 6 * ~60MB worker RSS +
+  # nginx/php-fpm/opcache overhead stays comfortably under this cap.
+  mem_limit: 512m
+
+services:
+  app:
+    <<: *app-base
+    # No ports. Traefik routes to port 80 over Dokploy's network; publishing
+    # here would expose the app directly, bypassing TLS — and Docker's iptables
+    # rules sit ahead of UFW, so the firewall would not stop it.
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up || exit 1"]
+      # 120s, not 30s: /up boots the full Laravel framework, so a 30s interval
+      # burns real CPU for no extra signal. Docker still marks the container
+      # unhealthy within retries*interval (~6 min).
+      interval: 120s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  storage-logs:
+
+# Created by the Dokploy installer; the managed database is attached to it.
+networks:
+  dokploy-network:
+    external: true

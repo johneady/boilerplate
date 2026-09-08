@@ -28,13 +28,17 @@ class AdminUserSeeder extends Seeder
             return;
         }
 
-        User::factory()
-            ->admin()
-            ->create([
-                'name' => $name,
-                'email' => $email,
-                'password' => $password,
-            ]);
+        // Built without the factory on purpose: factories depend on
+        // fakerphp/faker, a dev dependency absent from a --no-dev production
+        // install, and this seeder must run there. is_admin is not
+        // mass-assignable, so it is set explicitly rather than passed to fill().
+        $user = new User;
+        $user->name = $name;
+        $user->email = $email;
+        $user->password = $password;
+        $user->email_verified_at = now();
+        $user->is_admin = true;
+        $user->save();
     }
 
     /**

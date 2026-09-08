@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 
 test('the panel does not register a login page of its own', function () {
     expect(Route::has('filament.admin.auth.login'))->toBeFalse();
@@ -31,6 +32,13 @@ test('is_admin cannot be mass assigned', function () {
     ]);
 
     expect($user->fresh()->is_admin)->toBeFalse();
+});
+
+test('logging out of the panel returns to the home page', function () {
+    $response = app(LogoutResponse::class)
+        ->toResponse(request());
+
+    expect($response->getTargetUrl())->toBe(url('/'));
 });
 
 test('admins are redirected to the admin panel after logging in', function () {

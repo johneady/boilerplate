@@ -15,6 +15,7 @@ test suite wired for Test Impact Analysis.
 | Static    | Larastan / PHPStan                                           |
 | Style     | Laravel Pint                                                 |
 | AI tools  | Laravel Boost, `.ai/rules`                                   |
+| Deploy    | Docker (nginx + php-fpm + supervisor), Dokploy-ready          |
 
 ## Getting started
 
@@ -61,6 +62,9 @@ way in. A test asserts the route stays absent.
 
 `is_admin` is deliberately **not** mass-assignable; promote a user explicitly.
 
+Filament **5** is required here rather than 4: Filament 4 depends on
+`livewire/livewire ^3.5`, and this project is on Livewire 4.
+
 ### Dev login links
 
 In `local`, the login page shows one-click login buttons for the seeded users
@@ -87,6 +91,45 @@ early if the email exists rather than resetting a changed password — and it
 cannot end up with a known-credential admin. `DatabaseSeeder` adds a
 non-admin `test@example.com` in local/testing only.
 
+### Deployment
+
+The app ships as a single container (nginx + php-fpm + supervisor) built from a
+three-stage [`Dockerfile`](Dockerfile) — composer vendor, then assets, then
+runtime. See [`docker/README.md`](docker/README.md) for the full walkthrough.
+
+```bash
+docker compose up --build -d      # local verification stack
+open http://localhost:8011
+```
+
+- [`docker-compose.yml`](docker-compose.yml) — local only. Embeds a throwaway
+  `APP_KEY`, a known database password, and a published port; never deploy it.
+- [`docker-compose.dokploy.yml`](docker-compose.dokploy.yml) — the deploy stack.
+  No database service, no published ports, and every secret comes from the
+  environment. Required variables use `${VAR:?message}`, so a missing one fails
+  the deploy with a named error rather than booting on a silent default —
+  including `FIRST_USER_EMAIL` and `FIRST_USER_PASSWORD`, which the seeder
+  refuses to default in production.
+
+The entrypoint waits for the database, migrates, seeds, rebuilds caches against
+the real environment, and republishes Filament's assets on every boot.
+
+#### Trusted proxies
+
+[`config/trustedproxy.php`](config/trustedproxy.php) supplies the key
+`Illuminate\Http\Middleware\TrustProxies` reads. It matters behind a
+TLS-terminating reverse proxy: Traefik forwards plain HTTP with an
+`X-Forwarded-Proto: https` header, and if that proxy is untrusted Laravel reads
+the request as insecure and generates `http://` URLs on an `https://` page —
+which browsers block as mixed content, taking the stylesheet and JS bundle with
+them.
+
+`TRUST_PROXIES=*` is set in the Dokploy stack and is safe there precisely
+because nothing is published: only Traefik can reach the container. Leave it
+unset on a same-host nginx → php-fpm deploy, where trusting those headers from
+any client would let it spoof both scheme and IP. A comma-separated list names
+specific proxies instead.
+
 ### Settings
 
 Livewire components for profile updates, security (2FA, passkeys), appearance,
@@ -94,12 +137,22 @@ and account deletion, routed from `routes/settings.php`.
 
 ### Tests
 
-Feature tests cover each auth flow — authentication, registration, password
-reset, password confirmation, email verification, the 2FA challenge — plus
-settings and the dashboard.
+49 tests covering each auth flow — authentication, registration, password reset,
+password confirmation, email verification, the 2FA challenge — plus settings, the
+dashboard, and the admin/dev-login behaviour described above:
+
+- `AdminPanelAccessTest` — the Filament login route stays absent, guests redirect
+  to Fortify, non-admins get 403, admins get in, `is_admin` resists mass
+  assignment, and each role lands on the right page after login.
+- `AdminUserSeederTest` — seeding, idempotency, and the production guard.
+- `DevLoginLinkTest` — links render and work in `local`, and are refused
+  elsewhere.
+- `TrustedProxiesTest` — the config key exists, `TRUST_PROXIES` parses into the
+  shape the middleware expects, and asset URLs come out `https` behind a trusted
+  proxy and `http` without one.
 
 ```bash
-composer test        # config clear, Pint check, PHPStan, then the suite
+composer test        # config clear, Pint check, PHPStan, then the suite (parallel)
 vendor/bin/pest      # the suite alone
 ```
 
@@ -163,8 +216,13 @@ handled by Prettier with `prettier-plugin-blade` and
 Artisan and Pint usage, and testing expectations for agents working in this
 repo.
 
-Durable project-specific rules are recorded with Boost's `record-rule` tool,
-which writes them to `.ai/rules` grouped by area and mapped to file globs in
-`.ai/rules/index.md`. That directory does not exist yet; the first recorded rule
-creates it. Prefer `record-rule` over per-agent memory so rules are committed and
-shared with the team rather than scoped to one session.
+Durable project-specific rules live in [`.ai/rules`](.ai/rules/), grouped by area
+and mapped to file globs in [`.ai/rules/index.md`](.ai/rules/index.md). Agents
+read the rule files matching the paths they are about to touch.
+
+- [`filament.md`](.ai/rules/filament.md) — why the admin panel must never enable
+  Filament's own login page, and what to re-check after regenerating a panel.
+
+Record new rules with Boost's `record-rule` tool rather than editing these files
+by hand, so they are committed and shared with the team rather than scoped to one
+session.

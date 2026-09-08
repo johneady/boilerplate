@@ -3,6 +3,8 @@
 namespace App\Providers\Filament;
 
 use App\Http\Middleware\FilamentAuthenticate;
+use App\Http\Responses\FilamentLogoutResponse;
+use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -21,6 +23,16 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 
 class AdminPanelProvider extends PanelProvider
 {
+    /**
+     * Register panel services.
+     */
+    public function register(): void
+    {
+        parent::register();
+
+        $this->app->singleton(LogoutResponseContract::class, FilamentLogoutResponse::class);
+    }
+
     public function panel(Panel $panel): Panel
     {
         return $panel
