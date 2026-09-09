@@ -87,7 +87,7 @@
                 x-ref="passkeyNameInput"
                 x-init="$nextTick(() => $refs.passkeyNameInput?.focus())"
             />
-            <flux:text class="!mt-1">{{ __('Give this passkey a name to help you identify it later.') }}</flux:text>
+            <flux:text class="mt-1!">{{ __('Give this passkey a name to help you identify it later.') }}</flux:text>
 
             <p x-show="error" x-text="error" x-cloak class="text-sm text-red-600 dark:text-red-400"></p>
 

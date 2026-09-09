@@ -6,12 +6,14 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use App\View\Composers\DevLoginLinksComposer;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureViewComposers();
         $this->configureBladeDirectives();
+        $this->configurePersistentMiddleware();
     }
 
     /**
@@ -60,6 +63,20 @@ class AppServiceProvider extends ServiceProvider
     }
 
     /**
+     * Keep route middleware enforcing in-request security re-checked on
+     * Livewire update requests.
+     *
+     * Livewire only re-runs middleware from its persistent list on subsequent
+     * updates, so a route's `password.confirm` gate otherwise protects the
+     * page render alone: actions on a stale snapshot could disable two-factor
+     * authentication or delete passkeys without a recent confirmation.
+     */
+    protected function configurePersistentMiddleware(): void
+    {
+        Livewire::addPersistentMiddleware(RequirePassword::class);
+    }
+
+    /**
      * Configure default behaviors for production-ready applications.
      */
     protected function configureDefaults(): void
@@ -70,14 +87,17 @@ class AppServiceProvider extends ServiceProvider
             app()->isProduction(),
         );
 
-        Password::defaults(fn (): ?Password => app()->isProduction()
-            ? Password::min(12)
+        // Strict everywhere except the two environments where weak passwords
+        // are convenient: staging and any other non-production-like host must
+        // enforce the full policy, not only production.
+        Password::defaults(fn (): ?Password => app()->environment('local', 'testing')
+            ? null
+            : Password::min(12)
                 ->mixedCase()
                 ->letters()
                 ->numbers()
                 ->symbols()
-                ->uncompromised()
-            : null,
+                ->uncompromised(),
         );
     }
 }

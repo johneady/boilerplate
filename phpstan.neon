@@ -1,8 +1,14 @@
 includes:
     - vendor/larastan/larastan/extension.neon
     - vendor/nesbot/carbon/extension.neon
+    - vendor/pestphp/pest/extension.neon
 
 parameters:
+    # The Pest test entry point (test()->...) proxies every Tests\TestCase
+    # method through a runtime-bound closure that PHPStan cannot follow, so
+    # analysing tests/ reports hundreds of false "undefined method" errors
+    # until Pest ships a matching extension. Production code is analysed at
+    # the strictest level instead.
     paths:
         - app/
         - bootstrap/app.php
@@ -10,4 +16,4 @@ parameters:
         - database/
         - routes/
 
-    level: 7
+    level: 8

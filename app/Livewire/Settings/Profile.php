@@ -3,9 +3,8 @@
 namespace App\Livewire\Settings;
 
 use App\Concerns\ProfileValidationRules;
+use App\Concerns\ResolvesAuthenticatedUser;
 use Flux\Flux;
-use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Illuminate\Support\Facades\Auth;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -13,7 +12,7 @@ use Livewire\Component;
 #[Title('Profile settings')]
 class Profile extends Component
 {
-    use ProfileValidationRules;
+    use ProfileValidationRules, ResolvesAuthenticatedUser;
 
     public string $name = '';
 
@@ -24,8 +23,8 @@ class Profile extends Component
      */
     public function mount(): void
     {
-        $this->name = Auth::user()->name;
-        $this->email = Auth::user()->email;
+        $this->name = $this->authenticatedUser()->name;
+        $this->email = $this->authenticatedUser()->email;
     }
 
     /**
@@ -33,7 +32,7 @@ class Profile extends Component
      */
     public function updateProfileInformation(): void
     {
-        $user = Auth::user();
+        $user = $this->authenticatedUser();
 
         $validated = $this->validate($this->profileRules($user->id));
 
@@ -53,7 +52,7 @@ class Profile extends Component
      */
     public function resendVerificationNotification(): void
     {
-        $user = Auth::user();
+        $user = $this->authenticatedUser();
 
         if ($user->hasVerifiedEmail()) {
             $this->redirectIntended(default: route('dashboard', absolute: false));
@@ -69,16 +68,12 @@ class Profile extends Component
     #[Computed]
     public function hasUnverifiedEmail(): bool
     {
-        $user = Auth::user();
-
-        return $user instanceof MustVerifyEmail && ! $user->hasVerifiedEmail();
+        return ! $this->authenticatedUser()->hasVerifiedEmail();
     }
 
     #[Computed]
     public function showDeleteUser(): bool
     {
-        $user = Auth::user();
-
-        return ! $user instanceof MustVerifyEmail || $user->hasVerifiedEmail();
+        return $this->authenticatedUser()->hasVerifiedEmail();
     }
 }

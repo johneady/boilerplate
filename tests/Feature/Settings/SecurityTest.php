@@ -2,9 +2,13 @@
 
 use App\Livewire\Settings\Security;
 use App\Models\User;
+use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Laravel\Fortify\Features;
 use Livewire\Livewire;
+use PragmaRX\Google2FA\Google2FA;
 
 beforeEach(function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
@@ -79,6 +83,75 @@ test('two factor authentication disabled when confirmation abandoned between req
     ]);
 });
 
+test('two factor authentication can be enabled and confirmed with a valid code', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    $component = Livewire::test(Security::class)
+        ->call('enable');
+
+    $component->assertSet('showModal', true)
+        ->assertSet('manualSetupKey', decrypt($user->refresh()->two_factor_secret));
+
+    expect($user->two_factor_confirmed_at)->toBeNull()
+        ->and($user->two_factor_recovery_codes)->toBeString();
+
+    $component->set('code', app(Google2FA::class)->getCurrentOtp(decrypt($user->two_factor_secret)))
+        ->call('confirmTwoFactor');
+
+    $component->assertHasNoErrors()
+        ->assertSet('twoFactorEnabled', true);
+
+    expect($user->refresh()->two_factor_confirmed_at)->not->toBeNull();
+});
+
+test('two factor authentication cannot be confirmed with an invalid code', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    $component = Livewire::test(Security::class)
+        ->call('enable');
+
+    // A code generated from a different secret cannot verify against the
+    // user's own secret.
+    $unrelatedCode = app(Google2FA::class)
+        ->getCurrentOtp(app(Google2FA::class)->generateSecretKey());
+
+    $component->set('code', $unrelatedCode)
+        ->call('confirmTwoFactor');
+
+    $component->assertHasErrors(['code']);
+
+    expect($user->refresh()->two_factor_confirmed_at)->toBeNull();
+});
+
+test('two factor authentication can be disabled', function () {
+    $user = User::factory()->withTwoFactor()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test(Security::class)
+        ->assertSet('twoFactorEnabled', true)
+        ->call('disable')
+        ->assertSet('twoFactorEnabled', false);
+
+    $user->refresh();
+
+    expect($user->two_factor_secret)->toBeNull()
+        ->and($user->two_factor_recovery_codes)->toBeNull()
+        ->and($user->two_factor_confirmed_at)->toBeNull();
+});
+
+test('the password confirmation requirement persists across livewire update requests', function () {
+    // Livewire re-runs only the middleware on its persistent list when
+    // handling an update request, so the route-level password.confirm gate
+    // must be registered there (AppServiceProvider) for this page's actions
+    // to stay gated after the initial render.
+    expect(Livewire::getPersistentMiddleware())->toContain(RequirePassword::class);
+});
+
 test('password can be updated', function () {
     $user = User::factory()->create([
         'password' => Hash::make('password'),
@@ -95,6 +168,38 @@ test('password can be updated', function () {
     $response->assertHasNoErrors();
 
     expect(Hash::check('new-password', $user->refresh()->password))->toBeTrue();
+});
+
+test('updating the password invalidates other sessions and remember tokens', function () {
+    $user = User::factory()->create([
+        'password' => Hash::make('password'),
+    ]);
+
+    $originalRememberToken = $user->remember_token;
+
+    // The purge only runs against the database session driver.
+    config(['session.driver' => 'database']);
+
+    $this->actingAs($user);
+
+    // A session established on another device.
+    DB::table('sessions')->insert([
+        'id' => Str::random(40),
+        'user_id' => $user->id,
+        'ip_address' => '127.0.0.1',
+        'user_agent' => 'Probe',
+        'payload' => base64_encode(serialize([])),
+        'last_activity' => time(),
+    ]);
+
+    Livewire::test(Security::class)
+        ->set('current_password', 'password')
+        ->set('password', 'new-password')
+        ->set('password_confirmation', 'new-password')
+        ->call('updatePassword');
+
+    expect(DB::table('sessions')->where('user_id', $user->id)->count())->toBe(0)
+        ->and($user->refresh()->remember_token)->not->toBe($originalRememberToken);
 });
 
 test('correct password must be provided to update password', function () {

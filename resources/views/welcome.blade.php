@@ -26,7 +26,7 @@
                         @auth
                             @if (auth()->user()->is_admin)
                                 <flux:button
-                                    href="/admin"
+                                    :href="filament()->getPanel('admin')->getUrl()"
                                     size="sm"
                                     variant="primary"
                                     icon="wrench-screwdriver"

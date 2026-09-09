@@ -40,7 +40,7 @@ Fortify provides the backend; the UI is Livewire components under
 - Registration and login
 - Password reset and email verification
 - Two-factor authentication (TOTP), with password confirmation
-- Passkeys / WebAuthn, via `@laravel/passkeys`
+- Passkeys / WebAuthn, via Fortify's passkey support (`@laravel/passkeys`)
 
 Fortify actions live in `app/Actions/Fortify`, with shared validation rules
 extracted into `app/Concerns` (`PasswordValidationRules`,
@@ -137,9 +137,9 @@ and account deletion, routed from `routes/settings.php`.
 
 ### Tests
 
-49 tests covering each auth flow — authentication, registration, password reset,
-password confirmation, email verification, the 2FA challenge — plus settings, the
-dashboard, and the admin/dev-login behaviour described above:
+The feature suite covers each auth flow — authentication, registration,
+password reset, password confirmation, email verification, the 2FA challenge —
+plus settings, the dashboard, and the admin/dev-login behaviour described above:
 
 - `AdminPanelAccessTest` — the Filament login route stays absent, guests redirect
   to Fortify, non-admins get 403, admins get in, `is_admin` resists mass

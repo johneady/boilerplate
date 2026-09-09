@@ -64,6 +64,9 @@ x-app-base: &app-base
     SESSION_DRIVER: database
     SESSION_LIFETIME: "120"
     SESSION_ENCRYPT: "true"
+    # Behind TLS-terminating Traefik, the session cookie must carry the
+    # Secure attribute so it is never sent over plain HTTP.
+    SESSION_SECURE_COOKIE: "true"
     CACHE_STORE: database
     QUEUE_CONNECTION: database
     BROADCAST_CONNECTION: log
@@ -76,10 +79,10 @@ x-app-base: &app-base
     CONTAINER_ROLE: app
     RUN_MIGRATIONS: "true"
 
-    # Seeds the 78-vehicle demo catalogue on FIRST BOOT only (probes the
-    # vehicles table for emptiness). Leaving true across redeploys is safe but
-    # inert; it never resets an existing database. To reset the demo:
-    #   dokploy console: php artisan migrate:fresh --seed --force
+    # Runs AdminUserSeeder/DatabaseSeeder on FIRST BOOT only (the admin
+    # seeder itself skips when the configured FIRST_USER_EMAIL already
+    # exists, promoting instead of resetting). Leaving true across
+    # redeploys is safe; it never resets an existing database.
     RUN_SEEDERS: ${RUN_SEEDERS:-true}
 
     # AdminUserSeeder REFUSES to run with its built-in defaults outside

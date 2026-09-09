@@ -18,6 +18,25 @@ test('email verification screen can be rendered', function () {
     $response->assertOk();
 });
 
+test('unverified users are redirected from verified-only routes', function () {
+    // The gate on these routes was inert until User implemented
+    // MustVerifyEmail, letting unverified users straight through.
+    $user = User::factory()->unverified()->create();
+
+    $this->actingAs($user)->get(route('dashboard'))
+        ->assertRedirect(route('verification.notice'));
+
+    $this->actingAs($user)->get(route('appearance.edit'))
+        ->assertRedirect(route('verification.notice'));
+
+    $this->actingAs($user)->get(route('security.edit'))
+        ->assertRedirect(route('verification.notice'));
+
+    // The profile stays reachable so the address can be corrected and the
+    // verification email re-sent.
+    $this->actingAs($user)->get(route('profile.edit'))->assertOk();
+});
+
 test('email can be verified', function () {
     $user = User::factory()->unverified()->create();
 

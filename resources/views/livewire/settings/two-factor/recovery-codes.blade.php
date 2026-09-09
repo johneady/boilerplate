@@ -70,7 +70,12 @@
                         aria-label="{{ __('Recovery codes') }}"
                     >
                         @foreach ($recoveryCodes as $code)
-                            <div role="listitem" class="select-text" wire:loading.class="opacity-50 animate-pulse">
+                            <div
+                                wire:key="code-{{ $loop->index }}"
+                                role="listitem"
+                                class="select-text"
+                                wire:loading.class="opacity-50 animate-pulse"
+                            >
                                 {{ $code }}
                             </div>
                         @endforeach

@@ -37,7 +37,8 @@ trait ResolvesLoginRedirect
     protected function defaultRedirect(?Authenticatable $user): string
     {
         if ($this->isAdmin($user)) {
-            return Filament::getPanel('admin')->getUrl();
+            return Filament::getPanel('admin')->getUrl()
+                ?? route('dashboard', absolute: false);
         }
 
         return Fortify::redirects('login');

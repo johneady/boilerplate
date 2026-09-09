@@ -10,4 +10,4 @@ Fortify's /login is the ONLY login page. Filament's panel generator emits `->log
 
 If you re-run `filament:install --panels` or regenerate a panel provider, delete the scaffolded `->login()` line again. tests/Feature/AdminPanelAccessTest.php asserts route `filament.admin.auth.login` does not exist.
 
-Access is gated in two places instead: User::canAccessPanel() (FilamentUser contract) and App\Http\Middleware\FilamentAuthenticate, whose redirectTo() sends guests to route('login'). That redirect is load-bearing — without it guests hit a missing route.
+Access is enforced in exactly one place: User::canAccessPanel() (the FilamentUser contract), which the parent Filament\Http\Middleware\Authenticate aborts on with 403. App\Http\Middleware\FilamentAuthenticate exists only to override redirectTo() so guests are sent to route('login') — that override is load-bearing, because the panel has no login route of its own and the parent default would send guests to a missing route. Do not re-add a redundant is_admin check to the middleware; if canAccessPanel ever becomes a role check, keeping one enforcement point is what makes that change safe.

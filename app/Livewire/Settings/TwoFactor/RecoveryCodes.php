@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Settings\TwoFactor;
 
+use App\Concerns\ResolvesAuthenticatedUser;
 use Exception;
 use Laravel\Fortify\Actions\GenerateNewRecoveryCodes;
 use Livewire\Attributes\Locked;
@@ -9,6 +10,8 @@ use Livewire\Component;
 
 class RecoveryCodes extends Component
 {
+    use ResolvesAuthenticatedUser;
+
     /** @var list<string> */
     #[Locked]
     public array $recoveryCodes = [];
@@ -26,7 +29,7 @@ class RecoveryCodes extends Component
      */
     public function regenerateRecoveryCodes(GenerateNewRecoveryCodes $generateNewRecoveryCodes): void
     {
-        $generateNewRecoveryCodes(auth()->user());
+        $generateNewRecoveryCodes($this->authenticatedUser());
 
         $this->loadRecoveryCodes();
     }
@@ -36,12 +39,21 @@ class RecoveryCodes extends Component
      */
     private function loadRecoveryCodes(): void
     {
-        $user = auth()->user();
+        $user = $this->authenticatedUser();
 
         if ($user->hasEnabledTwoFactorAuthentication() && $user->two_factor_recovery_codes) {
             try {
-                $this->recoveryCodes = json_decode(decrypt($user->two_factor_recovery_codes), true);
+                $decoded = json_decode(decrypt($user->two_factor_recovery_codes), true);
             } catch (Exception) {
+                $decoded = null;
+            }
+
+            // json_decode returns null rather than throwing on invalid JSON,
+            // and assigning null to the typed array property would raise a
+            // TypeError the surrounding catch can never intercept.
+            if (is_array($decoded)) {
+                $this->recoveryCodes = array_values($decoded);
+            } else {
                 $this->addError('recoveryCodes', 'Failed to load recovery codes');
 
                 $this->recoveryCodes = [];

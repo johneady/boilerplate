@@ -17,8 +17,7 @@
         "laravel/tinker": "^3.0",
         "livewire/blaze": "^1.0",
         "livewire/flux": "^2.13.1",
-        "livewire/livewire": "^4.1",
-        "spatie/laravel-login-link": "^1.6"
+        "livewire/livewire": "^4.1"
     },
     "require-dev": {
         "fakerphp/faker": "^1.24",
@@ -31,7 +30,8 @@
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.9.3",
         "pestphp/pest": "^5.1",
-        "pestphp/pest-plugin-laravel": "^5.0"
+        "pestphp/pest-plugin-laravel": "^5.0",
+        "spatie/laravel-login-link": "^1.6"
     },
     "autoload": {
         "psr-4": {
@@ -75,7 +75,7 @@
             "@php artisan config:clear --ansi",
             "@lint:check",
             "@types:check",
-            "@php artisan test --parallel"
+            "@php vendor/bin/pest --ci --parallel"
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

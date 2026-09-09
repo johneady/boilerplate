@@ -213,11 +213,13 @@
                                             type="text"
                                             readonly
                                             value="{{ $manualSetupKey }}"
+                                            aria-label="{{ __('Two-factor setup key') }}"
                                             class="w-full bg-transparent p-3 text-stone-900 outline-none dark:text-stone-100"
                                         />
 
                                         <button
                                             @click="copy()"
+                                            aria-label="{{ __('Copy setup key') }}"
                                             class="cursor-pointer border-l border-stone-200 px-3 transition-colors dark:border-stone-600"
                                         >
                                             <flux:icon.document-duplicate x-show="! copied" variant="outline">
@@ -242,7 +244,10 @@
                 <div class="mx-auto mt-6 flex w-full flex-col space-y-6 text-sm" wire:cloak>
                     <div class="overflow-hidden rounded-lg border border-zinc-200 dark:border-zinc-700">
                         @forelse ($passkeys as $passkey)
-                            <div class="flex items-center justify-between p-4 {{ ! $loop->last ? 'border-b border-zinc-200 dark:border-zinc-700' : '' }}">
+                            <div
+                                wire:key="passkey-{{ $passkey['id'] }}"
+                                class="flex items-center justify-between p-4 {{ ! $loop->last ? 'border-b border-zinc-200 dark:border-zinc-700' : '' }}"
+                            >
                                 <div class="flex items-center gap-4">
                                     <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800">
                                         <flux:icon.key class="size-5 text-zinc-500 dark:text-zinc-400" />
