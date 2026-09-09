@@ -25,8 +25,6 @@ class LoginLinkController extends BaseLoginLinkController
             return route($routeName);
         }
 
-        return redirect()
-            ->intended($this->defaultRedirect(auth($request->guard)->user()))
-            ->getTargetUrl();
+        return $this->loginRedirect(auth($request->guard)->user())->getTargetUrl();
     }
 }

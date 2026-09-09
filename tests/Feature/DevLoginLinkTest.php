@@ -15,6 +15,48 @@ test('the dev login links are shown on the login page locally', function () {
         ->assertSee(config('first.user.email'));
 });
 
+test('the badge promises the admin panel only for a real admin', function () {
+    config(['login-link.allowed_environments' => ['local', 'testing']]);
+
+    User::factory()->admin()->create(['email' => config('first.user.email')]);
+
+    $this->get(route('login'))
+        ->assertSuccessful()
+        ->assertSee('Admin panel');
+});
+
+test('a first user that was never promoted is not badged as an admin', function () {
+    config(['login-link.allowed_environments' => ['local', 'testing']]);
+
+    User::factory()->create(['email' => config('first.user.email')]);
+
+    $this->get(route('login'))
+        ->assertSuccessful()
+        ->assertDontSee('Admin panel');
+});
+
+test('an account that has not been seeded yet is badged as missing', function () {
+    config(['login-link.allowed_environments' => ['local', 'testing']]);
+
+    $this->get(route('login'))
+        ->assertSuccessful()
+        ->assertSee('Not seeded')
+        ->assertDontSee('Admin panel');
+});
+
+test('the badged name comes from the seeded account, not the config default', function () {
+    config(['login-link.allowed_environments' => ['local', 'testing']]);
+
+    User::factory()->admin()->create([
+        'email' => config('first.user.email'),
+        'name' => 'Abigail Mills V',
+    ]);
+
+    $this->get(route('login'))
+        ->assertSuccessful()
+        ->assertSee('Abigail Mills V');
+});
+
 test('the dev login links are hidden outside the allowed environments', function () {
     config(['login-link.allowed_environments' => ['local']]);
     app()->detectEnvironment(fn () => 'production');

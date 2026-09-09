@@ -8,13 +8,6 @@
     </div>
 
     <div class="flex flex-col gap-2">
-        @php
-            $devUsers = [
-                ['email' => config('first.user.email'), 'name' => config('first.user.name'), 'admin' => true],
-                ['email' => 'test@example.com', 'name' => 'Test User', 'admin' => false],
-            ];
-        @endphp
-
         @foreach ($devUsers as $devUser)
             <div class="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-zinc-700 dark:hover:bg-zinc-900">
                 <div class="min-w-0 flex-1">
@@ -29,7 +22,9 @@
                     </span>
                 </div>
 
-                @if ($devUser['admin'])
+                @if (! $devUser['exists'])
+                    <flux:badge size="sm" color="zinc" inset="top bottom">{{ __('Not seeded') }}</flux:badge>
+                @elseif ($devUser['admin'])
                     <flux:badge size="sm" color="amber" inset="top bottom">{{ __('Admin panel') }}</flux:badge>
                 @else
                     <flux:badge size="sm" color="zinc" inset="top bottom">{{ __('Dashboard') }}</flux:badge>

@@ -19,6 +19,6 @@ class LoginResponse implements LoginResponseContract
             return new JsonResponse('', 204);
         }
 
-        return redirect()->intended($this->defaultRedirect($request->user()));
+        return $this->loginRedirect($request->user());
     }
 }

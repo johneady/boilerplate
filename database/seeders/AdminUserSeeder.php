@@ -21,10 +21,17 @@ class AdminUserSeeder extends Seeder
 
         // Idempotent by design: seeding may run on every boot of a deployed
         // instance, and creating the user again would fail on the users.email
-        // unique index. Bail out rather than overwriting, so an operator who
-        // has since changed the admin's password does not have it silently
-        // reset on the next deploy.
-        if (User::where('email', $email)->exists()) {
+        // unique index. An existing account keeps its name and password, so an
+        // operator who has since changed them does not have them silently reset
+        // on the next deploy -- but admin rights are still asserted, since the
+        // whole point of this seeder is that this address can reach the panel.
+        // Without that, a first user created by the factory (which defaults
+        // is_admin to false) stays locked out of the panel forever.
+        $existingUser = User::where('email', $email)->first();
+
+        if ($existingUser) {
+            $this->promoteToAdmin($existingUser);
+
             return;
         }
 
@@ -37,6 +44,22 @@ class AdminUserSeeder extends Seeder
         $user->email = $email;
         $user->password = $password;
         $user->email_verified_at = now();
+        $user->is_admin = true;
+        $user->save();
+    }
+
+    /**
+     * Grant admin rights to an account that already exists.
+     *
+     * Only the flag is touched: an operator's own name and password changes on
+     * the seeded address are left alone.
+     */
+    private function promoteToAdmin(User $user): void
+    {
+        if ($user->is_admin) {
+            return;
+        }
+
         $user->is_admin = true;
         $user->save();
     }

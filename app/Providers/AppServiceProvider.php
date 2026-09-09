@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\View\Composers\DevLoginLinksComposer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 
@@ -24,6 +26,15 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureDefaults();
+        $this->configureViewComposers();
+    }
+
+    /**
+     * Bind data needed by views that cannot resolve it themselves.
+     */
+    protected function configureViewComposers(): void
+    {
+        View::composer('partials.dev-login-links', DevLoginLinksComposer::class);
     }
 
     /**
