@@ -2,8 +2,11 @@
 
 namespace App\Providers;
 
+use App\Settings\SettingKey;
+use App\Settings\Settings;
 use App\View\Composers\DevLoginLinksComposer;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
@@ -17,7 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // A singleton so the settings table is read at most once per request,
+        // however many settings are consulted.
+        $this->app->singleton(Settings::class);
     }
 
     /**
@@ -27,6 +32,20 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureViewComposers();
+        $this->configureBladeDirectives();
+    }
+
+    /**
+     * Register Blade conditions backed by application settings.
+     *
+     * Views ask @registrationEnabled rather than reaching for the settings
+     * service themselves, so the sign-up links disappear alongside the routes
+     * that the EnsureRegistrationIsEnabled middleware closes.
+     */
+    protected function configureBladeDirectives(): void
+    {
+        Blade::if('registrationEnabled', fn (): bool => app(Settings::class)
+            ->boolean(SettingKey::AllowRegistration));
     }
 
     /**

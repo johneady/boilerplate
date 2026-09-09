@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use App\Settings\SettingKey;
+use App\Settings\Settings;
 
 test('the home page renders', function () {
     $this->get('/')
@@ -10,6 +12,11 @@ test('the home page renders', function () {
 });
 
 test('the home page offers login and register to guests', function () {
+    // Sign-up is off by default, so it is turned on here to assert the link
+    // the page shows when registrations are open. The closed case lives in
+    // tests/Feature/RegistrationSettingTest.php.
+    app(Settings::class)->set(SettingKey::AllowRegistration, true);
+
     $this->get('/')
         ->assertSee(route('login'))
         ->assertSee(route('register'));

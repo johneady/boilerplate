@@ -50,11 +50,13 @@
                                 {{ __('Log in') }}
                             </flux:button>
 
-                            @if (Route::has('register'))
-                                <flux:button :href="route('register')" size="sm" variant="primary" wire:navigate>
-                                    {{ __('Sign up') }}
-                                </flux:button>
-                            @endif
+                            @registrationEnabled
+                                @if (Route::has('register'))
+                                    <flux:button :href="route('register')" size="sm" variant="primary" wire:navigate>
+                                        {{ __('Sign up') }}
+                                    </flux:button>
+                                @endif
+                            @endregistrationEnabled
                         @endauth
                     </nav>
                 @endif
