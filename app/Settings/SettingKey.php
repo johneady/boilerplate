@@ -27,14 +27,27 @@ enum SettingKey: string
     /**
      * Coerce a stored value into the type this setting is declared to hold.
      *
-     * Values survive a JSON round trip through the database, so this is mostly
-     * a guard against rows written before a key's type was settled, or by hand.
+     * Values survive a JSON round trip through the database, so this mainly
+     * guards against rows written before a key's type was settled, or by hand.
      */
     public function cast(mixed $value): mixed
     {
         return match ($this) {
-            self::AllowRegistration => (bool) $value,
+            self::AllowRegistration => self::toBoolean($value),
         };
+    }
+
+    /**
+     * Interpret a stored value as a boolean, failing closed.
+     *
+     * A plain `(bool)` cast is wrong for a setting that gates access: the
+     * strings "false" and "off" are both truthy in PHP, so a row hand-edited
+     * in a database client would silently turn a guarded feature on. Anything
+     * that is not recognisably true is therefore treated as false.
+     */
+    private static function toBoolean(mixed $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? false;
     }
 
     /**

@@ -50,6 +50,45 @@ test('a value written outside the panel is cast to the key\'s declared type', fu
     expect($this->settings->get(SettingKey::AllowRegistration))->toBeTrue();
 });
 
+test('a stored value that is not recognisably true reads as false', function (mixed $stored) {
+    // A gate must fail closed. "false" and "off" are both truthy to a plain
+    // (bool) cast, so a row hand-edited in a database client would otherwise
+    // turn the setting on.
+    Setting::create(['key' => 'allow_registration', 'value' => $stored]);
+
+    expect($this->settings->boolean(SettingKey::AllowRegistration))->toBeFalse();
+})->with([
+    'the string false' => ['false'],
+    'the string off' => ['off'],
+    'the string zero' => ['0'],
+    'an empty string' => [''],
+    'an unrecognised value' => ['garbage'],
+    'null' => [null],
+]);
+
+test('a stored value that is recognisably true reads as true', function (mixed $stored) {
+    Setting::create(['key' => 'allow_registration', 'value' => $stored]);
+
+    expect($this->settings->boolean(SettingKey::AllowRegistration))->toBeTrue();
+})->with([
+    'a real boolean' => [true],
+    'the string true' => ['true'],
+    'the string one' => ['1'],
+    'the string on' => ['on'],
+]);
+
+test('settings are re-read between queue jobs rather than held for the life of the worker', function () {
+    $this->settings->get(SettingKey::AllowRegistration);
+
+    Setting::create(['key' => 'allow_registration', 'value' => true]);
+
+    // What a queue worker does between jobs. A singleton would survive this and
+    // keep serving the value read when the worker booted.
+    app()->forgetScopedInstances();
+
+    expect(app(Settings::class)->boolean(SettingKey::AllowRegistration))->toBeTrue();
+});
+
 test('a key that is not declared on the enum is not stored', function () {
     $this->settings->setMany([
         'allow_registration' => true,

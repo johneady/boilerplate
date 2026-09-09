@@ -8,9 +8,11 @@ use Illuminate\Support\Facades\DB;
 /**
  * Typed read/write access to the key/value settings store.
  *
- * Registered as a singleton, so the whole table is loaded at most once per
+ * Bound as a scoped instance, so the whole table is loaded at most once per
  * request no matter how many settings are read -- settings are consulted from
- * places like middleware and views where a query per lookup would add up.
+ * places like middleware and views where a query per lookup would add up --
+ * while a queue worker still re-reads between jobs rather than holding the
+ * values it booted with. See AppServiceProvider::register().
  */
 class Settings
 {
@@ -101,7 +103,7 @@ class Settings
     /**
      * Discard the in-memory cache, forcing the next read to hit the database.
      */
-    public function flush(): void
+    private function flush(): void
     {
         $this->cache = null;
     }

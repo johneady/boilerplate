@@ -20,9 +20,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // A singleton so the settings table is read at most once per request,
-        // however many settings are consulted.
-        $this->app->singleton(Settings::class);
+        // Scoped rather than a singleton: within a request the settings table
+        // is still read at most once however many settings are consulted, but
+        // a queue worker -- a long-lived process where a singleton would live
+        // for the life of the worker -- drops it between jobs and re-reads,
+        // rather than acting on a value an administrator has since changed.
+        $this->app->scoped(Settings::class);
     }
 
     /**
