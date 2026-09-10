@@ -46,6 +46,22 @@ class Settings
     }
 
     /**
+     * Read a setting known to hold a string.
+     */
+    public function string(SettingKey $key): string
+    {
+        return (string) $this->get($key);
+    }
+
+    /**
+     * The name the application trades under, shown wherever it is branded.
+     */
+    public function businessName(): string
+    {
+        return $this->string(SettingKey::BusinessName);
+    }
+
+    /**
      * Write a single setting.
      */
     public function set(SettingKey $key, mixed $value): void

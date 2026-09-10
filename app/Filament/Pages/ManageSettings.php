@@ -6,6 +6,8 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\Field;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -86,9 +88,15 @@ class ManageSettings extends Page
      * Every key's default is declared on the enum, so a setting that has never
      * been saved still renders with the value the application actually uses.
      */
-    protected function formComponent(SettingKey $key): Toggle
+    protected function formComponent(SettingKey $key): Field
     {
         return match ($key) {
+            SettingKey::BusinessName => TextInput::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->required()
+                ->maxLength(255),
             SettingKey::AllowRegistration => Toggle::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())

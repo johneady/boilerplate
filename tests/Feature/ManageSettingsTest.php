@@ -82,3 +82,28 @@ test('the form renders a field for every declared setting', function () {
 
     expect($fields)->toBe(array_column(SettingKey::cases(), 'value'));
 });
+
+test('the form opens on the stored business name', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    Livewire::test(ManageSettings::class)
+        ->assertSchemaStateSet(['business_name' => 'Cromulent Widgets']);
+});
+
+test('saving the form persists the business name', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['business_name' => 'Cromulent Widgets'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->businessName())->toBe('Cromulent Widgets');
+});
+
+test('the business name is required', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['business_name' => ''])
+        ->call('save')
+        ->assertHasFormErrors(['business_name' => 'required']);
+});

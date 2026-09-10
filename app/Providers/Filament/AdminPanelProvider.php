@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\FilamentAuthenticate;
 use App\Http\Responses\FilamentLogoutResponse;
+use App\Settings\Settings;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -40,6 +41,12 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->viteTheme('resources/css/filament/admin/theme.css')
+            // A closure, not a resolved string: the panel is configured once at
+            // boot, so reading the setting here directly would pin the brand to
+            // whatever was stored then and ignore later edits.
+            ->brandName(fn (): string => app(Settings::class)->businessName())
+            // No resource is worth a topbar search field on this panel yet.
+            ->globalSearch(false)
             ->colors([
                 'primary' => Color::Amber,
             ])

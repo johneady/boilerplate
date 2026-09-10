@@ -12,6 +12,8 @@ namespace App\Settings;
  */
 enum SettingKey: string
 {
+    case BusinessName = 'business_name';
+
     case AllowRegistration = 'allow_registration';
 
     /**
@@ -20,6 +22,7 @@ enum SettingKey: string
     public function default(): mixed
     {
         return match ($this) {
+            self::BusinessName => config('app.name', 'Laravel'),
             self::AllowRegistration => false,
         };
     }
@@ -33,8 +36,28 @@ enum SettingKey: string
     public function cast(mixed $value): mixed
     {
         return match ($this) {
+            self::BusinessName => self::toFilledString($value, $this->default()),
             self::AllowRegistration => self::toBoolean($value),
         };
+    }
+
+    /**
+     * Interpret a stored value as a non-empty, trimmed string.
+     *
+     * A setting that names the business is rendered on every page, so a row
+     * holding null, an empty string, or whitespace would leave the brand blank
+     * rather than merely wrong. Anything that trims away falls back to the
+     * declared default instead.
+     */
+    private static function toFilledString(mixed $value, string $default): string
+    {
+        if (! is_string($value) && ! is_numeric($value)) {
+            return $default;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? $default : $trimmed;
     }
 
     /**
@@ -56,6 +79,7 @@ enum SettingKey: string
     public function label(): string
     {
         return match ($this) {
+            self::BusinessName => 'Business name',
             self::AllowRegistration => 'Allow new user registrations',
         };
     }
@@ -66,6 +90,7 @@ enum SettingKey: string
     public function helperText(): string
     {
         return match ($this) {
+            self::BusinessName => 'Shown in the admin panel and across the public site.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
         };
     }

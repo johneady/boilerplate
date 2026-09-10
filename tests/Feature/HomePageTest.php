@@ -7,8 +7,27 @@ use App\Settings\Settings;
 test('the home page renders', function () {
     $this->get('/')
         ->assertSuccessful()
-        ->assertSee('Boilerplate Industries')
+        ->assertSee(config('app.name'))
         ->assertSee('We make the thing that holds the other things.');
+});
+
+test('the home page shows the configured business name throughout', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    $this->get('/')
+        ->assertSuccessful()
+        // The header brand, the <title>, the body copy and the footer all read
+        // from the one setting.
+        ->assertSee('Cromulent Widgets')
+        ->assertSee('Since the beginning, Cromulent Widgets has specialised')
+        ->assertSee('Cromulent Widgets — a division of nothing in particular.', escape: false)
+        ->assertDontSee('Boilerplate Industries');
+});
+
+test('the home page falls back to the app name when no business name is stored', function () {
+    $this->get('/')
+        ->assertSuccessful()
+        ->assertSee(config('app.name'));
 });
 
 test('the home page offers login and register to guests', function () {

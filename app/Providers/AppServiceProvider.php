@@ -63,6 +63,14 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.dev-login-links', function (ViewContract $view): void {
             $view->with('devUsers', app(DevLoginAccounts::class)->all());
         });
+
+        // Composed rather than shared: View::share() would resolve the settings
+        // service (and so query the table) while booting every request,
+        // including those that render no view at all, such as API and Livewire
+        // update responses.
+        View::composer('*', function (ViewContract $view): void {
+            $view->with('businessName', app(Settings::class)->businessName());
+        });
     }
 
     /**

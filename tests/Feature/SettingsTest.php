@@ -116,3 +116,38 @@ test('the whole table is read once per request however many settings are consult
 
     expect(DB::getQueryLog())->toHaveCount(1);
 });
+
+test('the business name falls back to the app name when nothing is stored', function () {
+    expect(app(Settings::class)->businessName())->toBe(config('app.name'));
+});
+
+test('the business name reads back what was stored', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    app()->forgetScopedInstances();
+
+    expect(app(Settings::class)->businessName())->toBe('Cromulent Widgets');
+});
+
+test('a business name stored as blank falls back rather than rendering empty', function (mixed $stored) {
+    // The name is rendered on every page, so an empty row would leave the brand
+    // blank rather than merely wrong.
+    app(Settings::class)->set(SettingKey::BusinessName, $stored);
+
+    app()->forgetScopedInstances();
+
+    expect(app(Settings::class)->businessName())->toBe(config('app.name'));
+})->with([
+    'empty string' => [''],
+    'whitespace' => ['   '],
+    'null' => [null],
+    'an array' => [['nope']],
+]);
+
+test('a stored business name is trimmed', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, '  Cromulent Widgets  ');
+
+    app()->forgetScopedInstances();
+
+    expect(app(Settings::class)->businessName())->toBe('Cromulent Widgets');
+});

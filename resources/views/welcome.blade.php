@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
-    @include('partials.head', ['title' => __('Boilerplate Industries')])
+    @include('partials.head', ['title' => $businessName])
 </head>
 <body class="antialiased">
     <div class="relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -18,7 +18,7 @@
             <header class="flex items-center justify-between py-8">
                 <a href="{{ route('home') }}" class="flex items-center gap-2 font-medium" wire:navigate>
                     <x-app-logo-icon class="size-7 fill-current" />
-                    <span>{{ __('Boilerplate Industries') }}</span>
+                    <span>{{ $businessName }}</span>
                 </a>
 
                 @if (Route::has('login'))
@@ -72,9 +72,9 @@
 
                     <p class="mt-6 max-w-2xl text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
                         {{
-                            __('Since the beginning, Boilerplate Industries has specialised in the load-bearing middle
+                            __('Since the beginning, :business has specialised in the load-bearing middle
                             — the quiet layer nobody photographs and everybody depends on. Our output is measured in
-                            afternoons not spent rewriting the same login page.')
+                            afternoons not spent rewriting the same login page.', ['business' => $businessName])
                         }}
                     </p>
 
@@ -103,7 +103,7 @@
             </main>
 
             <footer class="border-t border-neutral-200 py-8 text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-                {{ __('Boilerplate Industries — a division of nothing in particular.') }}
+                {{ __(':business — a division of nothing in particular.', ['business' => $businessName]) }}
             </footer>
         </div>
     </div>

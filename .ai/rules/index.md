@@ -13,3 +13,4 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
 | database/seeders/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
+| resources/views/** | .ai/rules/views.md |

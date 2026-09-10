@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\User;
+use App\Settings\SettingKey;
+use App\Settings\Settings;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Filament\Support\Enums\Width;
 
@@ -113,4 +115,37 @@ test('the panel navigation links back to the website', function () {
         ->get('/admin')
         ->assertSuccessful()
         ->assertSee('Return to website');
+});
+
+test('the topbar has no global search field', function () {
+    expect(Filament\Facades\Filament::getPanel('admin')->getGlobalSearchProvider())->toBeNull();
+
+    $html = $this->actingAs(User::factory()->admin()->create())
+        ->get('/admin')
+        ->assertSuccessful()
+        ->getContent();
+
+    expect($html)->not->toContain('fi-global-search');
+});
+
+test('the panel menu shows the configured business name', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->get('/admin')
+        ->assertSuccessful()
+        ->assertSee('Cromulent Widgets');
+});
+
+test('the panel brand follows a business name changed after boot', function () {
+    // The panel is configured once per process, so a brand resolved eagerly at
+    // boot would keep serving the value stored then.
+    $panel = Filament\Facades\Filament::getPanel('admin');
+
+    expect($panel->getBrandName())->toBe(config('app.name'));
+
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+    app()->forgetScopedInstances();
+
+    expect($panel->getBrandName())->toBe('Cromulent Widgets');
 });
