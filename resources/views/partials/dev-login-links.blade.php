@@ -11,12 +11,23 @@
         @foreach ($devUsers as $devUser)
             <div class="flex items-center gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 transition hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900/60 dark:hover:border-zinc-700 dark:hover:bg-zinc-900">
                 <div class="min-w-0 flex-1">
-                    <x-dynamic-component
-                        component="login-link"
-                        :email="$devUser['email']"
-                        :label="$devUser['name']"
-                        class="block w-full text-start text-sm font-medium text-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-zinc-100"
-                    />
+                    @if ($devUser['exists'])
+                        <form method="POST" action="{{ route('dev-login') }}">
+                            @csrf
+                            <input type="hidden" name="account" value="{{ $devUser['index'] }}" />
+                            <button
+                                type="submit"
+                                class="block w-full text-start text-sm font-medium text-zinc-800 focus-visible:outline-2 focus-visible:outline-offset-2 dark:text-zinc-100"
+                            >
+                                {{ $devUser['name'] }}
+                            </button>
+                        </form>
+                    @else
+                        <span class="block text-sm font-medium text-zinc-400 dark:text-zinc-500">
+                            {{ $devUser['name'] }}
+                        </span>
+                    @endif
+
                     <span class="block truncate font-mono text-[0.7rem] text-zinc-500 dark:text-zinc-400">
                         {{ $devUser['email'] }}
                     </span>

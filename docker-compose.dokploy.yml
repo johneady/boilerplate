@@ -22,12 +22,23 @@ x-app-base: &app-base
 
   environment:
     APP_NAME: ${APP_NAME:-Boilerplate}
-    APP_ENV: production
+
+    # Defaults to production. Override in Dokploy for a staging instance --
+    # but read app/Providers/AppServiceProvider.php first: 'local' and
+    # 'testing' drop the password policy, let AdminUserSeeder accept
+    # admin@example.com / password, re-enable destructive artisan commands
+    # (migrate:fresh, db:wipe) against this database, and switch on the
+    # passwordless dev login. Prefer 'staging', which keeps every guard on.
+    APP_ENV: ${APP_ENV:-production}
 
     # Generate once with `php artisan key:generate --show` and reuse across
     # redeploys: SESSION_ENCRYPT is true, so a changed key logs every user out.
     APP_KEY: ${APP_KEY:?set APP_KEY in Dokploy (php artisan key:generate --show)}
 
+    # Deliberately a literal, not overridable: a stack trace on a public 500
+    # page leaks APP_KEY, database and mail credentials, and a forgotten
+    # APP_DEBUG=true in a Dokploy env is far too cheap a mistake. Debug a
+    # deployed instance from the logs, or edit this line knowingly.
     APP_DEBUG: "false"
 
     # Must be the https:// domain Traefik serves for this instance. It is the

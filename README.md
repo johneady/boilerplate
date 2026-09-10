@@ -67,15 +67,23 @@ Filament **5** is required here rather than 4: Filament 4 depends on
 
 ### Dev login links
 
-In `local`, the login page shows one-click login buttons for the seeded users
-via `spatie/laravel-login-link`. The partial is double-guarded — on
-`config('login-link.allowed_environments')` and on the package class existing —
-so it renders nothing in production.
+In `local` and `testing`, the login page shows one-click login buttons for the
+seeded accounts. This is a small first-party implementation rather than a
+package — see [`config/dev-login.php`](config/dev-login.php).
 
-[`LoginLinkController`](app/Http/Controllers/LoginLinkController.php) and
-Fortify's `LoginResponse` share the
+`APP_ENV` is the only gate. The route itself is only registered when
+[`DevLoginAccounts::enabled()`](app/Auth/DevLoginAccounts.php) allows the current
+environment, so anywhere but `local`/`testing` `POST /dev-login` does not exist
+at all rather than relying on a runtime guard.
+
+The form submits a **position** in the configured account list, never an email
+address, so a crafted request cannot log into an account the application did not
+offer, and no `redirect_url` is read from user input.
+
+[`DevLoginController`](app/Http/Controllers/DevLoginController.php) and Fortify's
+`LoginResponse` share the
 [`ResolvesLoginRedirect`](app/Http/Responses/ResolvesLoginRedirect.php) trait, so
-a dev link lands exactly where a real login would: the intended URL if one was
+a dev login lands exactly where a real login would: the intended URL if one was
 captured, else the admin panel for admins and the dashboard for everyone else.
 
 ### Seeding
@@ -90,6 +98,14 @@ early if the email exists rather than resetting a changed password — and it
 **refuses to run with those defaults outside local/testing**, so a deployment
 cannot end up with a known-credential admin. `DatabaseSeeder` adds a
 non-admin `test@example.com` in local/testing only.
+
+`FIRST_USER_*` is deliberately absent from `.env.example`: the defaults in
+[`config/first.php`](config/first.php) already cover local development, so a
+fresh clone needs no configuration. Set the three variables in the environment
+itself when deploying — [`docker-compose.dokploy.yml`](docker-compose.dokploy.yml)
+requires `FIRST_USER_EMAIL` and `FIRST_USER_PASSWORD` with `${VAR:?message}`, so
+a deploy that forgets them fails with a named error instead of seeding an admin
+the seeder would have refused anyway.
 
 ### Deployment
 
@@ -113,6 +129,26 @@ open http://localhost:8011
 
 The entrypoint waits for the database, migrates, seeds, rebuilds caches against
 the real environment, and republishes Filament's assets on every boot.
+
+#### Overriding APP_ENV for a staging instance
+
+`APP_ENV` defaults to `production` but is overridable in Dokploy. Note what the
+value controls before changing it:
+
+| `APP_ENV` | `migrate:fresh` / `db:wipe` | Password policy | Seeder accepts defaults | Dev login |
+| --- | --- | --- | --- | --- |
+| `production` | prohibited | strict | no | no |
+| `staging` (or any other) | prohibited | strict | no | no |
+| `local` / `testing` | **allowed** | **none** | **yes** | **enabled** |
+
+Use `staging` for a deployed non-production instance: it keeps both guards on
+while letting the app report its real environment. **Do not set `local` on a
+deployed instance** — it re-enables destructive artisan commands against that
+database, drops the password policy, and lets `AdminUserSeeder` create
+`admin@example.com` / `password`.
+
+Setting `local` on a deployed instance also switches on the passwordless
+[dev login](#dev-login-links) — another reason to prefer `staging`.
 
 #### Trusted proxies
 
@@ -145,8 +181,9 @@ plus settings, the dashboard, and the admin/dev-login behaviour described above:
   to Fortify, non-admins get 403, admins get in, `is_admin` resists mass
   assignment, and each role lands on the right page after login.
 - `AdminUserSeederTest` — seeding, idempotency, and the production guard.
-- `DevLoginLinkTest` — links render and work in `local`, and are refused
-  elsewhere.
+- `DevLoginTest` — the buttons render and sign in the right account in `local`,
+  an unoffered position or unseeded account 404s, a submitted email or
+  `redirect_url` is ignored, and disallowed hosts and environments are refused.
 - `TrustedProxiesTest` — the config key exists, `TRUST_PROXIES` parses into the
   shape the middleware expects, and asset URLs come out `https` behind a trusted
   proxy and `http` without one.

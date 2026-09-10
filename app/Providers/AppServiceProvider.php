@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
+use App\Auth\DevLoginAccounts;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
-use App\View\Composers\DevLoginLinksComposer;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\Blade;
@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\View\View as ViewContract;
 use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
@@ -59,7 +60,9 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureViewComposers(): void
     {
-        View::composer('partials.dev-login-links', DevLoginLinksComposer::class);
+        View::composer('partials.dev-login-links', function (ViewContract $view): void {
+            $view->with('devUsers', app(DevLoginAccounts::class)->all());
+        });
     }
 
     /**
@@ -83,8 +86,13 @@ class AppServiceProvider extends ServiceProvider
     {
         Date::use(CarbonImmutable::class);
 
+        // Guarded everywhere except the environments that own a throwaway
+        // database. A deployed staging instance is a real database with real
+        // data on it, so keying this on isProduction() alone would let
+        // migrate:fresh and db:wipe run there the moment APP_ENV is
+        // overridden away from 'production'.
         DB::prohibitDestructiveCommands(
-            app()->isProduction(),
+            ! app()->environment(['local', 'testing']),
         );
 
         // Strict everywhere except the two environments where weak passwords
