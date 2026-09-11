@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use App\Settings\SettingsTab;
+use Filament\Forms\Components\Field;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -78,16 +79,25 @@ test('a setting can be turned back off', function () {
     expect(app(Settings::class)->boolean(SettingKey::AllowRegistration))->toBeFalse();
 });
 
-test('the form renders a field for every declared setting', function () {
+test('the form renders a field for every setting the mailer modal does not edit', function () {
     // The form is built from the enum, so a case added later without a matching
-    // field would be silently uneditable rather than failing loudly. Traversal
-    // includes hidden components: fields conditional on another field's value
-    // are still declared, still editable, and must still exist.
+    // field would be silently uneditable rather than failing loudly. The
+    // mailer group is the exception -- it is edited through the mailer
+    // button's modal, held to the same standard by the modal tests below.
+    // Traversal includes hidden components.
     $fields = array_keys(
         Livewire::test(ManageSettings::class)->instance()->form->getFlatFields(withHidden: true)
     );
 
-    expect($fields)->toBe(array_column(SettingKey::cases(), 'value'));
+    expect($fields)->toBe([
+        'business_name',
+        'business_address',
+        'business_phone',
+        'business_email',
+        'allow_registration',
+        'mail_from_address',
+        'mail_from_name',
+    ]);
 });
 
 test('the form opens on the stored business name', function () {
@@ -127,20 +137,28 @@ test('each setting is edited on its declared tab', function () {
     // tab case -- or a tab whose keys are claimed by no case -- is a wiring
     // mistake worth failing loudly on rather than an uneditable setting.
     // Fields are listed with hidden ones included, since a field conditional
-    // on the mailer still belongs to its tab while hidden.
+    // on the mailer still belongs to its tab while hidden. The mailer group
+    // is edited through the mailer button's modal rather than tab fields.
+    $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption'];
+
     $flattener = function (array $components) use (&$flattener): array {
         $result = [];
 
         foreach ($components as $component) {
             $result[] = $component;
-            $result = [...$result, ...$flattener($component->getChildComponents())];
+
+            // The mailer button nests a Filament action, which is not a
+            // schema component and has no children of its own.
+            if ($component instanceof Component) {
+                $result = [...$result, ...$flattener($component->getChildComponents())];
+            }
         }
 
         return $result;
     };
 
     $tabs = collect($flattener(Livewire::test(ManageSettings::class)->instance()->form->getComponents()))
-        ->filter(fn (Component $component): bool => $component instanceof Tab);
+        ->filter(fn (object $component): bool => $component instanceof Tab);
 
     expect($tabs)->toHaveCount(count(SettingsTab::cases()));
 
@@ -149,14 +167,20 @@ test('each setting is edited on its declared tab', function () {
 
         $keysOnTab = array_values(array_map(
             fn (SettingKey $key): string => $key->value,
-            array_filter(SettingKey::cases(), fn (SettingKey $key): bool => $key->tab() === $settingsTab),
+            array_filter(
+                SettingKey::cases(),
+                fn (SettingKey $key): bool => $key->tab() === $settingsTab && ! in_array($key->value, $editedInModal, true),
+            ),
         ));
 
         expect($tab)->not->toBeNull()
-            ->and(array_map(
-                fn (Component $field): string => $field->getName(),
-                $tab->getChildSchema()->getComponents(withHidden: true),
-            ))->toBe($keysOnTab);
+            ->and(array_values(array_map(
+                fn (Field $field): string => $field->getName(),
+                array_filter(
+                    $tab->getChildSchema()->getComponents(withHidden: true),
+                    fn (object $component): bool => $component instanceof Field,
+                ),
+            )))->toBe($keysOnTab);
     }
 });
 
@@ -203,7 +227,61 @@ test('blanking a contact detail clears it rather than leaving it set', function 
     expect(app(Settings::class)->string(SettingKey::BusinessPhone))->toBe('');
 });
 
-test('the form opens on the stored mail settings', function () {
+test('the form opens on the stored from fields', function () {
+    app(Settings::class)->setMany([
+        'mail_from_address' => 'hello@cromulent.test',
+        'mail_from_name' => 'Cromulent No-reply',
+    ]);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSchemaStateSet([
+            'mail_from_address' => 'hello@cromulent.test',
+            'mail_from_name' => 'Cromulent No-reply',
+        ]);
+});
+
+test('the mailer button shows the environment mailer until one is saved', function () {
+    // A deployment configures SMTP through MAIL_* with nothing stored, and
+    // the environment stays in charge -- the button must not report the
+    // setting's unsaved 'log' default over the mailer actually sending.
+    config(['mail.default' => 'smtp']);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Mailer: SMTP')
+        ->assertActionVisible('configureMailer');
+});
+
+test('the mailer button shows the saved mailer once one is', function () {
+    app(Settings::class)->setMany([
+        'mail_mailer' => 'smtp',
+        'mail_host' => 'smtp.example.com',
+    ]);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Mailer: SMTP');
+});
+
+test('an smtp choice without a host shows as the log mailer it falls back to', function () {
+    app(Settings::class)->setMany([
+        'mail_mailer' => 'smtp',
+        'mail_host' => '',
+    ]);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Mailer: Log');
+});
+
+test('submitting smtp without a host warns that mail stays on the log', function () {
+    Livewire::test(ManageSettings::class)
+        ->callAction('configureMailer', [
+            'mail_mailer' => 'smtp',
+            'mail_host' => '',
+        ]);
+
+    Notification::assertNotified('Mailer saved, sending through the log');
+});
+
+test('the mailer modal opens on the stored connection', function () {
     app(Settings::class)->setMany([
         'mail_mailer' => 'smtp',
         'mail_host' => 'smtp.example.com',
@@ -211,37 +289,30 @@ test('the form opens on the stored mail settings', function () {
         'mail_username' => 'mailer',
         'mail_password' => 'secret',
         'mail_encryption' => 'tls',
-        'mail_from_address' => 'hello@cromulent.test',
-        'mail_from_name' => 'Cromulent No-reply',
     ]);
 
     Livewire::test(ManageSettings::class)
-        ->assertSchemaStateSet([
+        ->mountAction('configureMailer')
+        ->assertActionDataSet([
             'mail_mailer' => 'smtp',
             'mail_host' => 'smtp.example.com',
             'mail_port' => '587',
             'mail_username' => 'mailer',
             'mail_password' => 'secret',
             'mail_encryption' => 'tls',
-            'mail_from_address' => 'hello@cromulent.test',
-            'mail_from_name' => 'Cromulent No-reply',
         ]);
 });
 
-test('saving the form persists the mail settings', function () {
+test('submitting the mailer modal persists the mail settings', function () {
     Livewire::test(ManageSettings::class)
-        ->fillForm([
+        ->callAction('configureMailer', [
             'mail_mailer' => 'smtp',
             'mail_host' => 'smtp.example.com',
             'mail_port' => 587,
             'mail_username' => 'mailer',
             'mail_password' => 'secret',
             'mail_encryption' => 'tls',
-            'mail_from_address' => 'hello@cromulent.test',
-            'mail_from_name' => 'Cromulent No-reply',
-        ])
-        ->call('save')
-        ->assertHasNoFormErrors();
+        ]);
 
     app()->forgetInstance(Settings::class);
 
@@ -252,18 +323,23 @@ test('saving the form persists the mail settings', function () {
         ->and($settings->string(SettingKey::MailPort))->toBe('587')
         ->and($settings->string(SettingKey::MailUsername))->toBe('mailer')
         ->and($settings->string(SettingKey::MailPassword))->toBe('secret')
-        ->and($settings->string(SettingKey::MailEncryption))->toBe('tls')
-        ->and($settings->string(SettingKey::MailFromAddress))->toBe('hello@cromulent.test')
-        ->and($settings->string(SettingKey::MailFromName))->toBe('Cromulent No-reply');
+        ->and($settings->string(SettingKey::MailEncryption))->toBe('tls');
+
+    Notification::assertNotified('Mailer updated');
 });
 
 test('the mail port is rejected when it is not a port number', function () {
-    // The connection fields only validate while visible, so the mailer is
-    // switched to SMTP first.
+    // The modal halts on validation, so nothing it edits is stored.
     Livewire::test(ManageSettings::class)
-        ->fillForm(['mail_mailer' => 'smtp', 'mail_port' => 99999, 'mail_from_address' => 'hello@cromulent.test'])
-        ->call('save')
-        ->assertHasFormErrors(['mail_port']);
+        ->callAction('configureMailer', [
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => 99999,
+        ]);
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->has(SettingKey::MailMailer))->toBeFalse();
 });
 
 test('the from address is required', function () {
@@ -282,31 +358,11 @@ test('the from address is rejected when it is the deployment default', function 
         ->assertHasFormErrors(['mail_from_address' => 'not_in']);
 });
 
-test('the smtp connection fields appear only while the mailer is smtp', function () {
-    $connectionFields = ['mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption'];
-
-    $component = Livewire::test(ManageSettings::class);
-
-    foreach ($connectionFields as $field) {
-        $component->assertSchemaComponentHidden($field);
-    }
-
-    // The from fields stay visible for both mailers, since the from address
-    // is applied whichever one sends.
-    $component->assertSchemaComponentVisible('mail_from_address')
-        ->assertSchemaComponentVisible('mail_from_name');
-
-    $component->fillForm(['mail_mailer' => 'smtp']);
-
-    foreach ($connectionFields as $field) {
-        $component->assertSchemaComponentVisible($field);
-    }
-});
-
 test('switching the mailer back to log keeps the stored connection', function () {
     // Moving to log must not clear the SMTP row: switching back should
-    // reveal the connection exactly as it was left, the same way the
-    // incomplete-row fallback does not destroy anything.
+    // reveal the connection exactly as it was left. The log choice submits
+    // without the connection fields, which stay hidden for it, so setMany
+    // never receives keys to overwrite.
     app(Settings::class)->setMany([
         'mail_mailer' => 'smtp',
         'mail_host' => 'smtp.example.com',
@@ -315,9 +371,7 @@ test('switching the mailer back to log keeps the stored connection', function ()
     ]);
 
     Livewire::test(ManageSettings::class)
-        ->fillForm(['mail_mailer' => 'log', 'mail_from_address' => 'hello@cromulent.test'])
-        ->call('save')
-        ->assertHasNoFormErrors();
+        ->callAction('configureMailer', ['mail_mailer' => 'log']);
 
     app()->forgetInstance(Settings::class);
 

@@ -35,6 +35,10 @@ use Throwable;
  * no edit here -- as long as its type has a field mapped in formComponent().
  * Settings are grouped onto the page's tabs by SettingKey::tab().
  *
+ * The mailer and its SMTP connection are the exception: the mail tab edits
+ * them through the modal the mailer button opens, since they change as one
+ * unit and persist the moment the modal is submitted.
+ *
  * @property-read Schema $form
  */
 class ManageSettings extends Page
@@ -50,6 +54,21 @@ class ManageSettings extends Page
     protected static ?string $title = 'Settings';
 
     protected static ?int $navigationSort = 90;
+
+    /**
+     * The settings edited through the mailer button's modal rather than the
+     * tab's form, in modal display order.
+     *
+     * @var array<int, SettingKey>
+     */
+    private const MAILER_MODAL_KEYS = [
+        SettingKey::MailMailer,
+        SettingKey::MailHost,
+        SettingKey::MailPort,
+        SettingKey::MailUsername,
+        SettingKey::MailPassword,
+        SettingKey::MailEncryption,
+    ];
 
     /**
      * The form's state, keyed by SettingKey value.
@@ -102,20 +121,85 @@ class ManageSettings extends Page
      *
      * Tabs are rendered per SettingsTab case, each collecting the keys that
      * claim it, so a setting lands on a tab by its enum declaration alone.
+     * The mail tab leads with the mailer button, whose modal edits the keys
+     * MAILER_MODAL_KEYS holds instead of the form.
      */
     protected function tabComponent(SettingsTab $settingsTab): Tab
     {
         $keys = array_filter(
             SettingKey::cases(),
-            fn (SettingKey $key): bool => $key->tab() === $settingsTab,
+            fn (SettingKey $key): bool => $key->tab() === $settingsTab && ! in_array($key, self::MAILER_MODAL_KEYS, true),
         );
+
+        $components = array_map(
+            fn (SettingKey $key): Field => $this->formComponent($key),
+            $keys,
+        );
+
+        if ($settingsTab === SettingsTab::Mail) {
+            array_unshift($components, Actions::make([$this->configureMailerAction()]));
+        }
 
         return Tab::make($settingsTab->label())
             ->icon($settingsTab->icon())
-            ->schema(array_map(
-                fn (SettingKey $key) => $this->formComponent($key),
-                $keys,
-            ));
+            ->schema($components);
+    }
+
+    /**
+     * The button the mail tab changes the mailer through.
+     *
+     * It displays the mailer actually in use -- the environment's own until
+     * a mailer has been saved, and log for an SMTP row the service fails
+     * closed for lack of a host (Settings::effectiveMailer()) -- and opens a
+     * modal editing that mailer together with its SMTP connection, since one
+     * is meaningless without the other. Submitting persists immediately --
+     * the same direct effect the test email action has -- while the from
+     * fields stay on the form, because they apply to whichever mailer sends.
+     */
+    protected function configureMailerAction(): Action
+    {
+        $mailerInUse = fn (): string => $this->settings()->effectiveMailer();
+
+        return Action::make('configureMailer')
+            ->label(fn (): string => 'Mailer: '.match ($mailerInUse()) {
+                'smtp' => 'SMTP',
+                'log' => 'Log',
+                default => str($mailerInUse())->ucfirst()->toString(),
+            })
+            ->icon(Heroicon::OutlinedServerStack)
+            ->color(fn (): string => $mailerInUse() === 'smtp' ? 'success' : 'gray')
+            ->modalHeading('Change mailer')
+            ->modalDescription(SettingKey::MailMailer->helperText())
+            ->form(array_map(
+                fn (SettingKey $key): Field => $this->formComponent($key),
+                self::MAILER_MODAL_KEYS,
+            ))
+            ->fillForm(fn (): array => array_intersect_key(
+                $this->settings()->toArray(),
+                array_flip(array_map(fn (SettingKey $key): string => $key->value, self::MAILER_MODAL_KEYS)),
+            ))
+            ->action(function (array $data): void {
+                $this->settings()->setMany($data);
+
+                // Fail closed, the way the service applies it: an SMTP row
+                // without a host delivers through the log mailer, and the
+                // administrator needs to know that is what they saved.
+                if ($this->settings()->string(SettingKey::MailMailer) === 'smtp'
+                    && $this->settings()->string(SettingKey::MailHost) === '') {
+                    Notification::make()
+                        ->warning()
+                        ->title('Mailer saved, sending through the log')
+                        ->body('SMTP was chosen without a host, so messages are written to the application log until one is set.')
+                        ->send();
+
+                    return;
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title('Mailer updated')
+                    ->send();
+            });
     }
 
     /**
@@ -227,9 +311,10 @@ class ManageSettings extends Page
     /**
      * Show a field only while the SMTP connection is being configured.
      *
-     * Live off the mailer select, so choosing SMTP reveals the connection
-     * fields immediately without saving. The from-address fields stay visible
-     * for both mailers -- the from address is applied whichever one sends.
+     * Live off the mailer select in the button's modal, so choosing SMTP
+     * reveals the connection fields immediately without submitting. The
+     * from-address fields stay on the form for both mailers -- the from
+     * address is applied whichever one sends.
      */
     protected function whenMailerIsSmtp(): Closure
     {

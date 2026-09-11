@@ -75,6 +75,28 @@ class Settings
     }
 
     /**
+     * The mailer messages actually send through, not merely the stored choice.
+     *
+     * Mirrors the conditions AppServiceProvider::configureMailFromSettings()
+     * applies: the environment's own mailer stays in charge until a mailer
+     * has been saved, a saved non-SMTP choice replaces it with log, and an
+     * SMTP row without a host fails closed to log. Keep the two in step when
+     * either changes -- the settings page's mailer button reports this value.
+     */
+    public function effectiveMailer(): string
+    {
+        if (! $this->has(SettingKey::MailMailer)) {
+            return (string) config('mail.default');
+        }
+
+        if ($this->string(SettingKey::MailMailer) !== 'smtp' || $this->string(SettingKey::MailHost) === '') {
+            return 'log';
+        }
+
+        return 'smtp';
+    }
+
+    /**
      * Write a single setting.
      */
     public function set(SettingKey $key, mixed $value): void
