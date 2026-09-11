@@ -166,7 +166,7 @@ enum SettingKey: string
             self::MailUsername => 'The SMTP username, if the server requires authentication.',
             self::MailPassword => 'The SMTP password, if the server requires authentication.',
             self::MailEncryption => 'How the connection is secured. Leave blank for the default (TLS).',
-            self::MailFromAddress => 'The address outgoing email is sent from. Leave blank to keep the deployment default.',
+            self::MailFromAddress => 'The address outgoing email is sent from. Required.',
             self::MailFromName => 'The name outgoing email is sent from. Leave blank to use the business name.',
         };
     }

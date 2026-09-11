@@ -47,7 +47,7 @@ test('the form opens on the declared defaults when nothing has been saved', func
 
 test('saving the form persists the setting', function () {
     Livewire::test(ManageSettings::class)
-        ->fillForm(['allow_registration' => true])
+        ->fillForm(['allow_registration' => true, 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -60,7 +60,7 @@ test('saving the form persists the setting', function () {
 
 test('saving the form confirms the change to the administrator', function () {
     Livewire::test(ManageSettings::class)
-        ->fillForm(['allow_registration' => true])
+        ->fillForm(['allow_registration' => true, 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save');
 
     Notification::assertNotified('Settings saved');
@@ -70,7 +70,7 @@ test('a setting can be turned back off', function () {
     app(Settings::class)->set(SettingKey::AllowRegistration, true);
 
     Livewire::test(ManageSettings::class)
-        ->fillForm(['allow_registration' => false])
+        ->fillForm(['allow_registration' => false, 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save');
 
     app()->forgetInstance(Settings::class);
@@ -99,7 +99,7 @@ test('the form opens on the stored business name', function () {
 
 test('saving the form persists the business name', function () {
     Livewire::test(ManageSettings::class)
-        ->fillForm(['business_name' => 'Cromulent Widgets'])
+        ->fillForm(['business_name' => 'Cromulent Widgets', 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -166,6 +166,7 @@ test('saving the form persists the business contact details', function () {
             'business_address' => "1 Cromulent Way\nWidgetton",
             'business_phone' => '+1 (555) 123-4567',
             'business_email' => 'hello@cromulent.test',
+            'mail_from_address' => 'hello@cromulent.test',
         ])
         ->call('save')
         ->assertHasNoFormErrors();
@@ -181,7 +182,7 @@ test('saving the form persists the business contact details', function () {
 
 test('the business email is rejected when it is not an address', function () {
     Livewire::test(ManageSettings::class)
-        ->fillForm(['business_email' => 'not-an-address'])
+        ->fillForm(['business_email' => 'not-an-address', 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasFormErrors(['business_email' => 'email']);
 });
@@ -193,7 +194,7 @@ test('blanking a contact detail clears it rather than leaving it set', function 
     app(Settings::class)->set(SettingKey::BusinessPhone, '+1 (555) 123-4567');
 
     Livewire::test(ManageSettings::class)
-        ->fillForm(['business_phone' => ''])
+        ->fillForm(['business_phone' => '', 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -260,9 +261,25 @@ test('the mail port is rejected when it is not a port number', function () {
     // The connection fields only validate while visible, so the mailer is
     // switched to SMTP first.
     Livewire::test(ManageSettings::class)
-        ->fillForm(['mail_mailer' => 'smtp', 'mail_port' => 99999])
+        ->fillForm(['mail_mailer' => 'smtp', 'mail_port' => 99999, 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasFormErrors(['mail_port']);
+});
+
+test('the from address is required', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['mail_from_address' => ''])
+        ->call('save')
+        ->assertHasFormErrors(['mail_from_address' => 'required']);
+});
+
+test('the from address is rejected when it is the deployment default', function () {
+    // 'hello@example.com' is the framework default the test environment
+    // leaves MAIL_FROM_ADDRESS falling back to.
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['mail_from_address' => 'hello@example.com'])
+        ->call('save')
+        ->assertHasFormErrors(['mail_from_address' => 'not_in']);
 });
 
 test('the smtp connection fields appear only while the mailer is smtp', function () {
@@ -298,7 +315,7 @@ test('switching the mailer back to log keeps the stored connection', function ()
     ]);
 
     Livewire::test(ManageSettings::class)
-        ->fillForm(['mail_mailer' => 'log'])
+        ->fillForm(['mail_mailer' => 'log', 'mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasNoFormErrors();
 
@@ -312,13 +329,12 @@ test('switching the mailer back to log keeps the stored connection', function ()
         ->and($settings->string(SettingKey::MailPassword))->toBe('s3cret');
 });
 
-test('the from fields hint at the value a blank falls back to', function () {
+test('the from name hints at the value a blank falls back to', function () {
     app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
 
     $fields = Livewire::test(ManageSettings::class)->instance()->form->getFlatFields(withHidden: true);
 
-    expect($fields['mail_from_address']->getPlaceholder())->toBe(config('mail.from.address'))
-        ->and($fields['mail_from_name']->getPlaceholder())->toBe('Cromulent Widgets');
+    expect($fields['mail_from_name']->getPlaceholder())->toBe('Cromulent Widgets');
 });
 
 test('the test email action delivers the message to the chosen address', function () {

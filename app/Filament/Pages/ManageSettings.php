@@ -211,8 +211,9 @@ class ManageSettings extends Page
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default())
-                ->placeholder(fn (): string => (string) config('mail.from.address'))
+                ->required()
                 ->email()
+                ->notIn([(string) config('mail.from.address')])
                 ->maxLength(255),
             SettingKey::MailFromName => TextInput::make($key->value)
                 ->label($key->label())
