@@ -52,7 +52,7 @@ class AdminPanelProvider extends PanelProvider
             // No resource is worth a topbar search field on this panel yet.
             ->globalSearch(false)
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Blue,
             ])
             // Filament caps page content at 7xl (80rem) by default, which leaves
             // a wide gutter between the sidebar and the content on large screens.
