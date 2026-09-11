@@ -64,6 +64,18 @@ class AppServiceProvider extends ServiceProvider
             $view->with('devUsers', app(DevLoginAccounts::class)->all());
         });
 
+        // The footer's contact details are composed onto the component alone:
+        // like the global business name below, that keeps the settings table
+        // unread on requests that render no view, and unrendered views cost
+        // nothing.
+        View::composer('components.business-footer', function (ViewContract $view): void {
+            $settings = app(Settings::class);
+
+            $view->with('businessAddress', $settings->string(SettingKey::BusinessAddress))
+                ->with('businessPhone', $settings->string(SettingKey::BusinessPhone))
+                ->with('businessEmail', $settings->string(SettingKey::BusinessEmail));
+        });
+
         // Composed rather than shared: View::share() would resolve the settings
         // service (and so query the table) while booting every request,
         // including those that render no view at all, such as API and Livewire

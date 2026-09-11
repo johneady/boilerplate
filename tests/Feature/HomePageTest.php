@@ -20,7 +20,7 @@ test('the home page shows the configured business name throughout', function () 
         // from the one setting.
         ->assertSee('Cromulent Widgets')
         ->assertSee('Since the beginning, Cromulent Widgets has specialised')
-        ->assertSee('Cromulent Widgets — a division of nothing in particular.', escape: false)
+        ->assertSee('A division of nothing in particular.')
         ->assertDontSee('Boilerplate Industries');
 });
 

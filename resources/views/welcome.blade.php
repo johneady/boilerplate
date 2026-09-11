@@ -102,9 +102,7 @@
                 </div>
             </main>
 
-            <footer class="border-t border-neutral-200 py-8 text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-                {{ __(':business — a division of nothing in particular.', ['business' => $businessName]) }}
-            </footer>
+            <x-business-footer class="border-t border-neutral-200 py-8 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400" />
         </div>
     </div>
     @fluxScripts

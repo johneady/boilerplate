@@ -50,6 +50,8 @@
                 </a>
                 {{ $slot }}
             </div>
+
+            <x-business-footer compact class="mx-auto mt-8 w-full sm:max-w-[350px] text-neutral-500 dark:text-neutral-400" />
         </div>
     </div>
 

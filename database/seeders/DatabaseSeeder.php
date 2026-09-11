@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AdminUserSeeder::class,
+            SettingsSeeder::class,
         ]);
 
         // Seeded wherever the quick dev logins are offered -- which is every

@@ -4,7 +4,10 @@ use App\Filament\Pages\ManageSettings;
 use App\Models\User;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
+use App\Settings\SettingsTab;
 use Filament\Notifications\Notification;
+use Filament\Schemas\Components\Component;
+use Filament\Schemas\Components\Tabs\Tab;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -106,4 +109,88 @@ test('the business name is required', function () {
         ->fillForm(['business_name' => ''])
         ->call('save')
         ->assertHasFormErrors(['business_name' => 'required']);
+});
+
+test('the settings page renders a tab for each declared group of settings', function () {
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Business details')
+        ->assertSee('Registration');
+});
+
+test('each setting is edited on its declared tab', function () {
+    // The tabs are built from the enums, so a key whose tab has no matching
+    // tab case -- or a tab whose keys are claimed by no case -- is a wiring
+    // mistake worth failing loudly on rather than an uneditable setting.
+    $flattener = function (array $components) use (&$flattener): array {
+        $result = [];
+
+        foreach ($components as $component) {
+            $result[] = $component;
+            $result = [...$result, ...$flattener($component->getChildComponents())];
+        }
+
+        return $result;
+    };
+
+    $tabs = collect($flattener(Livewire::test(ManageSettings::class)->instance()->form->getComponents()))
+        ->filter(fn (Component $component): bool => $component instanceof Tab);
+
+    expect($tabs)->toHaveCount(count(SettingsTab::cases()));
+
+    foreach (SettingsTab::cases() as $settingsTab) {
+        $tab = $tabs->first(fn (Tab $tab): bool => $tab->getLabel() === $settingsTab->label());
+
+        $keysOnTab = array_values(array_map(
+            fn (SettingKey $key): string => $key->value,
+            array_filter(SettingKey::cases(), fn (SettingKey $key): bool => $key->tab() === $settingsTab),
+        ));
+
+        expect($tab)->not->toBeNull()
+            ->and(array_map(
+                fn (Component $field): string => $field->getName(),
+                $tab->getChildComponents(),
+            ))->toBe($keysOnTab);
+    }
+});
+
+test('saving the form persists the business contact details', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm([
+            'business_address' => "1 Cromulent Way\nWidgetton",
+            'business_phone' => '+1 (555) 123-4567',
+            'business_email' => 'hello@cromulent.test',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    $settings = app(Settings::class);
+
+    expect($settings->string(SettingKey::BusinessAddress))->toBe("1 Cromulent Way\nWidgetton")
+        ->and($settings->string(SettingKey::BusinessPhone))->toBe('+1 (555) 123-4567')
+        ->and($settings->string(SettingKey::BusinessEmail))->toBe('hello@cromulent.test');
+});
+
+test('the business email is rejected when it is not an address', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['business_email' => 'not-an-address'])
+        ->call('save')
+        ->assertHasFormErrors(['business_email' => 'email']);
+});
+
+test('blanking a contact detail clears it rather than leaving it set', function () {
+    // Clearing a detail is how an administrator hides it from the footer, so
+    // the saved row must read back as the empty string -- whether the request
+    // delivered it as "", null (ConvertEmptyStringsToNull), or whitespace.
+    app(Settings::class)->set(SettingKey::BusinessPhone, '+1 (555) 123-4567');
+
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['business_phone' => ''])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::BusinessPhone))->toBe('');
 });

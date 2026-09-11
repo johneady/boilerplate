@@ -112,6 +112,11 @@ its name and password are left alone, so a password you change is never reset by
 a redeploy. `DatabaseSeeder` adds the non-admin user wherever the quick logins
 are offered — every environment except `production`.
 
+`SettingsSeeder` adds placeholder business contact details (address, phone,
+email) so the public footer and the settings form have something to show. It
+seeds only keys with no row yet, so details you edit from **Admin → Settings**
+are never overwritten by a redeploy.
+
 > **The credentials are public.** Change the admin password from its settings
 > page once a deployed instance is reachable. Deploy real instances as
 > `APP_ENV=production` (the default), which is the only environment that

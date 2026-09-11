@@ -151,3 +151,11 @@ test('a stored business name is trimmed', function () {
 
     expect(app(Settings::class)->businessName())->toBe('Cromulent Widgets');
 });
+
+test('unsaved business contact details read as empty strings', function () {
+    // The footer hides a detail whose value is empty, so a fresh install with
+    // no rows saved must read the declared empty-string defaults.
+    expect($this->settings->string(SettingKey::BusinessAddress))->toBe('')
+        ->and($this->settings->string(SettingKey::BusinessPhone))->toBe('')
+        ->and($this->settings->string(SettingKey::BusinessEmail))->toBe('');
+});

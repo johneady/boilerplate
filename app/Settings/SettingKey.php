@@ -14,7 +14,24 @@ enum SettingKey: string
 {
     case BusinessName = 'business_name';
 
+    case BusinessAddress = 'business_address';
+
+    case BusinessPhone = 'business_phone';
+
+    case BusinessEmail = 'business_email';
+
     case AllowRegistration = 'allow_registration';
+
+    /**
+     * The settings-page tab this key is edited on.
+     */
+    public function tab(): SettingsTab
+    {
+        return match ($this) {
+            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
+            self::AllowRegistration => SettingsTab::Registration,
+        };
+    }
 
     /**
      * The value used when no row exists for this key yet.
@@ -23,6 +40,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName => config('app.name', 'Laravel'),
+            self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => '',
             self::AllowRegistration => false,
         };
     }
@@ -36,7 +54,7 @@ enum SettingKey: string
     public function cast(mixed $value): mixed
     {
         return match ($this) {
-            self::BusinessName => self::toFilledString($value, $this->default()),
+            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => self::toFilledString($value, $this->default()),
             self::AllowRegistration => self::toBoolean($value),
         };
     }
@@ -44,10 +62,10 @@ enum SettingKey: string
     /**
      * Interpret a stored value as a non-empty, trimmed string.
      *
-     * A setting that names the business is rendered on every page, so a row
-     * holding null, an empty string, or whitespace would leave the brand blank
-     * rather than merely wrong. Anything that trims away falls back to the
-     * declared default instead.
+     * A row holding null, an empty string, or whitespace falls back to the
+     * declared default: for the business name that keeps the brand rendering
+     * rather than blank, and for the optional contact details it means an
+     * unset detail reads as an empty string the footer knows to hide.
      */
     private static function toFilledString(mixed $value, string $default): string
     {
@@ -80,6 +98,9 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName => 'Business name',
+            self::BusinessAddress => 'Address',
+            self::BusinessPhone => 'Phone',
+            self::BusinessEmail => 'Email',
             self::AllowRegistration => 'Allow new user registrations',
         };
     }
@@ -91,6 +112,9 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName => 'Shown in the admin panel and across the public site.',
+            self::BusinessAddress => 'The postal address shown in the public site\'s footer. Leave blank to hide it.',
+            self::BusinessPhone => 'The phone number shown in the public site\'s footer. Leave blank to hide it.',
+            self::BusinessEmail => 'The contact address shown in the public site\'s footer. Leave blank to hide it.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
         };
     }
