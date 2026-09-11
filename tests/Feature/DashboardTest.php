@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\User;
+use Illuminate\Support\Facades\Storage;
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));
@@ -117,4 +118,43 @@ test('the dashboard user menu is blue themed', function () {
 
     /** Item hover/active state. */
     expect($html)->toContain('data-active:bg-blue-500/10!');
+});
+
+/**
+ * Both menus render the same avatar markup, so simply asserting the URL appears
+ * somewhere in the response passes while one menu is still initials-only --
+ * which is how the mobile header button was missed. Flux nests the <img> inside
+ * its own element, so the count is what distinguishes the sites: the mobile
+ * header button, the mobile dropdown, and the desktop menu are three renders.
+ */
+test('every user menu shows the uploaded avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+
+    Storage::disk('public')->put('avatars/1/abc/thumb.webp', 'processed');
+
+    $html = $this->actingAs($user)->get(route('dashboard'))->getContent();
+
+    $rendered = substr_count($html, 'src="/storage/avatars/1/abc/thumb.webp"');
+
+    // Two menus, each rendering the avatar twice: the button that opens it and
+    // the identity row inside the dropdown.
+    expect($rendered)->toBe(4);
+
+    // Every one of those is circular. Flux emits data-circle="true" only when
+    // the prop is set, so a site that lost it is a count short here rather than
+    // silently rendering the one square avatar among four.
+    expect(substr_count($html, 'data-circle="true"'))->toBe(4);
+});
+
+test('every user menu falls back to initials with no avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['name' => 'Ada Lovelace', 'avatar_path' => null]);
+
+    $html = $this->actingAs($user)->get(route('dashboard'))->getContent();
+
+    expect($html)->not->toContain('/storage/avatars/')
+        ->and(substr_count($html, 'AL'))->toBeGreaterThanOrEqual(4);
 });

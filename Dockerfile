@@ -12,6 +12,11 @@
 # bundled dom/xml/mbstring/etc.), plus pdo_mysql for the managed MariaDB. No
 # pdo_sqlite: the container always runs against MariaDB (DB_CONNECTION is set
 # in both compose files), and SQLite is a local-development-only default.
+#
+# gd is built --with-jpeg --with-webp because intervention/image decodes and
+# re-encodes user uploads through it. gd compiles WITHOUT those formats by
+# default and fails only at runtime, on the worker, when a real photo arrives --
+# so the configure flags are load-bearing, not decoration.
 # ---------------------------------------------------------------------------
 
 # --- Stage 1: PHP dependencies ---------------------------------------------
@@ -80,9 +85,12 @@ FROM php:8.5-fpm-bookworm AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         nginx supervisor curl \
         libzip-dev libicu-dev libxml2-dev \
+        libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev \
     && docker-php-ext-install intl \
     && docker-php-ext-install zip \
     && docker-php-ext-install pdo_mysql \
+    && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
+    && docker-php-ext-install gd \
     && rm -rf /var/lib/apt/lists/*
 
 # The CLI opcache file_cache directory. PHP treats a missing or unwritable

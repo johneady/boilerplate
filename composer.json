@@ -1,16 +1,22 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "laravel/livewire-starter-kit",
+    "name": "john/boilerplate",
     "type": "project",
-    "description": "The official Laravel starter kit for Livewire.",
+    "description": "A Laravel 13 boilerplate with Fortify authentication, a Filament admin panel, and a Livewire + Flux UI frontend.",
     "keywords": [
         "laravel",
-        "framework"
+        "boilerplate",
+        "starter-kit",
+        "livewire",
+        "filament",
+        "fortify",
+        "flux"
     ],
     "license": "MIT",
     "require": {
         "php": "^8.3",
         "filament/filament": "^5.8",
+        "intervention/image": "^4.3",
         "laravel/chisel": "^0.1.0",
         "laravel/fortify": "^1.37.2",
         "laravel/framework": "^13.17",
@@ -50,6 +56,7 @@
             "@php -r \"file_exists('.env') || copy('.env.example', '.env');\"",
             "@php artisan key:generate",
             "@php artisan migrate --force",
+            "@php artisan storage:link --force",
             "npm install",
             "npm run build"
         ],

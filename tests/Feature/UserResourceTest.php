@@ -11,6 +11,7 @@ use Filament\Schemas\Schema;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -288,4 +289,44 @@ test('an admin may still demote another admin', function () {
         ->assertHasNoTableActionErrors();
 
     expect($other->fresh()->is_admin)->toBeFalse();
+});
+
+test('the table shows an uploaded avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['avatar_path' => 'avatars/7/abc']);
+
+    Storage::disk('public')->put('avatars/7/abc/thumb.webp', 'processed');
+
+    // ImageColumn only passes state straight through when it is an absolute
+    // URL; a root-relative one is treated as a path on its own disk, fails the
+    // existence check, and silently falls back to initials for every user who
+    // actually has an avatar.
+    Livewire::test(ManageUsers::class)
+        ->assertSee('avatars/7/abc/thumb.webp', escape: false);
+});
+
+test('the table falls back to initials when a user has no avatar', function () {
+    Storage::fake('public');
+
+    User::factory()->create(['name' => 'Ada Lovelace', 'avatar_path' => null]);
+
+    Livewire::test(ManageUsers::class)
+        ->assertSee('data:image/svg+xml;base64,', escape: false);
+});
+
+test('initials in the fallback avatar are escaped', function () {
+    // Initials come from the user-supplied name, so a name beginning with "<"
+    // would otherwise break out of the SVG <text> element.
+    $user = User::factory()->create(['name' => '<script>alert(1)</script> Evil']);
+
+    $svg = base64_decode(
+        substr(UserResource::initialsAvatarUrl($user), strlen('data:image/svg+xml;base64,')),
+    );
+
+    expect($svg)->toContain('&lt;')
+        ->and($svg)->not->toContain('<script>');
+
+    // Still well-formed, so the browser renders it rather than discarding it.
+    expect(simplexml_load_string($svg))->not->toBeFalse();
 });

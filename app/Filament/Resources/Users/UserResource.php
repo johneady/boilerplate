@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
+use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
@@ -59,6 +60,27 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                // State is resolved through User::avatarUrl() rather than from
+                // the avatar_path column directly: that column holds the
+                // conversion DIRECTORY, not a file, and the accessor is what
+                // appends the conversion name and configured format. It also
+                // returns null when the conversion is missing, which is what
+                // makes the initials fallback below correct rather than a
+                // broken image.
+                //
+                // The state is passed through url() because ImageColumn treats
+                // anything that is not already an absolute URL as a path on its
+                // own disk. avatarUrl() returns a root-relative "/storage/..."
+                // string, which would otherwise be looked up as a FILE of that
+                // name, silently fail the existence check, and fall back to
+                // initials for every user who has an avatar.
+                ImageColumn::make('avatar')
+                    ->label('Avatar')
+                    ->getStateUsing(fn (User $record): ?string => filled($url = $record->avatarUrl())
+                        ? url($url)
+                        : null)
+                    ->circular()
+                    ->defaultImageUrl(fn (User $record): string => static::initialsAvatarUrl($record)),
                 TextColumn::make('name')
                     ->searchable()
                     ->sortable(),
@@ -113,6 +135,33 @@ class UserResource extends Resource
             ->checkIfRecordIsSelectableUsing(
                 fn (User $record): bool => ! static::isCurrentUser($record),
             );
+    }
+
+    /**
+     * Build a data-URI initials avatar for a user with no uploaded photo.
+     *
+     * Generated inline rather than fetched from a third-party initials service:
+     * the panel lists every user, so a remote URL would leak the whole user
+     * table to that service on each page view.
+     */
+    public static function initialsAvatarUrl(User $user): string
+    {
+        // Initials derive from the user-supplied name, so they reach this SVG
+        // as untrusted text: a name beginning with "<" yields initials that
+        // would otherwise break out of the <text> element. Escaped rather than
+        // stripped so legitimate names such as "A&B" still render.
+        $initials = e(Str::of($user->initials())->trim()->upper()->value());
+
+        $svg = <<<SVG
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+                <rect width="64" height="64" fill="#dbeafe"/>
+                <text x="50%" y="50%" fill="#1d4ed8"
+                      font-family="system-ui, sans-serif" font-size="26" font-weight="500"
+                      text-anchor="middle" dominant-baseline="central">{$initials}</text>
+            </svg>
+            SVG;
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
     }
 
     /**

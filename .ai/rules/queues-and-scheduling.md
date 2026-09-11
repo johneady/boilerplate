@@ -9,6 +9,7 @@ paths:
   - docker/entrypoint/entrypoint.sh
   - docker-compose.yml
   - docker-compose.dokploy.yml
+  - app/Jobs/ProcessUploadedImage.php
 ---
 
 # Queues & scheduling
@@ -68,3 +69,14 @@ Compose's default variable file is the project-root `.env` — which in a Larave
 `.env.docker.example` is the tracked template; `.env.docker` is gitignored.
 
 (Borrowed from ~/php/pet-adoption.)
+
+## Avatar removal cancels an in-flight processing job
+Deleting an avatar cannot un-queue a ProcessUploadedImage already dispatched, so Profile::deleteAvatar() stamps a cache marker (ProcessUploadedImage::removalKey($userId) => time()) and the job compares it against its own $dispatchedAt. If the removal is newer, the job deletes the conversions it just wrote and skips attaching — otherwise a Remove clicked seconds after an upload is silently undone when the worker catches up. Keep the $dispatchedAt constructor default (time()) if you add dispatch call sites.
+
+deleteAvatar() records the marker even when avatar_path is already null. That is the whole point: during an in-flight first upload avatar_path IS null, so an early return there would skip the marker in exactly the case the guard exists for. A test asserts the job's result is discarded end-to-end, not merely that the marker was written.
+
+The marker lives in the cache, so it depends on CACHE_STORE being shared across processes. `database` (this project's default) and Redis both qualify; a per-process store such as `array` or `file` alongside a real worker would silently break the guard. If that ever changes, move the marker to a column.
+
+The job also deletes the staged source BEFORE pruning the previous avatar directory. Ordering matters: once the source is gone a retry early-returns, so pruning last means a retry can never destroy the old set after the new one was rolled back.
+
+The `local` disk sets `throw => false`, so Storage::get() returns null (not an exception) on an unreadable file. The job null-checks before decodeBinary(); without it you get a TypeError outside the try/catch, bypassing the rollback.
