@@ -7,7 +7,9 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Blade;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
@@ -40,6 +42,7 @@ class AppServiceProvider extends ServiceProvider
         $this->configureViewComposers();
         $this->configureBladeDirectives();
         $this->configurePersistentMiddleware();
+        $this->configureMailFromSettings();
     }
 
     /**
@@ -97,6 +100,89 @@ class AppServiceProvider extends ServiceProvider
     protected function configurePersistentMiddleware(): void
     {
         Livewire::addPersistentMiddleware(RequirePassword::class);
+    }
+
+    /**
+     * Apply the administrator's mail settings over the framework's mail config.
+     *
+     * The override runs when the mail manager is first resolved -- the moment
+     * a message is about to be sent -- not while booting. A boot-time read
+     * would query the settings table on every request and command, including
+     * `php artisan migrate` against a database where the table does not exist
+     * yet, and would spend a query on requests that send no mail at all; the
+     * same trade-off that keeps the business name in a view composer.
+     *
+     * Until a mailer has actually been saved the environment stays in charge:
+     * deployments configure SMTP through MAIL_* (see docker/README.md), and
+     * forcing the setting's unsaved 'log' default over that would silently
+     * stop their mail from being delivered.
+     *
+     * The manager is resolved once per process, so a queue worker that sends
+     * mail keeps the config it booted with until restarted -- the standard
+     * `queue:restart` after changing SMTP settings.
+     */
+    protected function configureMailFromSettings(): void
+    {
+        $this->app->resolving('mail.manager', function (MailManager $manager): void {
+            $settings = app(Settings::class);
+
+            $fromAddress = $settings->string(SettingKey::MailFromAddress);
+
+            if ($fromAddress !== '') {
+                Config::set('mail.from.address', $fromAddress);
+                Config::set('mail.from.name', $settings->string(SettingKey::MailFromName) ?: $settings->businessName());
+            }
+
+            if (! $settings->has(SettingKey::MailMailer)) {
+                return;
+            }
+
+            if ($settings->string(SettingKey::MailMailer) !== 'smtp') {
+                // A saved choice replaces the environment entirely.
+                Config::set('mail.default', 'log');
+
+                return;
+            }
+
+            // Fail closed: an SMTP row without a host cannot deliver anything,
+            // and half a config would surface as transport errors at send
+            // time. Mail stays on the log mailer until the row is complete.
+            if ($settings->string(SettingKey::MailHost) === '') {
+                Config::set('mail.default', 'log');
+
+                return;
+            }
+
+            Config::set('mail.default', 'smtp');
+            Config::set('mail.mailers.smtp.host', $settings->string(SettingKey::MailHost));
+
+            $port = $settings->string(SettingKey::MailPort);
+
+            if ($port !== '') {
+                Config::set('mail.mailers.smtp.port', (int) $port);
+            }
+
+            $username = $settings->string(SettingKey::MailUsername);
+
+            if ($username !== '') {
+                Config::set('mail.mailers.smtp.username', $username);
+            }
+
+            $password = $settings->string(SettingKey::MailPassword);
+
+            if ($password !== '') {
+                Config::set('mail.mailers.smtp.password', $password);
+            }
+
+            // The cast guarantees one of the four stored values, so the blank
+            // ("framework default") arm reads as TLS -- the framework's own
+            // default for the smtp mailer.
+            Config::set('mail.mailers.smtp.encryption', match ($settings->string(SettingKey::MailEncryption)) {
+                'none' => null,
+                'ssl' => 'ssl',
+                default => 'tls',
+            });
+        });
     }
 
     /**

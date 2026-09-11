@@ -17,6 +17,8 @@ enum SettingsTab: string
 
     case Registration = 'registration';
 
+    case Mail = 'mail';
+
     /**
      * The heading shown on the tab in the admin panel.
      */
@@ -25,6 +27,7 @@ enum SettingsTab: string
         return match ($this) {
             self::BusinessDetails => 'Business details',
             self::Registration => 'Registration',
+            self::Mail => 'Email',
         };
     }
 
@@ -36,6 +39,7 @@ enum SettingsTab: string
         return match ($this) {
             self::BusinessDetails => Heroicon::OutlinedBuildingOffice2,
             self::Registration => Heroicon::OutlinedUserPlus,
+            self::Mail => Heroicon::OutlinedEnvelope,
         };
     }
 }

@@ -13,6 +13,18 @@ test('a setting that has never been saved reads back as its declared default', f
         ->and($this->settings->get(SettingKey::AllowRegistration))->toBeFalse();
 });
 
+test('a saved setting is distinguished from an unsaved one', function () {
+    // Reading an unsaved key returns the declared default, so has() is the
+    // only way to tell "never chosen" from "chosen and left at the default" --
+    // the distinction the mail config keys on.
+    expect($this->settings->has(SettingKey::MailMailer))->toBeFalse();
+
+    $this->settings->set(SettingKey::MailMailer, 'log');
+
+    expect($this->settings->has(SettingKey::MailMailer))->toBeTrue()
+        ->and($this->settings->string(SettingKey::MailMailer))->toBe('log');
+});
+
 test('new user registrations are off until an administrator turns them on', function () {
     expect(SettingKey::AllowRegistration->default())->toBeFalse();
 });
@@ -159,3 +171,40 @@ test('unsaved business contact details read as empty strings', function () {
         ->and($this->settings->string(SettingKey::BusinessPhone))->toBe('')
         ->and($this->settings->string(SettingKey::BusinessEmail))->toBe('');
 });
+
+test('unsaved mail settings read as the log mailer with no connection details', function () {
+    expect($this->settings->string(SettingKey::MailMailer))->toBe('log')
+        ->and($this->settings->string(SettingKey::MailHost))->toBe('')
+        ->and($this->settings->string(SettingKey::MailPort))->toBe('')
+        ->and($this->settings->string(SettingKey::MailUsername))->toBe('')
+        ->and($this->settings->string(SettingKey::MailPassword))->toBe('')
+        ->and($this->settings->string(SettingKey::MailEncryption))->toBe('')
+        ->and($this->settings->string(SettingKey::MailFromAddress))->toBe('')
+        ->and($this->settings->string(SettingKey::MailFromName))->toBe('');
+});
+
+test('a stored mailer that is not log or smtp reads as log', function (mixed $stored) {
+    // Like the registration gate, the mailer must fail closed: a row
+    // hand-edited to a typo or a driver this app does not configure must not
+    // produce a mailer that cannot resolve.
+    Setting::create(['key' => 'mail_mailer', 'value' => $stored]);
+
+    expect($this->settings->string(SettingKey::MailMailer))->toBe('log');
+})->with([
+    'an empty string' => [''],
+    'a typo' => ['smtpx'],
+    'an unconfigured driver' => ['ses'],
+    'a boolean true' => [true],
+    'null' => [null],
+]);
+
+test('a stored encryption that is not recognised reads as blank', function (mixed $stored) {
+    Setting::create(['key' => 'mail_encryption', 'value' => $stored]);
+
+    expect($this->settings->string(SettingKey::MailEncryption))->toBe('');
+})->with([
+    'upper case tls' => ['TLS'],
+    'a starttls typo' => ['starttls'],
+    'a boolean true' => [true],
+    'null' => [null],
+]);

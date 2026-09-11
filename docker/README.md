@@ -104,6 +104,10 @@ you have since changed.
    MAIL_SCHEME=smtp
    ```
 
+   These environment values stay in charge until a mailer is chosen from
+   **Admin → Settings → Email**, after which the saved settings take
+   precedence.
+
    Everything else (`APP_ENV`, `APP_DEBUG`, `TRUST_PROXIES`,
    session/cache/queue drivers, …) is hardcoded in `docker-compose.dokploy.yml`
    and must not be set here.

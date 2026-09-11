@@ -22,6 +22,22 @@ enum SettingKey: string
 
     case AllowRegistration = 'allow_registration';
 
+    case MailMailer = 'mail_mailer';
+
+    case MailHost = 'mail_host';
+
+    case MailPort = 'mail_port';
+
+    case MailUsername = 'mail_username';
+
+    case MailPassword = 'mail_password';
+
+    case MailEncryption = 'mail_encryption';
+
+    case MailFromAddress = 'mail_from_address';
+
+    case MailFromName = 'mail_from_name';
+
     /**
      * The settings-page tab this key is edited on.
      */
@@ -30,6 +46,7 @@ enum SettingKey: string
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
             self::AllowRegistration => SettingsTab::Registration,
+            self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => SettingsTab::Mail,
         };
     }
 
@@ -42,6 +59,8 @@ enum SettingKey: string
             self::BusinessName => config('app.name', 'Laravel'),
             self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => '',
             self::AllowRegistration => false,
+            self::MailMailer => 'log',
+            self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => '',
         };
     }
 
@@ -56,6 +75,9 @@ enum SettingKey: string
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => self::toFilledString($value, $this->default()),
             self::AllowRegistration => self::toBoolean($value),
+            self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
+            self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
+            self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailFromAddress, self::MailFromName => self::toFilledString($value, ''),
         };
     }
 
@@ -76,6 +98,20 @@ enum SettingKey: string
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? $default : $trimmed;
+    }
+
+    /**
+     * Interpret a stored value as one of a fixed set, failing closed.
+     *
+     * Like toBoolean(), this guards a setting that switches behaviour: a mailer
+     * row hand-edited to a typo or an unsupported driver must fall back to the
+     * declared default rather than produce a mailer that cannot resolve.
+     *
+     * @param  array<int, string>  $allowed
+     */
+    private static function toOneOf(mixed $value, array $allowed, string $default): string
+    {
+        return in_array($value, $allowed, true) ? $value : $default;
     }
 
     /**
@@ -102,6 +138,14 @@ enum SettingKey: string
             self::BusinessPhone => 'Phone',
             self::BusinessEmail => 'Email',
             self::AllowRegistration => 'Allow new user registrations',
+            self::MailMailer => 'Mailer',
+            self::MailHost => 'Host',
+            self::MailPort => 'Port',
+            self::MailUsername => 'Username',
+            self::MailPassword => 'Password',
+            self::MailEncryption => 'Encryption',
+            self::MailFromAddress => 'From address',
+            self::MailFromName => 'From name',
         };
     }
 
@@ -116,6 +160,14 @@ enum SettingKey: string
             self::BusinessPhone => 'The phone number shown in the public site\'s footer. Leave blank to hide it.',
             self::BusinessEmail => 'The contact address shown in the public site\'s footer. Leave blank to hide it.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
+            self::MailMailer => 'How outgoing email is delivered. "Log" writes messages to the application log; "SMTP" sends through the server below.',
+            self::MailHost => 'The SMTP server to send through, e.g. smtp.fastmail.com. Required before SMTP delivery is used.',
+            self::MailPort => 'The port to connect on. Leave blank for the default of 587.',
+            self::MailUsername => 'The SMTP username, if the server requires authentication.',
+            self::MailPassword => 'The SMTP password, if the server requires authentication.',
+            self::MailEncryption => 'How the connection is secured. Leave blank for the default (TLS).',
+            self::MailFromAddress => 'The address outgoing email is sent from. Leave blank to keep the deployment default.',
+            self::MailFromName => 'The name outgoing email is sent from. Leave blank to use the business name.',
         };
     }
 }

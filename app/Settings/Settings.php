@@ -54,6 +54,19 @@ class Settings
     }
 
     /**
+     * Whether a row has ever been stored for this key.
+     *
+     * Distinguishes "never saved" from "saved with the declared default",
+     * which get() alone cannot: reading an unsaved key returns the default
+     * either way. That is what lets the mail configuration stand down to the
+     * environment until an administrator has actually chosen a mailer.
+     */
+    public function has(SettingKey $key): bool
+    {
+        return array_key_exists($key->value, $this->all());
+    }
+
+    /**
      * The name the application trades under, shown wherever it is branded.
      */
     public function businessName(): string
