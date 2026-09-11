@@ -391,6 +391,20 @@ test('the from name hints at the value a blank falls back to', function () {
     expect($fields['mail_from_name']->getPlaceholder())->toBe('Cromulent Widgets');
 });
 
+test('the test email modal defaults to the business contact address', function () {
+    app(Settings::class)->set(SettingKey::BusinessEmail, 'office@cromulent.test');
+
+    Livewire::test(ManageSettings::class)
+        ->mountAction('testEmail')
+        ->assertActionDataSet(['recipient' => 'office@cromulent.test']);
+});
+
+test('the test email modal falls back to the administrator when no business contact address is set', function () {
+    Livewire::test(ManageSettings::class)
+        ->mountAction('testEmail')
+        ->assertActionDataSet(['recipient' => $this->admin->email]);
+});
+
 test('the test email action delivers the message to the chosen address', function () {
     Mail::fake();
 

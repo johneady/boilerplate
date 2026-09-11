@@ -340,6 +340,12 @@ class ManageSettings extends Page
                         ->email()
                         ->required()
                         ->default(function (): string {
+                            $businessEmail = $this->settings()->string(SettingKey::BusinessEmail);
+
+                            if ($businessEmail !== '') {
+                                return $businessEmail;
+                            }
+
                             $user = auth()->user();
 
                             return $user instanceof User ? $user->email : '';
