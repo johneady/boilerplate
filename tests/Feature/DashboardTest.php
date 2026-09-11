@@ -50,3 +50,71 @@ test('the starter kit repository and documentation links are gone', function () 
         ->assertDontSee('github.com/laravel/livewire-starter-kit')
         ->assertDontSee('laravel.com/docs/starter-kits');
 });
+
+/**
+ * The signed-in shell is blue-themed. Assert against the sidebar element itself
+ * rather than the page: the mobile header carries the same tint, so a looser
+ * check still passes when only the sidebar is reverted to neutral zinc.
+ */
+test('the dashboard menu is blue themed', function () {
+    $html = $this->actingAs(User::factory()->create())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toMatch('/<ui-sidebar[^>]*\bbg-blue-50\/70\b/')
+        ->and($html)->toMatch('/<ui-sidebar[^>]*\bborder-blue-100\b/');
+
+    /**
+     * The layout hardcodes <html class="dark">, so the dark variants are the
+     * ones users actually see; leaving them on Flux's zinc renders a sidebar
+     * indistinguishable from the unthemed one.
+     */
+    expect($html)->toMatch('/<ui-sidebar[^>]*\bdark:bg-blue-950\b/')
+        ->and($html)->not->toMatch('/<ui-sidebar[^>]*\bdark:bg-zinc-900\b/');
+
+    /** The current nav item's blue active state. */
+    expect($html)->toContain('dark:data-current:bg-blue-500/25')
+        ->and($html)->toContain('hover:text-blue-700');
+});
+
+/**
+ * The user menu (profile dropdown) matches the blue sidebar. Flux hardcodes zinc
+ * for the menu surface, item hover and separator line, so these are !important
+ * overrides — assert on the elements themselves so a dropped override fails here
+ * rather than rendering a stray zinc panel inside a blue sidebar.
+ */
+test('the dashboard user menu is blue themed', function () {
+    $html = $this->actingAs(User::factory()->create())
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->getContent();
+
+    /**
+     * Both the desktop and the mobile dropdown panels. Match <ui-menu> exactly:
+     * <ui-menu-radio-group> also carries a data-flux-menu* attribute.
+     */
+    preg_match_all('/<ui-menu\s[^>]*>/', $html, $menus);
+    $panels = $menus[0];
+
+    expect($panels)->toHaveCount(2);
+
+    foreach ($panels as $panel) {
+        expect($panel)->toContain('bg-blue-50/95!')
+            ->and($panel)->toContain('border-blue-100!')
+            /** Dark is the rendered mode; see the sidebar test above. */
+            ->and($panel)->toContain('dark:bg-blue-900!');
+    }
+
+    /** The separator line itself, not menu.separator's wrapper. */
+    preg_match_all('/<div[^>]*data-flux-separator[^>]*>/', $html, $separators);
+
+    expect($separators[0])->not->toBeEmpty();
+
+    foreach ($separators[0] as $separator) {
+        expect($separator)->toContain('bg-blue-200!');
+    }
+
+    /** Item hover/active state. */
+    expect($html)->toContain('data-active:bg-blue-500/10!');
+});

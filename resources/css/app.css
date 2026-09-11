@@ -23,16 +23,21 @@
     --color-zinc-900: #171717;
     --color-zinc-950: #0a0a0a;
 
-    --color-accent: var(--color-neutral-800);
-    --color-accent-content: var(--color-neutral-800);
+    /*
+     * The app's accent is blue. Flux resolves these tokens for the sidebar's
+     * current item, the brand mark and focus rings, so setting them here themes
+     * the whole signed-in shell rather than overriding utilities per component.
+     */
+    --color-accent: var(--color-blue-600);
+    --color-accent-content: var(--color-blue-700);
     --color-accent-foreground: var(--color-white);
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-white);
-        --color-accent-content: var(--color-white);
-        --color-accent-foreground: var(--color-neutral-800);
+        --color-accent: var(--color-blue-500);
+        --color-accent-content: var(--color-blue-300);
+        --color-accent-foreground: var(--color-white);
     }
 }
 
