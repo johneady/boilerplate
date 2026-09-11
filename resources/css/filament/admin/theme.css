@@ -1,4 +1,14 @@
 @import '../../../../vendor/filament/filament/resources/css/theme.css';
 
+/*
+ * The Account cluster renders Flux-built Livewire components inside the panel.
+ * Flux's stylesheet lives in app.css, which the panel never loads, so without
+ * these its buttons, inputs and modals render as unstyled HTML -- and the
+ * stubs must be scanned too, since that is where their utility classes live.
+ */
+@import '../../../../vendor/livewire/flux/dist/flux.css';
+
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
+@source '../../../../resources/views/partials/settings/**/*';
+@source '../../../../vendor/livewire/flux/stubs/**/*.blade.php';

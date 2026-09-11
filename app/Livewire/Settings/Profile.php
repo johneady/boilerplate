@@ -4,6 +4,7 @@ namespace App\Livewire\Settings;
 
 use App\Concerns\ImageValidationRules;
 use App\Concerns\ProfileValidationRules;
+use App\Concerns\RendersSettingsChrome;
 use App\Concerns\ResolvesAuthenticatedUser;
 use App\Jobs\ProcessUploadedImage;
 use Flux\Flux;
@@ -19,7 +20,7 @@ use Livewire\WithFileUploads;
 #[Title('Profile settings')]
 class Profile extends Component
 {
-    use ImageValidationRules, ProfileValidationRules, ResolvesAuthenticatedUser, WithFileUploads;
+    use ImageValidationRules, ProfileValidationRules, RendersSettingsChrome, ResolvesAuthenticatedUser, WithFileUploads;
 
     public string $name = '';
 
@@ -171,5 +172,21 @@ class Profile extends Component
     public function showDeleteUser(): bool
     {
         return $this->authenticatedUser()->hasVerifiedEmail();
+    }
+
+    /**
+     * @return view-string
+     */
+    protected function bareView(): string
+    {
+        return 'partials.settings.profile';
+    }
+
+    /**
+     * @return view-string
+     */
+    protected function chromedView(): string
+    {
+        return 'livewire.settings.profile';
     }
 }

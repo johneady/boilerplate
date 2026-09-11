@@ -122,10 +122,18 @@
 
     {{-- Hosting --}}
     <section>
-        <h3 class="flex items-center gap-2 text-sm font-semibold tracking-widest text-blue-700 uppercase dark:text-blue-400">
+        <h3 class="flex flex-wrap items-center gap-2 text-sm font-semibold tracking-widest text-blue-700 uppercase dark:text-blue-400">
             <x-filament::icon icon="heroicon-s-server-stack" class="size-4" />
             Getting it online and keeping it there
+            <span class="rounded-full border border-blue-600/30 px-2 py-0.5 text-[0.625rem] font-medium tracking-normal text-blue-700 normal-case dark:border-blue-400/30 dark:text-blue-400">
+                All optional
+            </span>
         </h3>
+
+        <p class="mt-2 text-xs leading-relaxed text-zinc-600 dark:text-zinc-400">
+            Pick and choose whichever of these you want. Take them all, take none, or bring your own hosting and I will
+            work with what you already have.
+        </p>
 
         <div class="mt-4 grid gap-4 sm:grid-cols-3">
             @foreach ([

@@ -71,11 +71,13 @@ you have since changed.
 
    ```dotenv
    # ---- required: the deploy fails with a named error if any is missing ----
-   # php artisan key:generate --show  (reuse across redeploys: sessions are
-   # encrypted, so changing it logs everyone out)
+   # Generate with: php artisan key:generate --show
+   # Reuse the same key across redeploys: sessions are encrypted, so changing
+   # it logs everyone out. Never deploy a key published in a repo.
    APP_KEY=FILL_ME_IN
-   # The https:// domain Traefik serves, e.g. https://app.example.com
+   # Must be the https:// domain Traefik serves, e.g. https://app.example.com
    APP_URL=FILL_ME_IN
+
    # The Dokploy-managed MariaDB, NOT localhost
    DB_HOST=FILL_ME_IN
    DB_DATABASE=FILL_ME_IN
@@ -88,9 +90,18 @@ you have since changed.
    DB_CONNECTION=mariadb
    DB_PORT=3306
    RUN_SEEDERS=true
+
+   # Mail. Leave MAIL_MAILER=log to write mail to the log instead of sending.
+   # To send over SMTP, set MAIL_MAILER=smtp and fill in the four SMTP lines.
    MAIL_MAILER=log
    MAIL_FROM_ADDRESS=hello@example.com
    MAIL_FROM_NAME=Boilerplate
+   MAIL_HOST=smtp.example.com
+   MAIL_PORT=587
+   MAIL_USERNAME=FILL_ME_IN
+   MAIL_PASSWORD=FILL_ME_IN
+   # smtps forces TLS on connect (port 465); smtp upgrades via STARTTLS
+   MAIL_SCHEME=smtp
    ```
 
    Everything else (`APP_ENV`, `APP_DEBUG`, `TRUST_PROXIES`,

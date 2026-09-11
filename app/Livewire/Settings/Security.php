@@ -3,6 +3,7 @@
 namespace App\Livewire\Settings;
 
 use App\Concerns\PasswordValidationRules;
+use App\Concerns\RendersSettingsChrome;
 use App\Concerns\ResolvesAuthenticatedUser;
 use Exception;
 use Flux\Flux;
@@ -25,7 +26,7 @@ use Livewire\Component;
 #[Title('Security settings')]
 class Security extends Component
 {
-    use PasswordValidationRules, ResolvesAuthenticatedUser;
+    use PasswordValidationRules, RendersSettingsChrome, ResolvesAuthenticatedUser;
 
     public string $current_password = '';
 
@@ -330,5 +331,21 @@ class Security extends Component
             'description' => __('To finish enabling two-factor authentication, scan the QR code or enter the setup key in your authenticator app.'),
             'buttonText' => __('Continue'),
         ];
+    }
+
+    /**
+     * @return view-string
+     */
+    protected function bareView(): string
+    {
+        return 'partials.settings.security';
+    }
+
+    /**
+     * @return view-string
+     */
+    protected function chromedView(): string
+    {
+        return 'livewire.settings.security';
     }
 }

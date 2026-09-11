@@ -86,6 +86,14 @@ x-app-base: &app-base
     MAIL_MAILER: ${MAIL_MAILER:-log}
     MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
     MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Boilerplate}
+    # Unset unless MAIL_MAILER=smtp. Without these forwarded, setting
+    # MAIL_MAILER=smtp yields a container with SMTP selected and no server to
+    # send through, which fails only at the first send.
+    MAIL_HOST: ${MAIL_HOST:-}
+    MAIL_PORT: ${MAIL_PORT:-587}
+    MAIL_USERNAME: ${MAIL_USERNAME:-}
+    MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    MAIL_SCHEME: ${MAIL_SCHEME:-smtp}
 
     # Overridden per service below. The web role owns migrations and seeding;
     # worker and scheduler containers force both off in the entrypoint whatever
