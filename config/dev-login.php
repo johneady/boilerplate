@@ -4,16 +4,26 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Allowed Environments
+    | Blocked Environments
     |--------------------------------------------------------------------------
     |
-    | Quick dev logins are only offered, and only honoured, in these
-    | environments. Anywhere else the route is not registered at all, so a
-    | stray request 404s rather than relying on a runtime guard.
+    | Quick dev logins are offered in EVERY environment except these. The list
+    | is a denylist rather than an allowlist on purpose: a bespoke environment
+    | name ('staging', 'demo', 'review-42') should get the one-click logins
+    | without having to be added here first.
+    |
+    | Where they are blocked the route is not registered at all, so a stray
+    | request 404s rather than relying on a runtime guard.
+    |
+    | SECURITY: every environment not named here offers PASSWORDLESS login to
+    | the seeded accounts, whose credentials are fixed and public (see
+    | config/first.php). A deployed instance that is not APP_ENV=production is
+    | therefore open to anyone who can reach its login page. Deploy real
+    | instances as 'production'.
     |
     */
 
-    'allowed_environments' => ['local', 'testing'],
+    'blocked_environments' => ['production'],
 
     /*
     |--------------------------------------------------------------------------

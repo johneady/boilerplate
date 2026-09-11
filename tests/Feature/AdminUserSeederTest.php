@@ -3,6 +3,7 @@
 use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\DatabaseSeeder;
+use Illuminate\Support\Facades\Hash;
 
 test('it seeds an admin user from configuration', function () {
     config(['first.user.name' => 'Seeded Admin', 'first.user.email' => 'seeded@example.com']);
@@ -58,28 +59,43 @@ test('promoting an existing user leaves their name and password alone', function
         ->and(User::where('email', 'seeded@example.com')->count())->toBe(1);
 });
 
-test('it refuses insecure default credentials outside local and testing', function () {
-    app()->detectEnvironment(fn () => 'production');
-
-    config(['first.user.email' => 'admin@example.com', 'first.user.password' => 'password']);
-
-    expect(fn () => (new AdminUserSeeder)->run())
-        ->toThrow(RuntimeException::class, 'Refusing to seed the admin user');
-
-    expect(User::where('email', 'admin@example.com')->exists())->toBeFalse();
-});
-
-test('it seeds in production when credentials are configured', function () {
-    app()->detectEnvironment(fn () => 'production');
-
-    config([
-        'first.user.email' => 'real-admin@example.com',
-        'first.user.password' => 'a-genuinely-strong-password',
-    ]);
+/**
+ * The credentials are fixed demo values rather than environment-driven, so a
+ * deployed instance seeds an admin with no configuration at all. The seeder
+ * used to refuse its own defaults outside local/testing; that guard is gone
+ * deliberately, and this asserts the replacement behaviour rather than leaving
+ * the removal uncovered.
+ */
+test('it seeds the demo admin in every environment, including production', function (string $environment) {
+    app()->detectEnvironment(fn () => $environment);
 
     (new AdminUserSeeder)->run();
 
-    expect(User::where('email', 'real-admin@example.com')->first()->is_admin)->toBeTrue();
+    $admin = User::where('email', config('first.user.email'))->first();
+
+    expect($admin)->not->toBeNull()
+        ->and($admin->is_admin)->toBeTrue();
+})->with(['local', 'staging', 'production']);
+
+/**
+ * The password is public, so changing it is the one manual step a real
+ * deployment must take. A redeploy re-runs the seeder, and it must not undo it.
+ */
+test('re-seeding never resets a password changed after the first boot', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    (new AdminUserSeeder)->run();
+
+    $admin = User::where('email', config('first.user.email'))->first();
+    $admin->password = 'a-genuinely-strong-replacement';
+    $admin->save();
+
+    $changed = $admin->fresh()->password;
+
+    (new AdminUserSeeder)->run();
+
+    expect($admin->fresh()->password)->toBe($changed)
+        ->and($admin->fresh()->is_admin)->toBeTrue();
 });
 
 test('the full seed leaves the configured admin an admin', function () {
@@ -108,4 +124,55 @@ test('seeding twice is idempotent', function () {
 
     expect(User::where('email', 'seeded@example.com')->count())->toBe(1)
         ->and(User::where('email', 'test@example.com')->count())->toBe(1);
+});
+
+/**
+ * Item 1: a deployed demo instance must come up with the accounts its login
+ * page offers. DatabaseSeeder used to gate the non-admin user to local/testing,
+ * which left the quick-login button on a staging box rendering "Not seeded".
+ */
+test('the non-admin demo user is seeded wherever quick logins are offered', function (string $environment) {
+    app()->detectEnvironment(fn () => $environment);
+
+    $this->seed(DatabaseSeeder::class);
+
+    expect(User::where('email', 'test@example.com')->exists())->toBeTrue();
+})->with(['local', 'staging', 'demo']);
+
+test('the non-admin demo user is not seeded in production', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    // Run the seeder directly: $this->seed() goes through the artisan command,
+    // which prompts for confirmation when the environment is production.
+    (new DatabaseSeeder)->run();
+
+    expect(User::where('email', 'test@example.com')->exists())->toBeFalse()
+        ->and(User::where('email', config('first.user.email'))->exists())->toBeTrue();
+});
+
+/**
+ * The production image is installed with --no-dev, so fakerphp/faker is absent
+ * and any factory call in a seeder that now runs there is a fatal error.
+ * See .ai/rules/seeders.md.
+ */
+test('the demo user is built without the factory', function () {
+    $source = file_get_contents(base_path('database/seeders/DatabaseSeeder.php'));
+
+    expect($source)->not->toContain('factory()');
+});
+
+/**
+ * The README and docker/README.md publish these credentials as the way into a
+ * fresh instance, so an unusable password is a documented promise broken. The
+ * 'hashed' cast is what makes assigning a plain string work; asserting the
+ * password VERIFIES guards against that cast being removed.
+ */
+test('the seeded accounts can actually sign in with the documented password', function () {
+    $this->seed(DatabaseSeeder::class);
+
+    $admin = User::where('email', config('first.user.email'))->first();
+    $demo = User::where('email', 'test@example.com')->first();
+
+    expect(Hash::check(config('first.user.password'), $admin->password))->toBeTrue()
+        ->and(Hash::check('password', $demo->password))->toBeTrue();
 });

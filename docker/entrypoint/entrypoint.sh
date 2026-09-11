@@ -114,18 +114,17 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     }
 fi
 
-# Seeding. AdminUserSeeder is idempotent (it returns early when the configured
-# admin email already exists) and DatabaseSeeder only adds its local/testing
-# user outside production, so this is safe to leave enabled across redeploys.
+# Seeding. AdminUserSeeder is idempotent (an existing admin address is promoted,
+# never reset) and DatabaseSeeder's demo user is skipped once it exists, so this
+# is safe to leave enabled across redeploys. The demo user is seeded in every
+# environment but production, matching where the quick logins are offered.
 #
-# The seeder REFUSES to run with the default admin credentials outside
-# local/testing, so a production deploy must set FIRST_USER_EMAIL and a strong
-# FIRST_USER_PASSWORD or this step fails loudly.
+# The admin credentials are fixed demo values in config/first.php, so there is
+# nothing to configure and nothing that can be forgotten here.
 if [ "${RUN_SEEDERS:-true}" = "true" ]; then
     log "Seeding (idempotent) ..."
     php artisan db:seed --force || {
-        log "FATAL: db:seed failed. If this is production, confirm FIRST_USER_EMAIL"
-        log "       and FIRST_USER_PASSWORD are set to non-default values."
+        log "FATAL: db:seed failed."
         exit 1
     }
 fi

@@ -37,16 +37,25 @@ database, and migrate:fresh must stay prohibited there. Guard new destructive or
 data-exposing behaviour by naming the safe environments, not by excluding
 production. tests/Feature/AppDefaultsTest.php covers staging explicitly.
 
-## APP_ENV is the only dev-login gate, and the allow list is deliberately hardcoded
-config/dev-login.php hardcodes ['local', 'testing']. An earlier revision added
+## APP_ENV is the only dev-login gate, and it is a DENYLIST of production alone
+config/dev-login.php holds `blocked_environments => ['production']`, and
+DevLoginAccounts::enabled() returns true for everything else. It was an allowlist
+of ['local', 'testing']; it was changed on request so that any bespoke
+environment name (staging, demo, review-42) gets the one-click logins without
+being registered first. An earlier revision also had
 DEV_LOGIN_ENVIRONMENTS/DEV_LOGIN_HOSTS plus a host allow-list as a second gate;
-both were removed on request, leaving APP_ENV as the single gate. Do not
-reintroduce a config toggle for the environment list.
+both were removed, leaving APP_ENV as the single gate. Do not reintroduce a
+config toggle, and do not convert this back to an allowlist.
 
-The consequence is that APP_ENV alone decides this, and
-docker-compose.dokploy.yml makes APP_ENV overridable: setting APP_ENV=local on a
-deployed instance puts a passwordless one-click admin login on that public URL,
-with nothing else stopping it. That trade-off is accepted deliberately. Anything
-that widens it -- defaulting APP_ENV to something other than production, or
-adding an environment to the allow list -- needs the same explicit decision, not
-a convenience commit.
+enabled() must keep failing CLOSED: an empty or missing blocked list falls back
+to blocking production, because a list that resolved to nothing would otherwise
+turn passwordless login on in the one environment it exists to protect.
+tests/Feature/DevLoginTest.php covers both the denylist and the fallback.
+
+The consequence, accepted deliberately and documented in docker/README.md: EVERY
+deployed instance that is not APP_ENV=production offers passwordless one-click
+login to the seeded accounts, whose credentials are fixed and public
+(config/first.php). Staging is no longer an exception -- it is squarely inside
+the permitted set. Anything that widens this further -- removing production from
+the list, or defaulting APP_ENV to anything else -- needs an explicit decision,
+not a convenience commit.

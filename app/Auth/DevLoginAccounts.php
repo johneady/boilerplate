@@ -9,13 +9,27 @@ class DevLoginAccounts
     /**
      * Determine whether quick dev logins are available.
      *
-     * APP_ENV is the only gate: `local` and `testing` offer them, every other
-     * environment does not, and routes/web.php skips registering the route
-     * entirely where this is false.
+     * APP_ENV is the only gate, and it is a denylist: every environment offers
+     * the one-click logins except those named in config/dev-login.php, so a
+     * bespoke environment name works without being registered first.
+     * routes/web.php skips registering the route entirely where this is false.
+     *
+     * Fails CLOSED on a missing or empty config: a blocked list that resolves
+     * to nothing would otherwise turn passwordless login on in production --
+     * exactly the environment the list exists to exclude.
      */
     public function enabled(): bool
     {
-        return app()->environment((array) config('dev-login.allowed_environments'));
+        $blocked = array_filter(array_map(
+            fn (mixed $environment): string => trim((string) $environment),
+            (array) config('dev-login.blocked_environments', ['production']),
+        ));
+
+        if ($blocked === []) {
+            $blocked = ['production'];
+        }
+
+        return ! app()->environment($blocked);
     }
 
     /**

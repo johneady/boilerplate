@@ -79,12 +79,6 @@ x-app-base: &app-base
     # Seeding is idempotent, so this stays safe across redeploys.
     RUN_SEEDERS: "true"
 
-    # AdminUserSeeder refuses the built-in defaults outside local/testing, so
-    # a non-local deploy must set these to real values.
-    FIRST_USER_NAME: "Admin User"
-    FIRST_USER_EMAIL: admin@example.test
-    FIRST_USER_PASSWORD: a-throwaway-local-password
-
   volumes:
     - storage-logs:/var/www/html/storage/logs
 

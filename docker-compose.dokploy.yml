@@ -93,17 +93,14 @@ x-app-base: &app-base
     CONTAINER_ROLE: app
     RUN_MIGRATIONS: "true"
 
-    # Runs AdminUserSeeder/DatabaseSeeder on FIRST BOOT only (the admin
-    # seeder itself skips when the configured FIRST_USER_EMAIL already
-    # exists, promoting instead of resetting). Leaving true across
-    # redeploys is safe; it never resets an existing database.
+    # Seeds the demo accounts so the instance is usable the moment it is up.
+    # Idempotent: the admin seeder promotes an existing account rather than
+    # resetting it, and the demo user is skipped once present, so leaving this
+    # true across redeploys never resets a password you have since changed.
+    #
+    # The credentials are fixed and public (config/first.php) -- there is
+    # nothing to configure here, and nothing to forget.
     RUN_SEEDERS: ${RUN_SEEDERS:-true}
-
-    # AdminUserSeeder REFUSES to run with its built-in defaults outside
-    # local/testing, so these must be set or the deploy fails at seeding.
-    FIRST_USER_NAME: ${FIRST_USER_NAME:-Admin User}
-    FIRST_USER_EMAIL: ${FIRST_USER_EMAIL:?set FIRST_USER_EMAIL in Dokploy (not admin@example.com)}
-    FIRST_USER_PASSWORD: ${FIRST_USER_PASSWORD:?set a strong FIRST_USER_PASSWORD in Dokploy}
 
   # Must join dokploy-network, the shared network the Dokploy-managed MariaDB
   # lives on. Without this, Compose puts the service on a project default

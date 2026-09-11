@@ -129,19 +129,34 @@ test('dev logins are disabled outside the allowed environments', function () {
     expect(app(DevLoginAccounts::class)->enabled())->toBeFalse();
 });
 
-test('dev logins are disabled on a deployed staging instance', function () {
-    app()->detectEnvironment(fn () => 'staging');
+/**
+ * The gate is a denylist: production is the ONLY environment that withholds the
+ * quick logins, so a bespoke environment name works without being registered.
+ *
+ * This is a deliberate trade -- a deployed instance that is not 'production'
+ * offers passwordless login to the seeded accounts.
+ */
+test('dev logins are enabled in every environment except production', function (string $environment) {
+    app()->detectEnvironment(fn () => $environment);
+
+    expect(app(DevLoginAccounts::class)->enabled())->toBeTrue();
+})->with(['local', 'testing', 'staging', 'demo', 'review-42']);
+
+/**
+ * A blocked list that resolved to nothing would turn passwordless login ON in
+ * production, so the gate falls back to blocking production regardless.
+ */
+test('the gate fails closed in production when the blocked list is empty', function (mixed $blocked) {
+    app()->detectEnvironment(fn () => 'production');
+
+    config(['dev-login.blocked_environments' => $blocked]);
 
     expect(app(DevLoginAccounts::class)->enabled())->toBeFalse();
-});
-
-test('dev logins are enabled in local and testing', function () {
-    app()->detectEnvironment(fn () => 'local');
-    expect(app(DevLoginAccounts::class)->enabled())->toBeTrue();
-
-    app()->detectEnvironment(fn () => 'testing');
-    expect(app(DevLoginAccounts::class)->enabled())->toBeTrue();
-});
+})->with([
+    'empty array' => [[]],
+    'blank strings' => [['', '   ']],
+    'null' => [null],
+]);
 
 test('an unusable account does not renumber the accounts after it', function () {
     // The position is what a submitted form names, so dropping the first entry
