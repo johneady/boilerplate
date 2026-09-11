@@ -11,6 +11,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Providers/Filament/** | .ai/rules/filament.md |
 | app/Http/Middleware/EnsureRegistrationIsEnabled.php | .ai/rules/middleware.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
+| app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/**, docker-compose.yml, docker-compose.dokploy.yml | .ai/rules/queues-and-scheduling.md |
 | database/seeders/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
 | resources/views/** | .ai/rules/views.md |

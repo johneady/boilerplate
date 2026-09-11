@@ -10,6 +10,39 @@ set -euo pipefail
 
 log() { printf '[entrypoint] %s\n' "$*"; }
 
+# ---------------------------------------------------------------------------
+# Container role.
+#
+# One image, three roles: the web tier (nginx + php-fpm), a queue worker, and
+# the scheduler. Each runs as its own container with its own supervisor program
+# set, so a wedged worker cannot stop requests being served and a web restart
+# cannot kill a job mid-flight.
+#
+# Only the web role owns the database: migrations and seeding run there and
+# nowhere else. Two containers starting together would otherwise race the same
+# migration, and Laravel's --isolated lock lives in the cache table that the
+# very first migration creates.
+# ---------------------------------------------------------------------------
+CONTAINER_ROLE="${CONTAINER_ROLE:-app}"
+
+case "${CONTAINER_ROLE}" in
+    app|worker|scheduler) ;;
+    *)
+        log "FATAL: unknown CONTAINER_ROLE '${CONTAINER_ROLE}'."
+        log "       Expected one of: app, worker, scheduler."
+        exit 1
+        ;;
+esac
+
+log "Container role: ${CONTAINER_ROLE}."
+
+# Non-web roles never migrate or seed, whatever the environment says. These are
+# defaults for the *web* role; the override below is unconditional on purpose.
+if [ "${CONTAINER_ROLE}" != "app" ]; then
+    RUN_MIGRATIONS="false"
+    RUN_SEEDERS="false"
+fi
+
 # The Dockerfile creates this, but a volume or tmpfs mounted over /tmp can wipe
 # it. php.ini points opcache.file_cache here and PHP treats a missing directory
 # as a startup FATAL — every artisan call below would die before booting.
@@ -58,8 +91,8 @@ if [ "${WAIT_FOR_DB:-true}" = "true" ]; then
     done
 fi
 
-# Only one web role in this stack, but keep the gate so a second replica could
-# be added without both racing migrations.
+# Migrations run in the web role only (enforced above). The gate remains so a
+# second web replica could be added without both racing migrations.
 if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     log "Running migrations ..."
 
@@ -97,6 +130,25 @@ if [ "${RUN_SEEDERS:-true}" = "true" ]; then
     }
 fi
 
+# A worker or scheduler that boots before the web container has migrated would
+# crash on its first query against a table that does not exist yet, and on a
+# slow first deploy it could crashloop past Docker's restart backoff. Wait for
+# the queue table the role actually depends on instead of starting blind.
+if [ "${CONTAINER_ROLE}" != "app" ] && [ "${WAIT_FOR_MIGRATIONS:-true}" = "true" ]; then
+    log "Waiting for migrations to be applied by the web container ..."
+    for i in $(seq 1 150); do
+        if php artisan db:table jobs --json >/dev/null 2>&1; then
+            log "Schema ready."
+            break
+        fi
+        if [ "$i" = "150" ]; then
+            log "FATAL: schema not ready after 5 minutes. Is the app container healthy?"
+            exit 1
+        fi
+        sleep 2
+    done
+fi
+
 log "Rebuilding caches for the live environment ..."
 
 # Flush anything stale, tolerate failure on a fresh boot (nothing to clear).
@@ -105,13 +157,18 @@ php artisan optimize:clear || log "WARNING: optimize:clear failed (continuing)."
 # Cache config, routes and events against the real environment.
 php artisan optimize
 
-# Filament's compiled CSS/JS and the Inter font are version-locked to the
-# vendor tree; republishing is instant and keeps the panel self-consistent.
-php artisan filament:assets || log "WARNING: filament:assets failed (continuing)."
-php artisan filament:optimize || log "WARNING: filament:optimize failed (continuing)."
+# Asset work serves HTTP only. A worker renders no panel and serves nothing
+# from public/, so skipping this keeps worker boots quick -- and keeps three
+# containers from writing the same files concurrently on a redeploy.
+if [ "${CONTAINER_ROLE}" = "app" ]; then
+    # Filament's compiled CSS/JS and the Inter font are version-locked to the
+    # vendor tree; republishing is instant and keeps the panel self-consistent.
+    php artisan filament:assets || log "WARNING: filament:assets failed (continuing)."
+    php artisan filament:optimize || log "WARNING: filament:optimize failed (continuing)."
 
-# Storage symlink: recreated every boot because public/ is a fresh image layer.
-php artisan storage:link --force || log "WARNING: storage:link failed (continuing)."
+    # Storage symlink: recreated every boot because public/ is a fresh image layer.
+    php artisan storage:link --force || log "WARNING: storage:link failed (continuing)."
+fi
 
 # The steps above ran as root; php-fpm serves as www-data and Blade writes to
 # storage/framework/views at runtime for any view the cache misses. Only the
@@ -136,5 +193,37 @@ if [ -f /var/www/html/public/hot ]; then
     rm -f /var/www/html/public/hot
 fi
 
-log "Starting web role (nginx + php-fpm)."
+# ---------------------------------------------------------------------------
+# Hand off to the role's process set.
+#
+# The image ships one supervisor program set per role under /etc/supervisor/
+# roles/. They are NOT in conf.d/, because the distro supervisord.conf ends
+# with `[include] files = /etc/supervisor/conf.d/*.conf` -- anything left there
+# is loaded by every container, so a worker would also start nginx. Exactly one
+# role file is installed into conf.d/ here.
+#
+# Selecting the role at runtime (rather than giving each compose service its own
+# CMD) keeps the services identical apart from CONTAINER_ROLE, so a role cannot
+# be started with another role's processes by editing one and forgetting the
+# other.
+# ---------------------------------------------------------------------------
+ROLE_CONF="/etc/supervisor/roles/${CONTAINER_ROLE}.conf"
+
+if [ ! -f "${ROLE_CONF}" ]; then
+    log "FATAL: no supervisor program set for role '${CONTAINER_ROLE}' (${ROLE_CONF})."
+    exit 1
+fi
+
+# Clear any previously installed role (a container restarted with a changed
+# CONTAINER_ROLE would otherwise run both), then install this one.
+rm -f /etc/supervisor/conf.d/*.conf
+mkdir -p /etc/supervisor/conf.d
+cp "${ROLE_CONF}" /etc/supervisor/conf.d/role.conf
+
+case "${CONTAINER_ROLE}" in
+    app)       log "Starting web role (nginx + php-fpm)." ;;
+    worker)    log "Starting queue worker role (queue:work)." ;;
+    scheduler) log "Starting scheduler role (schedule:work)." ;;
+esac
+
 exec "$@"

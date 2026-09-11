@@ -20,7 +20,7 @@ x-app-base: &app-base
   image: boilerplate:dokploy
   restart: unless-stopped
 
-  environment:
+  environment: &app-env
     APP_NAME: ${APP_NAME:-Boilerplate}
 
     # Defaults to production. Override in Dokploy for a staging instance --
@@ -87,6 +87,9 @@ x-app-base: &app-base
     MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:-hello@example.com}
     MAIL_FROM_NAME: ${MAIL_FROM_NAME:-Boilerplate}
 
+    # Overridden per service below. The web role owns migrations and seeding;
+    # worker and scheduler containers force both off in the entrypoint whatever
+    # is set here, and wait for the web container's schema before starting.
     CONTAINER_ROLE: app
     RUN_MIGRATIONS: "true"
 
@@ -111,12 +114,79 @@ x-app-base: &app-base
   volumes:
     - storage-logs:/var/www/html/storage/logs
 
-  # Hard memory ceiling: a runaway request kills this container (restarted by
-  # Docker) instead of the host. pm.max_children = 6 * ~60MB worker RSS +
-  # nginx/php-fpm/opcache overhead stays comfortably under this cap.
+  # Hard memory ceiling: a runaway process kills its own container (restarted by
+  # Docker) instead of the host.
+  #
+  # Applies to ALL THREE roles, since it sits in the shared base. Sized for the
+  # web role, which is the largest: pm.max_children = 6 * ~60MB worker RSS +
+  # nginx/php-fpm/opcache overhead stays comfortably under this cap. The worker
+  # and scheduler each run a single PHP process (the worker self-recycles at
+  # --memory=192, below php.ini's 256M limit), so they sit far below it.
+  #
+  # Raising pm.max_children or php.ini's memory_limit means raising this too.
   mem_limit: 512m
 
 services:
+  # NOTE: `app` is deliberately the LAST service in this file -- see the comment
+  # above it. Add new non-web services ABOVE it, never below.
+
+  # Queue worker. Same image and environment as the web role, different
+  # CONTAINER_ROLE -- the entrypoint selects the supervisor program set from it.
+  #
+  # Scale with `deploy.replicas` or by duplicating this service: workers on the
+  # same queue coordinate through the database, so extra processes are safe.
+  worker:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: worker
+    # The image HEALTHCHECK curls nginx, which this role does not run -- without
+    # an override the container reports "unhealthy" while working perfectly.
+    #
+    # Ask supervisor for the managed process's state rather than grepping
+    # /proc: the healthcheck itself runs as `sh -c "... queue:work ..."`, so any
+    # grep over /proc/*/cmdline matches its OWN command line and can never
+    # fail. supervisorctl reports RUNNING only for a process that is genuinely
+    # up, and returns non-zero once it has died or backed off.
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl status queue-worker | grep -q RUNNING || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      app:
+        condition: service_started
+
+  # Scheduler. MUST stay at exactly one replica: scheduler instances do not
+  # divide work between them, they each fire every due task. The tasks in
+  # routes/console.php carry onOneServer() as a backstop, not a licence to
+  # scale this service.
+  scheduler:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: scheduler
+    # As with the worker: the image HEALTHCHECK curls nginx, which this role does
+    # not run, and a /proc grep would match the healthcheck's own command line.
+    # Ask supervisor whether the scheduler process is actually up.
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl status scheduler | grep -q RUNNING || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      app:
+        condition: service_started
+
+  # ORDER MATTERS: `app` must be the LAST service in this file.
+  #
+  # Dokploy injects the Traefik routing labels for the application's domain by
+  # appending a `labels:` block to the last service it finds. With `scheduler`
+  # or `worker` last, those labels land on a container that runs no web server,
+  # so Traefik routes the domain at nothing listening on port 80 and every
+  # request returns 502 while every container still reports healthy.
   app:
     <<: *app-base
     # No ports. Traefik routes to port 80 over Dokploy's network; publishing

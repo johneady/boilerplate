@@ -109,14 +109,22 @@ the seeder would have refused anyway.
 
 ### Deployment
 
-The app ships as a single container (nginx + php-fpm + supervisor) built from a
-three-stage [`Dockerfile`](Dockerfile) — composer vendor, then assets, then
-runtime. See [`docker/README.md`](docker/README.md) for the full walkthrough.
+The app ships as a single image built from a three-stage
+[`Dockerfile`](Dockerfile) — composer vendor, then assets, then runtime — which
+runs three roles selected by `CONTAINER_ROLE`: the web tier (nginx + php-fpm),
+a queue worker (`queue:work`), and the scheduler (`schedule:work`). See
+[`docker/README.md`](docker/README.md) for the full walkthrough.
 
 ```bash
-docker compose up --build -d      # local verification stack
+cp .env.docker.example .env.docker   # first time only
+docker compose --env-file .env.docker up --build -d
 open http://localhost:8011
 ```
+
+`--env-file .env.docker` is required: Compose otherwise falls back to the
+project-root `.env` — the application's own Laravel env — and silently builds
+the throwaway stack from it. A `DOCKER_LOCAL_STACK` tripwire makes that failure
+loud instead of silent.
 
 - [`docker-compose.yml`](docker-compose.yml) — local only. Embeds a throwaway
   `APP_KEY`, a known database password, and a published port; never deploy it.

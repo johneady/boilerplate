@@ -1,0 +1,9 @@
+1. when deploying to dokploy, run the seeders so that the demo users are populatted.
+
+2. on the login screen show the quick login for all environemnts, except production. That should be the only gate 
+
+3. on http://localhost:8000/dashboard, dont show the repistory and documentation links. Make the screen a little more "vibrant". These are uses, not true admins (that would be only for filament).
+
+4. remove the need for a first_user. and update the dockply readme and in the place for the env cut/paste. Make it one section, and for all fields that need values set it to something I can just double click to select it all (e.g. FILL_ME_IN)
+
+if unsure, ask me quesitons with recommendations.

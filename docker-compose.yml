@@ -5,9 +5,15 @@
 # throwaway APP_KEY, a well-known database password and a published port, all
 # safe only because this stack is local and disposable.
 #
-#   docker compose up --build -d
-#   docker compose logs -f app
-#   open http://localhost:8011
+# ALWAYS pass --env-file .env.docker. Compose's default variable file is the
+# project-root .env, which here is the application's OWN Laravel .env -- so a
+# bare `docker compose up` interpolates that file's values (APP_PORT, APP_URL,
+# anything sharing a name) into this throwaway stack without saying so.
+#
+#   cp .env.docker.example .env.docker      # first time only
+#   docker compose --env-file .env.docker up --build -d
+#   docker compose --env-file .env.docker logs -f app
+#   open http://localhost:8011              # or APP_PORT from .env.docker
 
 x-app-base: &app-base
   build:
@@ -25,6 +31,13 @@ x-app-base: &app-base
     # 32 base64-decodable bytes and SESSION_ENCRYPT=true). The real one is set
     # per Dokploy application.
     APP_KEY: base64:k0jmGEgk6TEVoISp1Phks72LzifX97MhYaVusSPmb+Q=
+
+    # Defined ONLY in .env.docker, so this fails fast when --env-file is
+    # forgotten. Without it Compose falls back to the project-root .env -- the
+    # application's own Laravel env -- and quietly runs this throwaway stack on
+    # those values. The variable is unused; the guard is the point.
+    DOCKER_LOCAL_STACK: ${DOCKER_LOCAL_STACK:?pass --env-file .env.docker (see this file's header, and .env.docker.example)}
+
     APP_DEBUG: "false"
     APP_URL: http://localhost:${APP_PORT:-8011}
 
@@ -58,6 +71,9 @@ x-app-base: &app-base
     MAIL_FROM_ADDRESS: hello@example.com
     MAIL_FROM_NAME: "Boilerplate"
 
+    # Overridden per service below. The web role owns migrations and seeding;
+    # worker and scheduler containers force both off in the entrypoint whatever
+    # is set here, and wait for the web container's schema before starting.
     CONTAINER_ROLE: app
     RUN_MIGRATIONS: "true"
     # Seeding is idempotent, so this stays safe across redeploys.
@@ -107,6 +123,57 @@ services:
       timeout: 5s
       retries: 3
       start_period: 60s
+
+  # Queue worker. Same image and environment as the web role, different
+  # CONTAINER_ROLE -- the entrypoint picks the supervisor program set from it.
+  worker:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: worker
+    # The image HEALTHCHECK curls nginx, which this role does not run -- without
+    # an override the container reports "unhealthy" while working perfectly.
+    #
+    # Ask supervisor for the managed process's state rather than grepping
+    # /proc: the healthcheck itself runs as `sh -c "... queue:work ..."`, so any
+    # grep over /proc/*/cmdline matches its OWN command line and can never
+    # fail. supervisorctl reports RUNNING only for a process that is genuinely
+    # up, and returns non-zero once it has died or backed off.
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl status queue-worker | grep -q RUNNING || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    # Waits for the app container's migrations before its first query; see the
+    # entrypoint. depends_on only orders starts, it does not wait for readiness.
+    depends_on:
+      mysql:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+  # Scheduler. Exactly one replica -- instances do not divide work between them,
+  # they each fire every due task. See docker/entrypoint/supervisord.scheduler.conf.
+  scheduler:
+    <<: *app-base
+    environment:
+      <<: *app-env
+      CONTAINER_ROLE: scheduler
+    # As with the worker: the image HEALTHCHECK curls nginx, which this role does
+    # not run, and a /proc grep would match the healthcheck's own command line.
+    # Ask supervisor whether the scheduler process is actually up.
+    healthcheck:
+      test: ["CMD-SHELL", "supervisorctl status scheduler | grep -q RUNNING || exit 1"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s
+    depends_on:
+      mysql:
+        condition: service_healthy
+      app:
+        condition: service_started
 
 volumes:
   mysql-data:

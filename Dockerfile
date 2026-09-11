@@ -93,7 +93,14 @@ RUN mkdir -p /tmp/opcache && chown www-data:www-data /tmp/opcache
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
 COPY docker/php/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
 COPY docker/nginx/default.conf /etc/nginx/sites-available/default
-COPY docker/entrypoint/supervisord.conf /etc/supervisor/conf.d/app.conf
+# Role program sets live OUTSIDE conf.d/ deliberately. The distro
+# supervisord.conf ends with `[include] files = /etc/supervisor/conf.d/*.conf`,
+# so anything dropped in there is loaded by EVERY container -- a worker would
+# start nginx and all three roles would run everywhere. The entrypoint copies
+# exactly one of these into conf.d/ based on CONTAINER_ROLE.
+COPY docker/entrypoint/supervisord.conf /etc/supervisor/roles/app.conf
+COPY docker/entrypoint/supervisord.worker.conf /etc/supervisor/roles/worker.conf
+COPY docker/entrypoint/supervisord.scheduler.conf /etc/supervisor/roles/scheduler.conf
 
 WORKDIR /var/www/html
 
