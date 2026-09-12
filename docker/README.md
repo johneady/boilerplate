@@ -87,6 +87,10 @@ you have since changed.
    # ---- optional: delete any line you do not want to change ----
    APP_NAME=Boilerplate
    LOG_LEVEL=warning
+   # Days of rotated log files to keep. Logs go to the 'daily' channel, so the
+   # oldest file is deleted as each new one opens rather than one file growing
+   # for the life of the volume.
+   LOG_DAILY_DAYS=14
    DB_CONNECTION=mariadb
    DB_PORT=3306
    RUN_SEEDERS=true
@@ -107,6 +111,14 @@ you have since changed.
    These environment values stay in charge until a mailer is chosen from
    **Admin → Settings → Email**, after which the saved settings take
    precedence.
+
+   Set **Failure alert address** on that same settings tab to be emailed when
+   a queued background job exhausts its retries. Leave it blank to send no
+   alerts; either way the failure is written to the log and kept in
+   `failed_jobs` for `php artisan queue:failed`. Repeat failures of the same
+   job are held to one email per 15 minutes
+   (`QUEUE_FAILURE_ALERT_THROTTLE_MINUTES`), so one bad deploy cannot flood
+   the inbox.
 
    Everything else (`APP_ENV`, `APP_DEBUG`, `TRUST_PROXIES`,
    session/cache/queue drivers, …) is hardcoded in `docker-compose.dokploy.yml`

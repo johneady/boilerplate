@@ -498,6 +498,15 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->placeholder(fn (): string => $this->settings()->businessName())
                 ->maxLength(255),
+            // Deliberately not required(): blank is the meaningful "send no
+            // alerts" value, and an installation with no one to alert must be
+            // able to save the mail tab.
+            SettingKey::OpsAlertEmail => TextInput::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->email()
+                ->maxLength(255),
         };
     }
 

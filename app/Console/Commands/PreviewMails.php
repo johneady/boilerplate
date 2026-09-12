@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Models\User;
+use App\Notifications\QueueJobFailed;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Console\Attributes\Description;
@@ -22,7 +24,13 @@ use Throwable;
  * email type arrives rendered by the real sending pipeline. The framework
  * notifications ride the mail channel to an unpersisted factory user, so
  * the signed verification and reset URLs form exactly as they would for a
- * real recipient while nothing is written to the database.
+ * real recipient while nothing is written to the database; the operational
+ * alerts are routed on demand, as they are in production, where they go to
+ * an address rather than an account.
+ *
+ * Adding an email type to the application means adding it to $emails below,
+ * or it is the one message nobody ever sees rendered before a real recipient
+ * does.
  */
 #[Signature('app:preview-mails
     {recipient? : Address to deliver the preview emails to}
@@ -76,6 +84,16 @@ class PreviewMails extends Command
             'settings test email' => fn () => Mail::to($recipient)->send(new TestEmail),
             'email address verification' => fn () => Notification::sendNow($user, new VerifyEmail),
             'password reset' => fn () => Notification::sendNow($user, new ResetPassword(self::RESET_PASSWORD_TOKEN)),
+            // Routed on demand rather than to the factory user: the real
+            // alert goes to the operations address from the mail settings,
+            // which is a bare address with no account behind it.
+            'queued job failure alert' => fn () => Notification::route('mail', $recipient)
+                ->notifyNow(new QueueJobFailed(
+                    jobName: ProcessUploadedImage::class,
+                    connection: 'database',
+                    queue: 'default',
+                    errorMessage: 'SQLSTATE[HY000] [2002] Connection refused',
+                )),
         ];
 
         $sent = 0;

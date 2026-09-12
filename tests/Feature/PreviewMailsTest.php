@@ -2,10 +2,12 @@
 
 use App\Mail\TestEmail;
 use App\Models\User;
+use App\Notifications\QueueJobFailed;
 use App\Settings\Settings;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Mail\Events\MessageSent;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
@@ -34,14 +36,14 @@ function addressedTo(MessageSent $event, string $recipient): bool
 
 test('it delivers every email type to the requested address', function () {
     // The real pipeline (the array mailer phpunit.xml configures), with only
-    // the sent event intercepted: this is the end-to-end proof that all three
-    // email types leave through the mailer addressed to the recipient.
+    // the sent event intercepted: this is the end-to-end proof that every
+    // email type leaves through the mailer addressed to the recipient.
     Event::fake([MessageSent::class]);
 
     $this->artisan('app:preview-mails', ['recipient' => 'inbox@mailpit.test'])
         ->assertSuccessful();
 
-    Event::assertDispatched(MessageSent::class, 3, fn (MessageSent $event): bool => addressedTo($event, 'inbox@mailpit.test'));
+    Event::assertDispatched(MessageSent::class, 4, fn (MessageSent $event): bool => addressedTo($event, 'inbox@mailpit.test'));
 });
 
 test('it sends each email type without touching the database', function () {
@@ -65,6 +67,13 @@ test('it sends each email type without touching the database', function () {
         fn (ResetPassword $notification, array $channels): bool => $channels === ['mail'],
     );
 
+    // Routed on demand, so it is asserted by address rather than notifiable.
+    Notification::assertSentOnDemand(
+        QueueJobFailed::class,
+        fn (QueueJobFailed $notification, array $channels, AnonymousNotifiable $notifiable): bool => $notifiable->routes['mail'] === 'inbox@mailpit.test'
+            && $channels === ['mail'],
+    );
+
     // The notifiable is a factory-made stand-in: no row may appear for it.
     expect(User::count())->toBe(0);
 });
@@ -74,7 +83,7 @@ test('it falls back to the built-in preview address', function () {
 
     $this->artisan('app:preview-mails')->assertSuccessful();
 
-    Event::assertDispatched(MessageSent::class, 3, fn (MessageSent $event): bool => addressedTo($event, 'preview@inbox.test'));
+    Event::assertDispatched(MessageSent::class, 4, fn (MessageSent $event): bool => addressedTo($event, 'preview@inbox.test'));
 });
 
 /**
@@ -99,7 +108,7 @@ test('an explicit mailer overrides a mailer stored in settings', function () {
 
     expect(config('mail.default'))->toBe('array');
 
-    Event::assertDispatchedTimes(MessageSent::class, 3);
+    Event::assertDispatchedTimes(MessageSent::class, 4);
 });
 
 test('it rejects an invalid recipient address', function () {
@@ -125,6 +134,7 @@ test('it reports each failed email and exits with a failure code', function () {
         ->expectsOutputToContain('Failed to send the settings test email')
         ->expectsOutputToContain('Failed to send the email address verification')
         ->expectsOutputToContain('Failed to send the password reset')
-        ->expectsOutputToContain('Delivered 0 of 3 email types')
+        ->expectsOutputToContain('Failed to send the queued job failure alert')
+        ->expectsOutputToContain('Delivered 0 of 4 email types')
         ->assertFailed();
 });

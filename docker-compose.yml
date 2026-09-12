@@ -48,7 +48,8 @@ x-app-base: &app-base
     BCRYPT_ROUNDS: "12"
 
     LOG_CHANNEL: stack
-    LOG_STACK: single
+    LOG_STACK: daily
+    LOG_DAILY_DAYS: "14"
     LOG_LEVEL: debug
 
     # MariaDB, matching the Dokploy-managed database.

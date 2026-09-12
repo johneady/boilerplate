@@ -126,4 +126,24 @@ return [
         'table' => 'failed_jobs',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Failure Alerts
+    |--------------------------------------------------------------------------
+    |
+    | App\Listeners\SendQueueFailureAlert emails the address in the admin
+    | panel's "Failure alert address" setting when a job exhausts its retries.
+    |
+    | Queue failures arrive in bursts rather than one at a time -- an expired
+    | credential or a database that has gone away fails every job in the
+    | backlog within seconds of each other -- so at most one alert per job
+    | class is sent per window below. Unthrottled, one incident sends hundreds
+    | of identical emails, which is how an alert inbox gets muted and the next
+    | incident goes unseen. The window is per job class, so a genuinely
+    | different job failing during the same burst still gets through.
+    |
+    */
+
+    'failure_alert_throttle_minutes' => (int) env('QUEUE_FAILURE_ALERT_THROTTLE_MINUTES', 15),
+
 ];

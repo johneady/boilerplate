@@ -104,6 +104,7 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'allow_registration',
         'mail_from_address',
         'mail_from_name',
+        'ops_alert_email',
     ]);
 });
 

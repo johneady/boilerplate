@@ -46,6 +46,8 @@ enum SettingKey: string
 
     case MailFromName = 'mail_from_name';
 
+    case OpsAlertEmail = 'ops_alert_email';
+
     /**
      * The settings-page tab this key is edited on.
      */
@@ -55,7 +57,7 @@ enum SettingKey: string
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
-            self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => SettingsTab::Mail,
+            self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => SettingsTab::Mail,
         };
     }
 
@@ -71,7 +73,7 @@ enum SettingKey: string
             self::AllowSearchIndexing => true,
             self::AllowRegistration => false,
             self::MailMailer => 'log',
-            self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => '',
+            self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => '',
         };
     }
 
@@ -90,7 +92,7 @@ enum SettingKey: string
             self::AllowRegistration => self::toBoolean($value),
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
             self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
-            self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailFromAddress, self::MailFromName => self::toFilledString($value, ''),
+            self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => self::toFilledString($value, ''),
         };
     }
 
@@ -163,6 +165,7 @@ enum SettingKey: string
             self::MailEncryption => 'Encryption',
             self::MailFromAddress => 'From address',
             self::MailFromName => 'From name',
+            self::OpsAlertEmail => 'Failure alert address',
         };
     }
 
@@ -189,6 +192,7 @@ enum SettingKey: string
             self::MailEncryption => 'How the connection is secured. Leave blank for the default (TLS).',
             self::MailFromAddress => 'The address outgoing email is sent from. Required.',
             self::MailFromName => 'The name outgoing email is sent from. Leave blank to use the business name.',
+            self::OpsAlertEmail => 'Where to email a warning when a queued background job fails. Leave blank to send no alerts; failures are written to the application log either way.',
         };
     }
 }

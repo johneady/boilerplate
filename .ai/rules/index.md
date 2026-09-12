@@ -18,6 +18,8 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Settings/Settings.php, tests/Feature/SettingsTest.php, tests/Feature/ErrorPagesTest.php | .ai/rules/feature.md |
 | app/Settings/SettingKey.php, app/Filament/Pages/ManageSettings.php, config/images.php | .ai/rules/filament-pages.md |
 | app/Providers/Filament/** | .ai/rules/filament.md |
+| app/Listeners/SendQueueFailureAlert.php | .ai/rules/listeners.md |
+| config/logging.php, .env.example, docker-compose.yml, docker-compose.dokploy.yml | .ai/rules/logging.md |
 | app/Http/Middleware/EnsureRegistrationIsEnabled.php | .ai/rules/middleware.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
 | app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
