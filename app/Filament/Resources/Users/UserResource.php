@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Auth\Role;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
 use BackedEnum;
@@ -9,14 +10,15 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Collection;
@@ -47,12 +49,20 @@ class UserResource extends Resource
                 // An admin editing themselves cannot drop their own rights:
                 // doing so would lock them out of this panel on save, with no
                 // way back in short of re-seeding or another admin's help.
-                Toggle::make('is_admin')
-                    ->label('Administrator')
+                // UserPolicy::updateRole() is the same rule where the Gate can
+                // see it, and saveUser() enforces it again server side.
+                Select::make('role')
+                    ->label('Role')
+                    ->options(fn (): array => collect(Role::cases())
+                        ->mapWithKeys(fn (Role $role): array => [$role->value => $role->label()])
+                        ->all())
+                    ->default(Role::DEFAULT->value)
+                    ->selectablePlaceholder(false)
+                    ->required()
                     ->disabled(fn (?User $record): bool => static::isCurrentUser($record))
-                    ->helperText(fn (?User $record): string => static::isCurrentUser($record)
-                        ? 'You cannot remove your own administrator rights.'
-                        : 'Administrators may sign in to this admin panel.'),
+                    ->helperText(fn (?User $record, $state): string => static::isCurrentUser($record)
+                        ? 'You cannot change your own role.'
+                        : static::describeRole($state, $record)),
             ]);
     }
 
@@ -89,9 +99,11 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable()
                     ->copyable(),
-                IconColumn::make('is_admin')
-                    ->label('Administrator')
-                    ->boolean()
+                TextColumn::make('role')
+                    ->label('Role')
+                    ->badge()
+                    ->formatStateUsing(fn (Role $state): string => $state->label())
+                    ->color(fn (Role $state): string => $state->color())
                     ->sortable(),
                 IconColumn::make('email_verified_at')
                     ->label('Verified')
@@ -105,8 +117,11 @@ class UserResource extends Resource
             ])
             ->defaultSort('name')
             ->filters([
-                TernaryFilter::make('is_admin')
-                    ->label('Administrator'),
+                SelectFilter::make('role')
+                    ->label('Role')
+                    ->options(fn (): array => collect(Role::cases())
+                        ->mapWithKeys(fn (Role $role): array => [$role->value => $role->label()])
+                        ->all()),
                 TernaryFilter::make('email_verified_at')
                     ->label('Email verified')
                     ->nullable(),
@@ -180,6 +195,28 @@ class UserResource extends Resource
     }
 
     /**
+     * Describe the role currently chosen in the form.
+     *
+     * Resolved with tryFrom() and a fallback rather than Role::from(): the
+     * state comes from the live form, so it is whatever the browser last
+     * sent. An unrecognised value, an empty string from a cleared select, or
+     * a non-scalar from a tampered payload would all make from() throw a
+     * ValueError -- an unhandled 500 while merely rendering a help line.
+     * Falling back to the record's stored role (and then to the default)
+     * keeps the copy sensible instead.
+     */
+    public static function describeRole(mixed $state, ?User $record): string
+    {
+        $role = is_string($state) ? Role::tryFrom($state) : null;
+
+        // The record's own role stands in while the form holds nothing
+        // usable; creation has no record at all, so that falls to the default.
+        $role ??= $record instanceof User ? $record->role : Role::DEFAULT;
+
+        return $role->description();
+    }
+
+    /**
      * Determine whether a record is the signed-in user's own account.
      *
      * Null during creation, where there is no record to compare against yet.
@@ -192,7 +229,7 @@ class UserResource extends Resource
     /**
      * Persist the modal form's data onto a user.
      *
-     * is_admin is not mass-assignable (see the User model's Fillable
+     * The role is not mass-assignable (see the User model's Fillable
      * attribute), so it is assigned as a property here -- the same way
      * AdminUserSeeder sets it.
      *
@@ -212,12 +249,21 @@ class UserResource extends Resource
         if (! $user->exists) {
             $user->password = Str::password(32);
         }
-        // Enforced here as well as on the disabled toggle: a disabled field is
+        // Enforced here as well as on the disabled select: a disabled field is
         // dropped from the payload, so without this an operator could still
-        // demote themselves by posting is_admin directly.
-        $user->is_admin = static::isCurrentUser($user)
-            ? true
-            : (bool) ($data['is_admin'] ?? false);
+        // demote themselves by posting a role directly.
+        //
+        // An absent or unrecognised role leaves the user's current role
+        // alone, and only a brand new user falls back to the default. Reading
+        // it as "demote to the default" instead would silently strip an
+        // administrator's rights on any payload that happened to omit the
+        // field -- a privilege change nobody asked for and nothing reports.
+        if (! static::isCurrentUser($user)) {
+            $submitted = $data['role'] ?? null;
+
+            $user->role = (is_string($submitted) ? Role::tryFrom($submitted) : null)
+                ?? ($user->exists ? $user->role : Role::DEFAULT);
+        }
 
         $user->save();
 

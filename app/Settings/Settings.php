@@ -3,6 +3,9 @@
 namespace App\Settings;
 
 use App\Models\Setting;
+use Illuminate\Database\LostConnectionException;
+use Illuminate\Database\QueryException;
+use Illuminate\Database\SQLiteDatabaseDoesNotExistException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -211,12 +214,80 @@ class Settings
     /**
      * The raw stored rows, loaded once per request.
      *
+     * An unreachable database reads as "nothing stored" rather than throwing,
+     * so every caller falls back to the keys' declared defaults. This is what
+     * lets the error pages render during the outage that caused them: the
+     * global View::composer('*') resolves the business name for EVERY view,
+     * so without this a 500 caused by the database throws again inside the
+     * 500 page and the user gets Laravel's unstyled fallback -- the exact
+     * moment resources/views/errors exists for.
+     *
+     * Deliberately narrow: only a connection-level failure is swallowed, and
+     * the empty result is NOT cached, so a transient outage does not pin the
+     * process to defaults once the database returns. A malformed row or a
+     * missing column still surfaces, because those are bugs to fix rather
+     * than conditions to degrade through.
+     *
      * @return array<string, mixed>
      */
     private function all(): array
     {
-        return $this->cache ??= Setting::query()
-            ->pluck('value', 'key')
-            ->all();
+        if ($this->cache !== null) {
+            return $this->cache;
+        }
+
+        try {
+            return $this->cache = Setting::query()
+                ->pluck('value', 'key')
+                ->all();
+        } catch (QueryException $e) {
+            if (! $this->isConnectionFailure($e)) {
+                throw $e;
+            }
+
+            report($e);
+
+            return [];
+        }
+    }
+
+    /**
+     * Whether the query failed because the database could not be reached.
+     *
+     * Matched on the framework's own typed exceptions first: Laravel wraps a
+     * missing SQLite file and a dropped connection in dedicated classes, and
+     * neither carries a usable SQLSTATE (the SQLite case arrives with code 0
+     * and no errorInfo at all), so sniffing vendor error numbers alone misses
+     * exactly the cases that matter.
+     *
+     * SQLSTATE 08xxx -- the standard connection-exception class -- and the
+     * MySQL/MariaDB connection codes cover a server that is up but
+     * unreachable or refusing the credentials.
+     *
+     * "No such table" is deliberately NOT included: a missing settings table
+     * means migrations have not run, which must stay loud rather than quietly
+     * serving defaults.
+     */
+    private function isConnectionFailure(QueryException $e): bool
+    {
+        $previous = $e->getPrevious();
+
+        // Checked on the PREVIOUS exception only: both of these are siblings
+        // of QueryException rather than subclasses, so they arrive wrapped.
+        if ($previous instanceof LostConnectionException
+            || $previous instanceof SQLiteDatabaseDoesNotExistException) {
+            return true;
+        }
+
+        if (str_starts_with((string) $e->getCode(), '08')) {
+            return true;
+        }
+
+        return in_array((int) ($e->errorInfo[1] ?? 0), [
+            1045, // MySQL/MariaDB: access denied
+            2002, // MySQL/MariaDB: connection refused
+            2003, // MySQL/MariaDB: cannot connect to server
+            2006, // MySQL/MariaDB: server has gone away
+        ], true);
     }
 }

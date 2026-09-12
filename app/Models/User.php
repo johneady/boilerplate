@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Auth\Permission;
+use App\Auth\Role;
+use App\Concerns\HasRoles;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -25,7 +28,8 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
  * @property string $email
  * @property CarbonImmutable|null $email_verified_at
  * @property string|null $avatar_path
- * @property bool $is_admin
+ * @property Role $role
+ * @property bool $is_admin Derived from $role; see App\Concerns\HasRoles.
  * @property string $password
  * @property string|null $two_factor_secret
  * @property string|null $two_factor_recovery_codes
@@ -65,7 +69,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     ];
 
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use HasFactory, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     /**
      * Avatar URLs already resolved for this instance, keyed by path|conversion.
@@ -73,6 +77,21 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
      * @var array<string, string|null>
      */
     protected array $resolvedAvatarUrls = [];
+
+    /**
+     * The model's default attribute values.
+     *
+     * The users.role column has the same default, which covers an INSERT; this
+     * covers the instance BEFORE it is saved. Without it a `new User` has a
+     * null role, and every role check on it -- including the one
+     * canAccessPanel() makes -- fails on a null dereference rather than
+     * reading as the least-privileged role.
+     *
+     * @var array<string, mixed>
+     */
+    protected $attributes = [
+        'role' => Role::DEFAULT->value,
+    ];
 
     /**
      * Get the attributes that should be cast.
@@ -83,7 +102,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     {
         return [
             'email_verified_at' => 'datetime',
-            'is_admin' => 'boolean',
+            'role' => Role::class,
             'password' => 'hashed',
         ];
     }
@@ -96,7 +115,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return (bool) $this->is_admin;
+        return $this->hasPermission(Permission::AccessAdminPanel);
     }
 
     /**

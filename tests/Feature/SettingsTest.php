@@ -3,6 +3,7 @@
 use App\Models\Setting;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 
@@ -274,3 +275,63 @@ test('a stored encryption that is not recognised reads as blank', function (mixe
     'a boolean true' => [true],
     'null' => [null],
 ]);
+
+test('an unreachable database reads settings as their defaults', function () {
+    // The global View::composer('*') resolves the business name for EVERY
+    // view, so a settings read that throws on a connection failure takes the
+    // error pages down with it -- a 500 caused by the database would throw
+    // again inside the 500 page. See resources/views/errors.
+    //
+    // The outage is simulated by pointing the DEFAULT at a throwaway
+    // connection that cannot connect, rather than by breaking the connection
+    // the suite is using: RefreshDatabase holds a transaction on that one,
+    // and purging or reconnecting it destroys the shared in-memory database
+    // for every later test in the process.
+    $default = config('database.default');
+
+    config([
+        'database.connections.unreachable_test' => [
+            'driver' => 'mysql',
+            'host' => '127.0.0.1',
+            'port' => 1,
+            'database' => 'nothing_here',
+            'username' => 'nobody',
+            'password' => '',
+        ],
+        'database.default' => 'unreachable_test',
+    ]);
+
+    // Restored before the test ends: RefreshDatabase resolves the connection
+    // it rolls back at teardown from database.default, so leaving the bogus
+    // one in place makes it roll back the wrong connection and every later
+    // test in the process fails with "cannot start a transaction within a
+    // transaction".
+    $restore = fn () => config(['database.default' => $default]);
+
+    app()->forgetScopedInstances();
+
+    try {
+        expect(app(Settings::class)->businessName())->toBe(config('app.name'))
+            ->and(app(Settings::class)->boolean(SettingKey::AllowRegistration))
+            ->toBe(SettingKey::AllowRegistration->default());
+    } finally {
+        $restore();
+        app()->forgetScopedInstances();
+    }
+});
+
+test('a missing settings table still fails loudly', function () {
+    // Degrading to defaults is for an outage, not for un-run migrations:
+    // silently serving defaults there would hide a broken deploy.
+    //
+    // Queried against a table that does not exist rather than dropping the
+    // real one: DDL is not transactional on MySQL/MariaDB, so a drop escapes
+    // RefreshDatabase's rollback and every later test loses the table.
+    $missing = new class extends Setting
+    {
+        protected $table = 'settings_that_do_not_exist';
+    };
+
+    expect(fn () => $missing->newQuery()->pluck('value', 'key'))
+        ->toThrow(QueryException::class);
+});

@@ -46,10 +46,51 @@ Fortify actions live in `app/Actions/Fortify`, with shared validation rules
 extracted into `app/Concerns` (`PasswordValidationRules`,
 `ProfileValidationRules`).
 
+### Authorization
+
+Roles and permissions are defined in code, not in database rows:
+[`App\Auth\Role`](app/Auth/Role.php) and
+[`App\Auth\Permission`](app/Auth/Permission.php). A user's `role` column is the
+single source of truth; [`HasRoles`](app/Concerns/HasRoles.php) supplies
+`hasRole()`, `hasPermission()`, `hasRoleAtLeast()` and a `withRole` scope.
+
+```php
+$user->hasPermission(Permission::ManageSettings);
+$user->can(Permission::ManageSettings->value);   // through the Gate
+$user->can('update', $otherUser);                // through UserPolicy
+User::withRole(Role::Admin)->get();
+```
+
+Check permissions rather than role names. `Role::Admin->permissions()` returns
+`Permission::cases()` by enumeration, so a permission added later is granted to
+administrators rather than silently denied.
+
+Policies extend [`BasePolicy`](app/Policies/BasePolicy.php), which maps each of
+the seven standard abilities to a permission and **denies any ability it has no
+mapping for** — a new ability, or one somebody forgot to map, refuses rather
+than allows.
+
+[`AuthServiceProvider`](app/Providers/AuthServiceProvider.php) registers every
+permission as a Gate ability and adds a `Gate::before` administrator bypass, so
+a model whose policy has not been written yet is still manageable. The bypass
+deliberately **skips** `delete`, `forceDelete` and `updateRole`: those are the
+rules that deny an administrator on purpose — you cannot delete your own account
+or demote yourself, which on a single-admin instance would lock the panel out of
+itself. `Gate::before` short-circuits on any non-null return, so answering them
+there would silently undo [`UserPolicy`](app/Policies/UserPolicy.php).
+
+`$user->is_admin` still works: it is an accessor derived from the role, kept so
+existing call sites did not have to change. New code should ask for a permission.
+
+Adding a role is a case in the enum plus its grants in `permissions()` — no
+migration, because the column is a string rather than a native enum (adding a
+value to a MySQL/MariaDB enum column rewrites the table).
+
 ### Admin panel
 
-Filament 5 serves an admin panel at `/admin`. Access is gated on `users.is_admin`
-in two places: `User::canAccessPanel()` (Filament's `FilamentUser` contract) and
+Filament 5 serves an admin panel at `/admin`. Access is gated on the
+`AccessAdminPanel` permission in two places: `User::canAccessPanel()` (Filament's
+`FilamentUser` contract) and
 [`FilamentAuthenticate`](app/Http/Middleware/FilamentAuthenticate.php), which
 403s non-admins and sends guests to Fortify's login page.
 
@@ -197,6 +238,24 @@ specific proxies instead.
 Livewire components for profile updates, security (2FA, passkeys), appearance,
 and account deletion, routed from `routes/settings.php`.
 
+### Error pages
+
+`resources/views/errors/` styles 403, 404, 419, 429, 500 and 503 with the
+application's own design system, through
+[`x-errors.layout`](resources/views/components/errors/layout.blade.php). 419 is
+the one users actually hit: leaving a form or a Livewire page open past the
+session lifetime expires the CSRF token, and Laravel's default "Page Expired"
+reads as a fault rather than as "log in again and retry".
+
+These pages deliberately do **not** extend `x-layouts::app` or include
+`partials.head`. A 500 is most often a database outage, and the
+`View::composer('*')` that supplies `$businessName` reads the settings table —
+inheriting it means the error view throws while rendering and the user gets
+Laravel's unstyled fallback at exactly the moment these templates exist for. So
+they brand from `config('app.name')`, the one intentional exception to the rule
+that views read `$businessName`. `ErrorPagesTest` asserts each page still
+renders against an unreachable database.
+
 ### Tests
 
 The feature suite covers each auth flow — authentication, registration,
@@ -206,6 +265,12 @@ plus settings, the dashboard, and the admin/dev-login behaviour described above:
 - `AdminPanelAccessTest` — the Filament login route stays absent, guests redirect
   to Fortify, non-admins get 403, admins get in, `is_admin` resists mass
   assignment, and each role lands on the right page after login.
+- `AuthorizationTest` / `RoleTest` — role defaults and mass-assignment
+  protection, permission-to-gate registration, the administrator bypass, and
+  that the bypass does not override the self-deletion and self-demotion rules.
+- `ErrorPagesTest` — each status code resolves to this application's template
+  rather than the framework's, every page is `noindex`, and all of them render
+  with the database unreachable.
 - `AdminUserSeederTest` — seeding, idempotency, and the production guard.
 - `DevLoginTest` — the buttons render and sign in the right account in `local`,
   an unoffered position or unseeded account 404s, a submitted email or
@@ -260,6 +325,30 @@ should invoke Pest directly:
 ```bash
 vendor/bin/pest --ci
 ```
+
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
+`main` and every pull request:
+
+- **Pint & PHPStan** — `pint --test` and `phpstan analyse` (level 8).
+- **Pest** — the suite on sqlite, in parallel.
+- **Pest (mysql / mariadb)** — the same suite against `mysql:8.4` and
+  `mariadb:11`.
+
+That last job exists because production runs MySQL or MariaDB (the Dockerfile
+installs `pdo_mysql`) while the fast job runs sqlite, which tolerates looser
+typing and different strict-mode and DDL behaviour. A green sqlite suite is not
+evidence the deployed database agrees.
+
+The DB settings are passed as job environment variables, which works because
+PHPUnit's `<env>` elements do not overwrite a variable already set in the
+process environment. `DB_URL` is blanked for the same reason: `phpunit.xml` sets
+it empty, and a non-empty `DB_URL` would take precedence over host and port.
+
+[`.github/dependabot.yml`](.github/dependabot.yml) tracks Composer, npm, GitHub
+Actions and the Dockerfile's pinned base images, grouping the first-party
+Laravel packages so they land as a set.
 
 ## Code style and static analysis
 

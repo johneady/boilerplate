@@ -11,3 +11,6 @@ The brand shown to users is the BusinessName setting, not APP_NAME. AppServicePr
 Blade must use $businessName. Reintroducing config('app.name') in a view silently pins that spot to APP_NAME while the rest of the site follows the admin setting. Copy that embeds the name uses a :business placeholder (see welcome.blade.php) so it stays translatable.
 
 SettingKey::BusinessName defaults to config('app.name') and casts through toFilledString(), so a blank or non-string row falls back instead of rendering an empty brand.
+
+## The error pages are the one exception to $businessName
+resources/views/errors/** brand from config('app.name') on purpose, because they must render while the database is unreachable -- the composer that supplies $businessName reads the settings table. Do not "fix" them to use $businessName. See .ai/rules/errors.md.

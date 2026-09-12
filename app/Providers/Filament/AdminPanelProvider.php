@@ -51,8 +51,15 @@ class AdminPanelProvider extends PanelProvider
             ->brandName(fn (): string => app(Settings::class)->businessName())
             // No resource is worth a topbar search field on this panel yet.
             ->globalSearch(false)
+            // amber and zinc back the role badges (App\Auth\Role::color()).
+            // Filament only emits a colour's CSS custom properties for colours
+            // registered on the panel, so a badge naming an unregistered one
+            // renders with the fi-color-* class applied but no colour behind
+            // it -- visibly flat, with nothing in the markup to show why.
             ->colors([
                 'primary' => Color::Blue,
+                'amber' => Color::Amber,
+                'zinc' => Color::Zinc,
             ])
             // Filament caps page content at 7xl (80rem) by default, which leaves
             // a wide gutter between the sidebar and the content on large screens.

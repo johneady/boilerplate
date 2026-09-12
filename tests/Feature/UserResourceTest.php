@@ -1,5 +1,6 @@
 <?php
 
+use App\Auth\Role;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
@@ -100,11 +101,12 @@ test('a user can be granted admin rights through the modal', function () {
         ->callTableAction(EditAction::class, $user, [
             'name' => $user->name,
             'email' => $user->email,
-            'is_admin' => true,
+            'role' => Role::Admin->value,
         ])
         ->assertHasNoTableActionErrors();
 
-    expect($user->fresh()->is_admin)->toBeTrue();
+    expect($user->fresh()->is_admin)->toBeTrue()
+        ->and($user->fresh()->role)->toBe(Role::Admin);
 });
 
 test('editing a user never changes their password', function () {
@@ -214,7 +216,7 @@ test('neither modal renders a password or verification field', function () {
             ->getFlatFields()
     );
 
-    expect($fields)->toBe(['name', 'email', 'is_admin']);
+    expect($fields)->toBe(['name', 'email', 'role']);
 });
 
 test('an admin cannot delete their own account from the table', function () {
@@ -257,7 +259,7 @@ test('a bulk delete of every row spares the current user', function () {
         ->and(User::whereIn('id', $otherIds)->exists())->toBeFalse();
 });
 
-test('the admin toggle is disabled when editing your own account', function () {
+test('the role select is disabled when editing your own account', function () {
     expect(UserResource::isCurrentUser($this->admin))->toBeTrue()
         ->and(UserResource::isCurrentUser(User::factory()->create()))->toBeFalse();
 });
@@ -267,14 +269,15 @@ test('an admin cannot strip their own admin rights', function () {
         ->callTableAction(EditAction::class, $this->admin, [
             'name' => 'Still Admin',
             'email' => $this->admin->email,
-            'is_admin' => false,
+            'role' => Role::User->value,
         ])
         ->assertHasNoTableActionErrors();
 
     $this->admin->refresh();
 
     expect($this->admin->name)->toBe('Still Admin')
-        ->and($this->admin->is_admin)->toBeTrue();
+        ->and($this->admin->is_admin)->toBeTrue()
+        ->and($this->admin->role)->toBe(Role::Admin);
 });
 
 test('an admin may still demote another admin', function () {
@@ -284,11 +287,12 @@ test('an admin may still demote another admin', function () {
         ->callTableAction(EditAction::class, $other, [
             'name' => $other->name,
             'email' => $other->email,
-            'is_admin' => false,
+            'role' => Role::User->value,
         ])
         ->assertHasNoTableActionErrors();
 
-    expect($other->fresh()->is_admin)->toBeFalse();
+    expect($other->fresh()->is_admin)->toBeFalse()
+        ->and($other->fresh()->role)->toBe(Role::User);
 });
 
 test('the table shows an uploaded avatar', function () {
@@ -351,4 +355,52 @@ test('initials in the fallback avatar are escaped', function () {
 
     // Still well-formed, so the browser renders it rather than discarding it.
     expect(simplexml_load_string($svg))->not->toBeFalse();
+});
+
+test('an omitted role leaves an existing user\'s role alone', function () {
+    // Reading a missing field as "demote to the default" would silently strip
+    // an administrator's rights on any payload that happened to omit it.
+    $other = User::factory()->admin()->create();
+
+    UserResource::saveUser($other, ['name' => 'Kept', 'email' => $other->email]);
+
+    expect($other->fresh()->role)->toBe(Role::Admin)
+        ->and($other->fresh()->name)->toBe('Kept');
+});
+
+test('an unrecognised role leaves an existing user\'s role alone', function () {
+    $other = User::factory()->admin()->create();
+
+    UserResource::saveUser($other, [
+        'name' => $other->name,
+        'email' => $other->email,
+        'role' => 'not-a-role',
+    ]);
+
+    expect($other->fresh()->role)->toBe(Role::Admin);
+});
+
+test('a new user with no usable role gets the default', function () {
+    $user = UserResource::saveUser(new User, [
+        'name' => 'Brand New',
+        'email' => 'brand-new@example.com',
+        'role' => 'not-a-role',
+    ]);
+
+    expect($user->fresh()->role)->toBe(Role::DEFAULT);
+});
+
+test('the role help text survives a tampered or cleared select', function () {
+    // The help line is rendered from live form state, so it is whatever the
+    // browser last sent. Role::from() on that throws a ValueError -- an
+    // unhandled 500 while merely rendering a help line.
+    $record = User::factory()->create();
+
+    foreach (['not-a-role', '', null, ['an', 'array']] as $state) {
+        expect(fn () => UserResource::describeRole($state, $record))->not->toThrow(Throwable::class);
+    }
+
+    expect(UserResource::describeRole('admin', $record))->toBe(Role::Admin->description())
+        ->and(UserResource::describeRole('', $record))->toBe($record->role->description())
+        ->and(UserResource::describeRole('', null))->toBe(Role::DEFAULT->description());
 });

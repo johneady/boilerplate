@@ -14,12 +14,16 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Jobs/ProcessUploadedImage.php, app/Concerns/ImageValidationRules.php, config/images.php | .ai/rules/concerns.md |
 | app/Auth/DevLoginAccounts.php, app/Http/Controllers/DevLoginController.php, app/Providers/AppServiceProvider.php, config/dev-login.php, docker-compose.dokploy.yml, routes/web.php | .ai/rules/dev-login.md |
 | Dockerfile | .ai/rules/dockerfile.md |
+| resources/views/errors/**, resources/views/components/errors/** | .ai/rules/errors.md |
+| app/Settings/Settings.php, tests/Feature/SettingsTest.php, tests/Feature/ErrorPagesTest.php | .ai/rules/feature.md |
 | app/Settings/SettingKey.php, app/Filament/Pages/ManageSettings.php, config/images.php | .ai/rules/filament-pages.md |
 | app/Providers/Filament/** | .ai/rules/filament.md |
 | app/Http/Middleware/EnsureRegistrationIsEnabled.php | .ai/rules/middleware.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
+| app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
 | app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php | .ai/rules/queues-and-scheduling.md |
 | database/seeders/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
 | resources/views/layouts/app/**, resources/views/components/desktop-user-menu.blade.php | .ai/rules/views-components.md |
 | resources/views/** | .ai/rules/views.md |
+| .github/workflows/**, .github/dependabot.yml | .ai/rules/workflows.md |

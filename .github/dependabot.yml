@@ -1,0 +1,55 @@
+version: 2
+
+updates:
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    versioning-strategy: increase-if-necessary
+    groups:
+      # Laravel's first-party packages release together and are tested
+      # together; separate PRs for each just multiply CI runs on changes that
+      # have to land as a set anyway.
+      laravel:
+        patterns:
+          - laravel/*
+          - livewire/*
+          - filament/*
+      dev-tooling:
+        dependency-type: development
+        patterns:
+          - '*'
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      build-tooling:
+        patterns:
+          - vite
+          - vite-plus
+          - laravel-vite-plugin
+          - '@tailwindcss/*'
+          - tailwindcss
+      dev-tooling:
+        dependency-type: development
+        patterns:
+          - '*'
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+
+  # Pinned base images in the Dockerfile (php:8.5-*, node:22-*) go stale
+  # silently otherwise -- nothing else in the repo reports a new patch release
+  # of the runtime the deployed image is built on.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: monthly

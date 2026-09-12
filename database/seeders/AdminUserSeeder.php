@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Auth\Role;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 
@@ -29,7 +30,7 @@ class AdminUserSeeder extends Seeder
         // on the next deploy -- but admin rights are still asserted, since the
         // whole point of this seeder is that this address can reach the panel.
         // Without that, a first user created by the factory (which defaults
-        // is_admin to false) stays locked out of the panel forever.
+        // to the least-privileged role) stays locked out of the panel forever.
         $existingUser = User::where('email', $email)->first();
 
         if ($existingUser) {
@@ -40,30 +41,30 @@ class AdminUserSeeder extends Seeder
 
         // Built without the factory on purpose: factories depend on
         // fakerphp/faker, a dev dependency absent from a --no-dev production
-        // install, and this seeder must run there. is_admin is not
+        // install, and this seeder must run there. The role is not
         // mass-assignable, so it is set explicitly rather than passed to fill().
         $user = new User;
         $user->name = $name;
         $user->email = $email;
         $user->password = $password;
         $user->email_verified_at = now();
-        $user->is_admin = true;
+        $user->role = Role::Admin;
         $user->save();
     }
 
     /**
      * Grant admin rights to an account that already exists.
      *
-     * Only the flag is touched: an operator's own name and password changes on
+     * Only the role is touched: an operator's own name and password changes on
      * the seeded address are left alone.
      */
     private function promoteToAdmin(User $user): void
     {
-        if ($user->is_admin) {
+        if ($user->hasRole(Role::Admin)) {
             return;
         }
 
-        $user->is_admin = true;
+        $user->role = Role::Admin;
         $user->save();
     }
 }
