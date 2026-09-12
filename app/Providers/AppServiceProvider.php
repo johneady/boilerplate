@@ -152,8 +152,17 @@ class AppServiceProvider extends ServiceProvider
 
             if ($fromAddress !== '') {
                 Config::set('mail.from.address', $fromAddress);
-                Config::set('mail.from.name', $settings->string(SettingKey::MailFromName) ?: $settings->businessName());
             }
+
+            // The from NAME is set regardless of whether an address has been
+            // saved, unlike the address above. They are not a pair: the
+            // address is delivery configuration that must stand down to the
+            // environment until an administrator sets it, whereas the name is
+            // branding, and branding follows the BusinessName setting
+            // everywhere else in the application. Leaving it tied to the
+            // address is what left mail arriving from APP_NAME on any
+            // deployment that set SMTP through the environment.
+            Config::set('mail.from.name', $settings->string(SettingKey::MailFromName) ?: $settings->businessName());
 
             if (! $settings->has(SettingKey::MailMailer)) {
                 return;

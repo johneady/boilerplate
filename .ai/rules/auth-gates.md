@@ -16,3 +16,8 @@ Livewire re-runs only the middleware on its persistent list when handling /livew
 
 ## Password changes and resets must retire sessions and remember tokens
 Security::updatePassword() and ResetUserPassword both purge the user's database-backed sessions (all of them on reset, all but the current one on change) and rotate remember_token. A stolen session or "remember me" cookie must not outlive a password change. The purge is guarded by `config('session.driver') === 'database'` — if the session driver ever changes, that guard needs a handler for the new driver, not deletion.
+
+## User::twoFactorQrCodeUrl() overrides Fortify to issue under the business name
+Fortify's TwoFactorAuthenticatable hardcodes config('app.name') as the QR code issuer and exposes no hook for it, so User replaces twoFactorQrCodeUrl() outright to use App\Settings\Settings::businessName(). Without it an authenticator app lists the entry under APP_NAME while the rest of the application shows the business name -- and the label is baked into the user's authenticator at enrolment, so it cannot be corrected later without re-enrolling.
+
+The body is otherwise copied from the trait; recheck it when laravel/fortify is upgraded. tests/Feature/Settings/SecurityTest.php pins it.

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Auth\Permission;
 use App\Auth\Role;
 use App\Concerns\HasRoles;
+use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
@@ -19,8 +20,11 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
+use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
+use Laravel\Fortify\Fortify;
 use Laravel\Fortify\PasskeyAuthenticatable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
+use RuntimeException;
 
 /**
  * @property int $id
@@ -164,6 +168,38 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         $gradient = $this->avatarGradient();
 
         return sprintf('background-image:linear-gradient(135deg,%s,%s)', $gradient['from'], $gradient['to']);
+    }
+
+    /**
+     * Get the two factor authentication QR code URL.
+     *
+     * Overridden to label the authenticator entry with the BusinessName
+     * setting rather than config('app.name'), which is what Fortify's
+     * TwoFactorAuthenticatable hardcodes and which would otherwise leave every
+     * user's authenticator app showing APP_NAME while the rest of the
+     * application follows the admin setting. Fortify exposes no hook for the
+     * issuer, so the trait method is replaced outright; the body is otherwise
+     * the trait's, and should be rechecked when Fortify is upgraded.
+     */
+    public function twoFactorQrCodeUrl(): string
+    {
+        $secret = $this->two_factor_secret;
+
+        // Null for every user who has not started enrolment. The trait's
+        // version passes it straight to decrypt() and dies on a TypeError;
+        // throwing something catchable keeps the Security page's existing
+        // "Failed to fetch setup data" handling working if it ever reaches
+        // here without checking first, as Fortify's own twoFactorQrCodeSvg()
+        // would.
+        if ($secret === null) {
+            throw new RuntimeException('Two factor authentication is not configured for this user.');
+        }
+
+        return app(TwoFactorAuthenticationProvider::class)->qrCodeUrl(
+            app(Settings::class)->businessName(),
+            $this->{Fortify::username()},
+            Fortify::currentEncrypter()->decrypt($secret)
+        );
     }
 
     /**

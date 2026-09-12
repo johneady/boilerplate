@@ -21,6 +21,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Listeners/SendQueueFailureAlert.php | .ai/rules/listeners.md |
 | config/logging.php, .env.example, docker-compose.yml, docker-compose.dokploy.yml | .ai/rules/logging.md |
 | app/Http/Middleware/EnsureRegistrationIsEnabled.php | .ai/rules/middleware.md |
+| resources/views/vendor/mail/**, resources/views/vendor/notifications/** | .ai/rules/notifications.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
 | app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
 | app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php | .ai/rules/queues-and-scheduling.md |

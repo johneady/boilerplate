@@ -111,6 +111,60 @@ test('an explicit mailer overrides a mailer stored in settings', function () {
     Event::assertDispatchedTimes(MessageSent::class, 4);
 });
 
+/**
+ * The brand in the header and footer of every framework notification comes
+ * from the BusinessName setting, not APP_NAME. The two published templates in
+ * resources/views/vendor/mail are the only thing making that true, so this
+ * renders the real messages and reads the brand back out of the bodies.
+ */
+test('every email is branded with the business name rather than the app name', function () {
+    config(['app.name' => 'Boilerplate']);
+
+    app(Settings::class)->setMany(['business_name' => 'Acme Widgets']);
+
+    $bodies = [];
+
+    Event::listen(function (MessageSent $event) use (&$bodies): void {
+        $bodies[] = $event->message->toString();
+    });
+
+    $this->artisan('app:preview-mails')->assertSuccessful();
+
+    expect($bodies)->toHaveCount(4);
+
+    foreach ($bodies as $body) {
+        expect($body)->toContain('Acme Widgets')
+            ->and($body)->not->toContain('Boilerplate');
+    }
+});
+
+/**
+ * Every email goes out through the same branded Markdown layout, including the
+ * settings test email -- an administrator checking their mail configuration
+ * should see what their users will receive. Each therefore carries both an
+ * HTML and a plain text part rather than text alone.
+ */
+test('every email is sent as branded HTML with a plain text alternative', function () {
+    $messages = [];
+
+    Event::listen(function (MessageSent $event) use (&$messages): void {
+        $messages[] = $event->message;
+    });
+
+    $this->artisan('app:preview-mails')->assertSuccessful();
+
+    expect($messages)->toHaveCount(4);
+
+    foreach ($messages as $message) {
+        // Asserted as strings: a text-only mailable returns null here, which
+        // would otherwise fail as a type error rather than as the missing
+        // HTML part it actually is.
+        expect((string) $message->getHtmlBody())->toContain('<!DOCTYPE')
+            ->and((string) $message->getTextBody())->not->toBeEmpty()
+            ->and((string) $message->getTextBody())->not->toContain('<!DOCTYPE');
+    }
+});
+
 test('it rejects an invalid recipient address', function () {
     $this->artisan('app:preview-mails', ['recipient' => 'not-an-address'])
         ->expectsOutputToContain('not a valid email address')

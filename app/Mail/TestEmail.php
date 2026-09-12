@@ -34,11 +34,20 @@ class TestEmail extends Mailable
 
     /**
      * Get the message content definition.
+     *
+     * Markdown rather than a plain text view, so this renders through the same
+     * branded layout as the framework notifications the settings page sits
+     * alongside -- an administrator checking their mail configuration should
+     * see what their users will receive, not a bare text message. Laravel
+     * builds the plain text part from the same template automatically.
      */
     public function content(): Content
     {
         return new Content(
-            text: 'mail.test-email',
+            markdown: 'mail.test-email',
+            with: [
+                'businessName' => app(Settings::class)->businessName(),
+            ],
         );
     }
 

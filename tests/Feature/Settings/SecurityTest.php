@@ -2,6 +2,7 @@
 
 use App\Livewire\Settings\Security;
 use App\Models\User;
+use App\Settings\Settings;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -216,4 +217,42 @@ test('correct password must be provided to update password', function () {
         ->call('updatePassword');
 
     $response->assertHasErrors(['current_password']);
+});
+
+/**
+ * Fortify's TwoFactorAuthenticatable hardcodes config('app.name') as the QR
+ * code issuer, so User overrides twoFactorQrCodeUrl() to use the BusinessName
+ * setting instead. Without the override an authenticator app lists the entry
+ * under APP_NAME while the rest of the application shows the business name.
+ */
+test('the two factor QR code is issued under the business name', function () {
+    config(['app.name' => 'Boilerplate']);
+
+    app(Settings::class)->setMany(['business_name' => 'Acme Widgets']);
+
+    $user = User::factory()->create();
+
+    $user->forceFill([
+        'two_factor_secret' => encrypt(app(Google2FA::class)->generateSecretKey()),
+    ])->save();
+
+    $url = $user->twoFactorQrCodeUrl();
+
+    expect($url)->toContain(rawurlencode('Acme Widgets'))
+        ->and($url)->not->toContain('Boilerplate');
+});
+
+/**
+ * The trait's version passes a null secret straight into decrypt() and dies on
+ * a TypeError. The override throws instead, so the Security page's existing
+ * catch(Exception) turns it into the "Failed to fetch setup data" error rather
+ * than a 500.
+ */
+test('the QR code URL throws catchably for a user who has not enrolled', function () {
+    $user = User::factory()->create();
+
+    expect($user->two_factor_secret)->toBeNull();
+
+    expect(fn (): string => $user->twoFactorQrCodeUrl())
+        ->toThrow(Exception::class);
 });
