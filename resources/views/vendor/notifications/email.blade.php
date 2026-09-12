@@ -55,13 +55,12 @@
 {{-- Subcopy --}}
 @isset($actionText)
 <x-slot:subcopy>
-@lang(
-    "If you're having trouble clicking the \":actionText\" button, copy and paste the URL below\n".
-    'into your web browser:',
-    [
-        'actionText' => $actionText,
-    ]
-) <span class="break-all">[{{ $displayableActionUrl }}]({{ $actionUrl }})</span>
+{{-- Shortened from the framework's two-line paragraph. The fallback link
+     still earns its place -- security scanners that rewrite hrefs, locked-down
+     corporate clients, and reading on a phone to finish on a laptop -- but it
+     is recovery text, not content, so it is one muted line rather than a
+     sentence that competes with the message above it. --}}
+@lang('Button not working? Use this link:') <span class="break-all">[{{ $displayableActionUrl }}]({{ $actionUrl }})</span>
 </x-slot:subcopy>
 @endisset
 </x-mail::message>

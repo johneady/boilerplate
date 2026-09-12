@@ -14,13 +14,14 @@
     {{ $slot }}
 
     {{-- Subcopy --}}
-    @isset($subcopy)
-        <x-slot:subcopy>
-            <x-mail::subcopy>
-                {{ $subcopy }}
-            </x-mail::subcopy>
-        </x-slot:subcopy>
-    @endisset
+    {{--
+        Deliberately omitted from the plain text part. The subcopy exists to
+        recover the destination when the HTML button cannot be clicked, but
+        this version has no button: the body above already prints the action
+        as "Reset Password: <url>" on its own line. Including it repeated the
+        same URL a third time, and as unparsed "[url](url)" Markdown, which is
+        noisier than the link it was meant to rescue.
+    --}}
 
     {{-- Footer --}}
     <x-slot:footer>

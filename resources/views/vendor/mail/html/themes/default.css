@@ -204,8 +204,20 @@ img {
     padding-top: 24px;
 }
 
+/*
+ * Recovery text, not content: muted and small so it sits below the message
+ * rather than competing with it. The URL inherits the link colour, which on a
+ * long signed link is the loudest thing in the block, so it is toned down too.
+ */
 .subcopy p {
-    font-size: 14px;
+    color: #94a3b8;
+    font-size: 12px;
+    line-height: 1.5em;
+    margin-bottom: 0;
+}
+
+.subcopy a {
+    color: #94a3b8;
 }
 
 /* Footer */
