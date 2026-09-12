@@ -66,10 +66,16 @@ class PreviewMails extends Command
 
         $user = $emails->notifiable($recipient);
 
+        // Keyed by the catalogue's slug, which is guaranteed unique, rather
+        // than by the free-text description: two entries sharing a description
+        // would otherwise collapse into one, so an email would silently never
+        // send while the count shrank with it and still reported success.
+        $catalogue = $emails->all($recipient);
+
         $senders = [];
 
-        foreach ($emails->all($recipient) as $email) {
-            $senders[$email['description']] = function () use ($email, $user, $recipient): void {
+        foreach ($catalogue as $slug => $email) {
+            $senders[$slug] = function () use ($email, $user, $recipient): void {
                 if ($email['mailable'] !== null) {
                     Mail::to($recipient)->send($email['mailable']);
 
@@ -88,7 +94,9 @@ class PreviewMails extends Command
 
         $sent = 0;
 
-        foreach ($senders as $description => $send) {
+        foreach ($senders as $slug => $send) {
+            $description = $catalogue[$slug]['description'];
+
             try {
                 $send();
             } catch (Throwable $e) {

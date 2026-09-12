@@ -65,7 +65,14 @@
     </script>
 @endif
 
-<link rel="sitemap" type="application/xml" href="{{ route('sitemap') }}" />
+{{--
+    Gated with the rest of the indexing signals: with indexing off the sitemap
+    is served empty, so advertising it would point a crawler at nothing while
+    the page beside it says noindex. The signals have to agree.
+--}}
+@if ($allowSearchIndexing ?? true)
+    <link rel="sitemap" type="application/xml" href="{{ route('sitemap') }}" />
+@endif
 
 @fonts
 

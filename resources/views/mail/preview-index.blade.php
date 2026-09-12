@@ -5,6 +5,12 @@
     The emails themselves render in an iframe on their own route rather than
     inline: an email carries its own full document with inlined styles, and
     dropping that into this page would let the two stylesheets fight.
+
+    Brands from $businessName, NOT config('app.name'). The error preview index
+    this is otherwise modelled on uses app.name because its pages must render
+    with the database down (.ai/rules/errors.md); that exemption does not reach
+    here, and the emails listed below are themselves branded from the setting,
+    so an app.name heading would disagree with every message under it.
 --}}
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -12,7 +18,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex, nofollow" />
-    <title>{{ __('Email preview') }} - {{ config('app.name') }}</title>
+    <title>{{ __('Email preview') }} - {{ $businessName }}</title>
     <link rel="icon" href="/favicon.ico" sizes="any" />
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -27,7 +33,7 @@
             <header class="pt-8 pb-4">
                 <a href="/" class="inline-flex items-center gap-2 font-medium text-neutral-900">
                     <x-app-logo-icon class="size-7" />
-                    <span>{{ config('app.name') }}</span>
+                    <span>{{ $businessName }}</span>
                 </a>
             </header>
 

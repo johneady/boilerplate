@@ -44,6 +44,23 @@ test('rendering a preview sends no mail', function () {
 });
 
 /**
+ * The index brands from the BusinessName setting too. It is modelled on the
+ * error preview index, which brands from config('app.name') because its pages
+ * must render with the database down -- that exemption does not reach here,
+ * and an app.name heading would disagree with every message listed under it.
+ */
+test('the index is branded with the business name rather than the app name', function () {
+    config(['app.name' => 'Boilerplate']);
+
+    app(Settings::class)->setMany(['business_name' => 'Acme Widgets']);
+
+    $this->get('/dev/mails')
+        ->assertSuccessful()
+        ->assertSee('Acme Widgets')
+        ->assertDontSee('Boilerplate');
+});
+
+/**
  * Rendered previews must brand from the BusinessName setting like the sent
  * messages do -- otherwise the preview shows a brand no recipient ever sees.
  */
@@ -87,15 +104,30 @@ test('rendering a preview writes nothing to the database', function () {
  * Unlike the error-page previews, these are gated on the safe environments by
  * name rather than on DevLoginAccounts::enabled(), which is a denylist of
  * production alone and therefore on for staging. Signed URLs for a stand-in
- * account must not be renderable there. The routes are registered at boot, so
- * this asserts on the guard in the route file rather than re-registering it.
+ * account must not be renderable there.
+ *
+ * The routes are registered at boot, so the guard is exercised by booting a
+ * fresh kernel under each environment rather than by re-including the route
+ * file. Every run is asserted to have SUCCEEDED and the local run to have
+ * listed the routes: without those, a subprocess that merely crashed would
+ * produce output containing no "dev.mails" and pass this vacuously -- the
+ * failure mode that matters most for a security guard.
  */
-test('the preview routes are registered only for named safe environments', function (string $environment) {
-    // Routes are registered at boot, so the guard is exercised by booting a
-    // fresh kernel under the environment rather than by re-including the file.
-    $output = Process::env(['APP_ENV' => $environment])
-        ->run('php artisan route:list --except-vendor --path=dev/mails')
-        ->output();
+function routeListFor(string $environment): string
+{
+    $result = Process::env(['APP_ENV' => $environment])
+        ->run('php artisan route:list --except-vendor --path=dev/mails');
 
-    expect($output)->not->toContain('dev.mails');
+    // A non-zero exit would otherwise read as "the routes are absent".
+    expect($result->successful())->toBeTrue();
+
+    return $result->output();
+}
+
+test('the preview routes exist in the safe environments', function (string $environment) {
+    expect(routeListFor($environment))->toContain('dev.mails');
+})->with(['local', 'testing']);
+
+test('the preview routes are absent outside the safe environments', function (string $environment) {
+    expect(routeListFor($environment))->not->toContain('dev.mails');
 })->with(['production', 'staging']);

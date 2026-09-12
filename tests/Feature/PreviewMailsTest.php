@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\PreviewableEmails;
 use App\Mail\TestEmail;
 use App\Models\User;
 use App\Notifications\QueueJobFailed;
@@ -301,4 +302,38 @@ test('each run issues a different password reset token', function () {
 
     expect($tokens)->toHaveCount(2)
         ->and($tokens[0])->not->toBe($tokens[1]);
+});
+
+/**
+ * The command builds its sender list from the catalogue, and must key it by
+ * the unique slug rather than the free-text description. Keyed by description,
+ * two entries sharing one would collapse into a single sender -- and because
+ * the total shrank with it, the command would still report "Delivered N of N"
+ * and exit successfully while an email silently never sent.
+ */
+test('emails sharing a description are all still delivered', function () {
+    $duplicated = new class extends PreviewableEmails
+    {
+        /** @return array<string, array<string, mixed>> */
+        public function all(string $recipient = PreviewableEmails::DEFAULT_RECIPIENT): array
+        {
+            $emails = parent::all($recipient);
+
+            foreach ($emails as $slug => $email) {
+                $emails[$slug]['description'] = 'an identically described email';
+            }
+
+            return $emails;
+        }
+    };
+
+    app()->instance(PreviewableEmails::class, $duplicated);
+
+    Event::fake([MessageSent::class]);
+
+    $this->artisan('app:preview-mails')
+        ->expectsOutputToContain('Delivered 4 of 4 email types')
+        ->assertSuccessful();
+
+    Event::assertDispatchedTimes(MessageSent::class, 4);
 });

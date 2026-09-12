@@ -142,3 +142,20 @@ test('structured data is omitted while indexing is off', function () {
         ->assertSuccessful()
         ->assertDontSee('application/ld+json', false);
 });
+
+/**
+ * Every indexing signal in the head has to agree. With indexing off the
+ * sitemap is served empty, so advertising it beside a noindex directive would
+ * point a crawler at nothing.
+ */
+test('the sitemap link follows the indexing setting', function () {
+    $this->get('/')
+        ->assertSuccessful()
+        ->assertSee('rel="sitemap"', false);
+
+    app(Settings::class)->set(SettingKey::AllowSearchIndexing, false);
+
+    $this->get('/')
+        ->assertSuccessful()
+        ->assertDontSee('rel="sitemap"', false);
+});
