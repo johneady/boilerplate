@@ -3,6 +3,8 @@
 use App\Models\Setting;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     $this->settings = app(Settings::class);
@@ -170,6 +172,70 @@ test('unsaved business contact details read as empty strings', function () {
     expect($this->settings->string(SettingKey::BusinessAddress))->toBe('')
         ->and($this->settings->string(SettingKey::BusinessPhone))->toBe('')
         ->and($this->settings->string(SettingKey::BusinessEmail))->toBe('');
+});
+
+test('unsaved seo settings read as indexable with no title or description', function () {
+    // The page head omits the tags for blank values and falls back to the
+    // business name, so a fresh install with no rows saved must read the
+    // declared defaults rather than nulls the views would have to guard.
+    expect($this->settings->string(SettingKey::SeoTitle))->toBe('')
+        ->and($this->settings->string(SettingKey::SeoDescription))->toBe('')
+        ->and($this->settings->string(SettingKey::SiteIcon))->toBe('')
+        ->and($this->settings->boolean(SettingKey::AllowSearchIndexing))->toBeTrue();
+});
+
+test('a stored indexing value that is not recognisably true reads as false', function (mixed $stored) {
+    // Indexing is a gate like registration: a garbage row must fail closed
+    // to noindex rather than publish a site the operator meant to hide.
+    Setting::create(['key' => 'allow_search_indexing', 'value' => $stored]);
+
+    expect($this->settings->boolean(SettingKey::AllowSearchIndexing))->toBeFalse();
+})->with([
+    'the string false' => ['false'],
+    'the string off' => ['off'],
+    'the string zero' => ['0'],
+    'an empty string' => [''],
+    'null' => [null],
+]);
+
+test('a blank stored seo title or description reads as the empty string', function (mixed $stored) {
+    app(Settings::class)->set(SettingKey::SeoTitle, $stored);
+    app(Settings::class)->set(SettingKey::SeoDescription, $stored);
+
+    app()->forgetScopedInstances();
+
+    $settings = app(Settings::class);
+
+    expect($settings->string(SettingKey::SeoTitle))->toBe('')
+        ->and($settings->string(SettingKey::SeoDescription))->toBe('');
+})->with([
+    'empty string' => [''],
+    'whitespace' => ['   '],
+    'null' => [null],
+    'an array' => [['nope']],
+]);
+
+test('the site icon url resolves only once the conversions exist', function () {
+    Storage::fake('public');
+
+    expect($this->settings->siteIconUrl('favicon'))->toBeNull();
+
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+
+    // Resolution is memoised per instance (the head asks three times per
+    // page), so stand in for the next request's fresh instance at each step.
+    app()->forgetScopedInstances();
+
+    // A row pointing at a directory the processing job has not written yet
+    // resolves to null, so the head falls back to the bundled favicon files
+    // rather than linking at a file that does not exist.
+    expect(app(Settings::class)->siteIconUrl('favicon'))->toBeNull();
+
+    Storage::disk('public')->put('site-icon/abc/favicon.webp', 'x');
+
+    app()->forgetScopedInstances();
+
+    expect(app(Settings::class)->siteIconUrl('favicon'))->toBe('/storage/site-icon/abc/favicon.webp');
 });
 
 test('unsaved mail settings read as the log mailer with no connection details', function () {

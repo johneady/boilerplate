@@ -83,6 +83,16 @@ return [
             'full' => ['width' => 512, 'height' => 512, 'fit' => 'cover'],
         ],
 
+        // The site icon from the admin panel's SEO & brand settings. All
+        // conversions are square "cover" crops: a favicon and an Apple touch
+        // icon must be square, and the social image doubles as one through the
+        // summary card, which prefers a square mark.
+        'site-icon' => [
+            'favicon' => ['width' => 64, 'height' => 64, 'fit' => 'cover'],
+            'apple-touch' => ['width' => 180, 'height' => 180, 'fit' => 'cover'],
+            'social' => ['width' => 512, 'height' => 512, 'fit' => 'cover'],
+        ],
+
     ],
 
     /*

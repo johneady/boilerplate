@@ -4,6 +4,7 @@ namespace App\Settings;
 
 use App\Models\Setting;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Typed read/write access to the key/value settings store.
@@ -22,6 +23,13 @@ class Settings
      * @var array<string, mixed>|null
      */
     private ?array $cache = null;
+
+    /**
+     * Icon URLs already resolved for this instance, keyed by path|conversion.
+     *
+     * @var array<string, string|null>
+     */
+    private array $resolvedSiteIconUrls = [];
 
     /**
      * Read a setting, falling back to the key's declared default.
@@ -72,6 +80,46 @@ class Settings
     public function businessName(): string
     {
         return $this->string(SettingKey::BusinessName);
+    }
+
+    /**
+     * Get the URL of one of the site icon's conversions.
+     *
+     * Null until App\Jobs\ProcessUploadedImage has written the conversions,
+     * and when no icon has been uploaded at all -- which is what lets the
+     * page head fall back to the bundled favicon files rather than render a
+     * link to a file that does not exist. Like User::avatarUrl(), resolution
+     * is memoised because the head renders it three times per page.
+     */
+    public function siteIconUrl(string $conversion): ?string
+    {
+        $directory = $this->string(SettingKey::SiteIcon);
+
+        if ($directory === '') {
+            return null;
+        }
+
+        $cacheKey = $directory.'|'.$conversion;
+
+        if (array_key_exists($cacheKey, $this->resolvedSiteIconUrls)) {
+            return $this->resolvedSiteIconUrls[$cacheKey];
+        }
+
+        /** @var string $disk */
+        $disk = config('images.disk');
+
+        /** @var string $format */
+        $format = config('images.format');
+
+        $path = $directory.'/'.$conversion.'.'.$format;
+
+        $storage = Storage::disk($disk);
+
+        // A conversion can be missing if the set was written by an older
+        // configuration; the bundled default beats a broken icon link.
+        return $this->resolvedSiteIconUrls[$cacheKey] = $storage->exists($path)
+            ? $storage->url($path)
+            : null;
     }
 
     /**

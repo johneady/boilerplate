@@ -2,6 +2,8 @@
 
 use App\Jobs\ProcessUploadedImage;
 use App\Models\User;
+use App\Settings\SettingKey;
+use App\Settings\Settings;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -163,6 +165,67 @@ test('it still attaches when a removal predates the dispatch', function () {
     new ProcessUploadedImage($path, 'avatar', 'avatars/1/new', $user->id)->handle();
 
     expect($user->refresh()->avatar_path)->toBe('avatars/1/new');
+});
+
+test('it points the site icon setting at the processed directory', function () {
+    $path = storePendingUpload(600, 600);
+
+    new ProcessUploadedImage($path, 'site-icon', 'site-icon/abc', settingKey: SettingKey::SiteIcon)->handle();
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('site-icon/abc');
+
+    Storage::disk('public')->assertExists('site-icon/abc/favicon.webp');
+    Storage::disk('public')->assertExists('site-icon/abc/apple-touch.webp');
+    Storage::disk('public')->assertExists('site-icon/abc/social.webp');
+});
+
+test('it removes the previous site icon when it is replaced', function () {
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/old');
+
+    Storage::disk('public')->put('site-icon/old/favicon.webp', 'stale');
+
+    $path = storePendingUpload(600, 600);
+
+    new ProcessUploadedImage($path, 'site-icon', 'site-icon/new', settingKey: SettingKey::SiteIcon)->handle();
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('site-icon/new');
+    Storage::disk('public')->assertMissing('site-icon/old/favicon.webp');
+    Storage::disk('public')->assertExists('site-icon/new/favicon.webp');
+});
+
+test('it discards its result when the site icon was removed after dispatch', function () {
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/old');
+
+    $path = storePendingUpload(600, 600);
+
+    $job = new ProcessUploadedImage($path, 'site-icon', 'site-icon/new', settingKey: SettingKey::SiteIcon);
+
+    // The administrator hit Remove while this job was still on the queue.
+    Cache::put(ProcessUploadedImage::settingRemovalKey(SettingKey::SiteIcon), time() + 1, now()->addDay());
+
+    $job->handle();
+
+    // Re-attaching here would resurrect the icon the administrator deleted.
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('site-icon/old');
+    expect(Storage::disk('public')->allFiles('site-icon/new'))->toBeEmpty();
+});
+
+test('it still attaches a site icon when a removal predates the dispatch', function () {
+    Cache::put(ProcessUploadedImage::settingRemovalKey(SettingKey::SiteIcon), time() - 60, now()->addDay());
+
+    $path = storePendingUpload(600, 600);
+
+    new ProcessUploadedImage($path, 'site-icon', 'site-icon/new', settingKey: SettingKey::SiteIcon)->handle();
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('site-icon/new');
 });
 
 test('it fails cleanly when the staged upload cannot be read', function () {

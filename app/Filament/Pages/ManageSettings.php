@@ -2,6 +2,8 @@
 
 namespace App\Filament\Pages;
 
+use App\Concerns\ImageValidationRules;
+use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Models\User;
 use App\Settings\SettingKey;
@@ -11,6 +13,7 @@ use BackedEnum;
 use Closure;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Field;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -24,7 +27,10 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -35,14 +41,17 @@ use Throwable;
  * no edit here -- as long as its type has a field mapped in formComponent().
  * Settings are grouped onto the page's tabs by SettingKey::tab().
  *
- * The mailer and its SMTP connection are the exception: the mail tab edits
- * them through the modal the mailer button opens, since they change as one
- * unit and persist the moment the modal is submitted.
+ * The mailer with its SMTP connection and the site icon are the exceptions:
+ * the mail tab and SEO & brand tab edit them through the modals their buttons
+ * open, since they change as a unit and persist the moment the modal is
+ * submitted.
  *
  * @property-read Schema $form
  */
 class ManageSettings extends Page
 {
+    use ImageValidationRules;
+
     protected string $view = 'filament.pages.manage-settings';
 
     protected static ?string $slug = 'settings';
@@ -68,6 +77,15 @@ class ManageSettings extends Page
         SettingKey::MailUsername,
         SettingKey::MailPassword,
         SettingKey::MailEncryption,
+    ];
+
+    /**
+     * The settings edited through a button's modal rather than a tab's form.
+     *
+     * @var array<int, SettingKey>
+     */
+    private const ACTION_EDITED_KEYS = [
+        SettingKey::SiteIcon,
     ];
 
     /**
@@ -122,13 +140,15 @@ class ManageSettings extends Page
      * Tabs are rendered per SettingsTab case, each collecting the keys that
      * claim it, so a setting lands on a tab by its enum declaration alone.
      * The mail tab leads with the mailer button, whose modal edits the keys
-     * MAILER_MODAL_KEYS holds instead of the form.
+     * MAILER_MODAL_KEYS holds instead of the form; the SEO & brand tab leads
+     * with the site icon buttons, which edit SiteIcon the same way.
      */
     protected function tabComponent(SettingsTab $settingsTab): Tab
     {
         $keys = array_filter(
             SettingKey::cases(),
-            fn (SettingKey $key): bool => $key->tab() === $settingsTab && ! in_array($key, self::MAILER_MODAL_KEYS, true),
+            fn (SettingKey $key): bool => $key->tab() === $settingsTab
+                && ! in_array($key, [...self::MAILER_MODAL_KEYS, ...self::ACTION_EDITED_KEYS], true),
         );
 
         $components = array_map(
@@ -138,6 +158,13 @@ class ManageSettings extends Page
 
         if ($settingsTab === SettingsTab::Mail) {
             array_unshift($components, Actions::make([$this->configureMailerAction()]));
+        }
+
+        if ($settingsTab === SettingsTab::SeoBrand) {
+            array_unshift($components, Actions::make([
+                $this->uploadSiteIconAction(),
+                $this->removeSiteIconAction(),
+            ]));
         }
 
         return Tab::make($settingsTab->label())
@@ -203,6 +230,118 @@ class ManageSettings extends Page
     }
 
     /**
+     * The button the SEO & brand tab uploads the site icon through.
+     *
+     * Like the mailer button, the effect is immediate: the upload is staged on
+     * the private disk and queued for processing the moment the modal is
+     * submitted, rather than riding on the form's Save -- the icon is not form
+     * state, it is a file the processing job turns into the favicon, touch
+     * icon and social image the page head renders.
+     */
+    protected function uploadSiteIconAction(): Action
+    {
+        $iconIsStored = fn (): bool => $this->settings()->string(SettingKey::SiteIcon) !== '';
+
+        return Action::make('uploadSiteIcon')
+            ->label(fn (): string => $iconIsStored() ? 'Replace site icon' : 'Upload site icon')
+            ->icon(Heroicon::OutlinedPhoto)
+            ->color(fn (): string => $iconIsStored() ? 'success' : 'gray')
+            ->modalHeading('Site icon')
+            ->modalDescription(SettingKey::SiteIcon->helperText())
+            ->form([$this->formComponent(SettingKey::SiteIcon)])
+            ->action(function (array $data): void {
+                $sourcePath = (string) $data[SettingKey::SiteIcon->value];
+
+                // FileUpload state is client-controllable once dehydrated: a
+                // forged request can submit an arbitrary path string instead
+                // of a fresh upload (see BaseFileUpload::saveUploadedFiles).
+                // Only paths inside the staging directory are ever handed to
+                // the job, so nothing else on the private disk can be read,
+                // republished or deleted through this action.
+                if (! static::isStagedUploadPath($sourcePath)) {
+                    Notification::make()
+                        ->danger()
+                        ->title('Upload rejected')
+                        ->body('Choose an icon file to upload.')
+                        ->send();
+
+                    return;
+                }
+
+                ProcessUploadedImage::dispatch(
+                    sourcePath: $sourcePath,
+                    conversionSet: 'site-icon',
+                    targetDirectory: 'site-icon/'.Str::uuid()->toString(),
+                    settingKey: SettingKey::SiteIcon,
+                );
+
+                Notification::make()
+                    ->success()
+                    ->title('Site icon uploaded')
+                    ->body('It will appear in the browser tab and link previews once processed.')
+                    ->send();
+            });
+    }
+
+    /**
+     * Whether a dehydrated FileUpload path may be handed to the job.
+     *
+     * Exactly "uploads/pending/<name>": a prefix match alone would admit
+     * "uploads/pending/../../elsewhere", since the filesystem resolves the
+     * dot segments after the prefix is checked. One bare filename -- no
+     * further separators, no dot-prefixed segment -- is also exactly what
+     * Filament stores there, a hashed name directly inside the directory.
+     *
+     * A pure predicate rather than an inline check so the rule is pinned by
+     * a test of its own, independent of whichever layer rejects a forged
+     * string first.
+     */
+    public static function isStagedUploadPath(string $path): bool
+    {
+        return (bool) preg_match('#^uploads/pending/[^/.\\\\][^/\\\\]*$#', $path);
+    }
+
+    /**
+     * The button that removes the stored site icon.
+     *
+     * A marker is recorded first, so a replacement still queued for processing
+     * is discarded by the job rather than resurrecting the icon being removed
+     * -- the same guard the avatar's Remove button relies on.
+     */
+    protected function removeSiteIconAction(): Action
+    {
+        return Action::make('removeSiteIcon')
+            ->label('Remove icon')
+            ->icon(Heroicon::OutlinedTrash)
+            ->color('danger')
+            ->visible(fn (): bool => $this->settings()->string(SettingKey::SiteIcon) !== '')
+            ->requiresConfirmation()
+            ->action(function (): void {
+                Cache::put(
+                    ProcessUploadedImage::settingRemovalKey(SettingKey::SiteIcon),
+                    time(),
+                    now()->addDay(),
+                );
+
+                $directory = $this->settings()->string(SettingKey::SiteIcon);
+
+                if ($directory !== '') {
+                    $this->settings()->set(SettingKey::SiteIcon, '');
+
+                    /** @var string $disk */
+                    $disk = config('images.disk');
+
+                    Storage::disk($disk)->deleteDirectory($directory);
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title('Site icon removed')
+                    ->send();
+            });
+    }
+
+    /**
      * Build the field for a single setting.
      *
      * Every key's default is declared on the enum, so a setting that has never
@@ -234,6 +373,32 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->email()
                 ->maxLength(255),
+            SettingKey::SeoTitle => TextInput::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->placeholder(fn (): string => $this->settings()->businessName())
+                ->maxLength(255),
+            SettingKey::SeoDescription => Textarea::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->maxLength(511)
+                ->rows(3),
+            SettingKey::AllowSearchIndexing => Toggle::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default()),
+            SettingKey::SiteIcon => FileUpload::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->rules($this->imageRules())
+                ->acceptedFileTypes(static::acceptedIconMimeTypes())
+                // Staged on the private disk, never the public one: the
+                // unprocessed original must not be reachable over HTTP (see
+                // the avatar upload in App\Livewire\Settings\Profile).
+                ->disk('local')
+                ->directory('uploads/pending'),
             SettingKey::AllowRegistration => Toggle::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())
@@ -306,6 +471,29 @@ class ManageSettings extends Page
                 ->placeholder(fn (): string => $this->settings()->businessName())
                 ->maxLength(255),
         };
+    }
+
+    /**
+     * The file-picker types matching config('images.accepted_extensions').
+     *
+     * Derived from the same config the server-side rules use, so the browser
+     * picker and the validation never disagree about what is accepted.
+     *
+     * @return array<int, string>
+     */
+    protected static function acceptedIconMimeTypes(): array
+    {
+        /** @var array<int, string> $extensions */
+        $extensions = config('images.accepted_extensions');
+
+        return collect($extensions)
+            ->map(fn (string $extension): string => match ($extension) {
+                'jpg', 'jpeg' => 'image/jpeg',
+                default => 'image/'.$extension,
+            })
+            ->unique()
+            ->values()
+            ->all();
     }
 
     /**

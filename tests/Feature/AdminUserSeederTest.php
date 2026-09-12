@@ -4,6 +4,15 @@ use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+
+// The full seed generates a placeholder site icon on the image disks; faking
+// them keeps each test isolated and stops generated files leaking into the
+// real storage tree.
+beforeEach(function () {
+    Storage::fake('local');
+    Storage::fake('public');
+});
 
 test('it seeds an admin user from configuration', function () {
     config(['first.user.name' => 'Seeded Admin', 'first.user.email' => 'seeded@example.com']);

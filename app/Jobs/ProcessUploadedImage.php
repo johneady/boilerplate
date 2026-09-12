@@ -3,6 +3,8 @@
 namespace App\Jobs;
 
 use App\Models\User;
+use App\Settings\SettingKey;
+use App\Settings\Settings;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -16,11 +18,13 @@ use RuntimeException;
  * The source file is read from a private disk, re-encoded once per conversion,
  * and the originals are deleted. The original is never served: re-encoding is
  * what strips EXIF (GPS included) and any payload smuggled into a file that is
- * a structurally valid image, so serving the uploaded bytes would give away
- * the protection this job exists to provide.
+ * a structurally valid image, so serving the uploaded bytes would give away the
+ * protection this job exists to provide.
  *
  * Conversions come from config/images.php rather than being hardcoded, so a
- * second consumer (a gallery, say) adds a key there instead of a job here.
+ * second consumer (a gallery, say) adds a key there instead of a job here. The
+ * processed set is attached to whichever target the dispatch named: a user
+ * (their avatar) or a settings row (the site icon).
  */
 class ProcessUploadedImage extends Job
 {
@@ -30,6 +34,7 @@ class ProcessUploadedImage extends Job
      * @param  string  $sourcePath  Path on the private disk holding the upload.
      * @param  string  $conversionSet  Key under config('images.conversions').
      * @param  string  $targetDirectory  Directory on the image disk to write into.
+     * @param  SettingKey|null  $settingKey  Setting to point at the processed set, instead of a user.
      */
     public function __construct(
         public string $sourcePath,
@@ -37,6 +42,7 @@ class ProcessUploadedImage extends Job
         public string $targetDirectory,
         public ?int $userId = null,
         public ?int $dispatchedAt = null,
+        public ?SettingKey $settingKey = null,
     ) {
         $this->dispatchedAt ??= time();
     }
@@ -47,6 +53,14 @@ class ProcessUploadedImage extends Job
     public static function removalKey(int $userId): string
     {
         return "avatar-removed-at:{$userId}";
+    }
+
+    /**
+     * The cache key holding the moment a setting's image was last removed.
+     */
+    public static function settingRemovalKey(SettingKey $key): string
+    {
+        return "setting-removed-at:{$key->value}";
     }
 
     /**
@@ -109,7 +123,9 @@ class ProcessUploadedImage extends Job
         // has already been rolled back.
         $source->delete($this->sourcePath);
 
-        $this->attachToUser($written);
+        $this->settingKey !== null
+            ? $this->attachToSetting($written)
+            : $this->attachToUser($written);
     }
 
     /**
@@ -183,6 +199,43 @@ class ProcessUploadedImage extends Job
 
         // Replacing an avatar leaves the previous set orphaned on disk.
         if ($previousDirectory !== null && $previousDirectory !== $this->targetDirectory) {
+            Storage::disk($this->imageDisk())->deleteDirectory($previousDirectory);
+        }
+    }
+
+    /**
+     * Point the given setting at the freshly written conversions.
+     *
+     * @param  array<string, string>  $written
+     */
+    protected function attachToSetting(array $written): void
+    {
+        if ($this->settingKey === null) {
+            return;
+        }
+
+        $settingKey = $this->settingKey;
+
+        $settings = app(Settings::class);
+
+        // An administrator who hit Remove while this job was still queued
+        // means it, exactly as with an avatar: the conversions are written but
+        // must not be attached, or the icon they just deleted would reappear
+        // when the worker caught up.
+        $removedAt = Cache::get(self::settingRemovalKey($settingKey));
+
+        if ($removedAt !== null && $removedAt >= $this->dispatchedAt) {
+            Storage::disk($this->imageDisk())->deleteDirectory($this->targetDirectory);
+
+            return;
+        }
+
+        $previousDirectory = $settings->string($settingKey);
+
+        $settings->set($settingKey, $this->targetDirectory);
+
+        // Replacing the icon leaves the previous set orphaned on disk.
+        if ($previousDirectory !== '' && $previousDirectory !== $this->targetDirectory) {
             Storage::disk($this->imageDisk())->deleteDirectory($previousDirectory);
         }
     }

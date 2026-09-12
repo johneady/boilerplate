@@ -20,6 +20,14 @@ enum SettingKey: string
 
     case BusinessEmail = 'business_email';
 
+    case SeoTitle = 'seo_title';
+
+    case SeoDescription = 'seo_description';
+
+    case AllowSearchIndexing = 'allow_search_indexing';
+
+    case SiteIcon = 'site_icon';
+
     case AllowRegistration = 'allow_registration';
 
     case MailMailer = 'mail_mailer';
@@ -45,6 +53,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
+            self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::SiteIcon => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => SettingsTab::Mail,
         };
@@ -58,6 +67,8 @@ enum SettingKey: string
         return match ($this) {
             self::BusinessName => config('app.name', 'Laravel'),
             self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => '',
+            self::SeoTitle, self::SeoDescription, self::SiteIcon => '',
+            self::AllowSearchIndexing => true,
             self::AllowRegistration => false,
             self::MailMailer => 'log',
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => '',
@@ -74,6 +85,8 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => self::toFilledString($value, $this->default()),
+            self::SeoTitle, self::SeoDescription, self::SiteIcon => self::toFilledString($value, ''),
+            self::AllowSearchIndexing => self::toBoolean($value),
             self::AllowRegistration => self::toBoolean($value),
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
             self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
@@ -137,6 +150,10 @@ enum SettingKey: string
             self::BusinessAddress => 'Address',
             self::BusinessPhone => 'Phone',
             self::BusinessEmail => 'Email',
+            self::SeoTitle => 'Default page title',
+            self::SeoDescription => 'Meta description',
+            self::AllowSearchIndexing => 'Allow search engines to index the site',
+            self::SiteIcon => 'Site icon',
             self::AllowRegistration => 'Allow new user registrations',
             self::MailMailer => 'Mailer',
             self::MailHost => 'Host',
@@ -159,6 +176,10 @@ enum SettingKey: string
             self::BusinessAddress => 'The postal address shown in the public site\'s footer. Leave blank to hide it.',
             self::BusinessPhone => 'The phone number shown in the public site\'s footer. Leave blank to hide it.',
             self::BusinessEmail => 'The contact address shown in the public site\'s footer. Leave blank to hide it.',
+            self::SeoTitle => 'Used as the title of pages without their own, and as the headline of social link previews. Leave blank to use the business name.',
+            self::SeoDescription => 'A sentence or two summarising the site for search results and link previews. Leave blank to omit the tag.',
+            self::AllowSearchIndexing => 'When off, every page asks search engines not to index it or follow its links. Turn off while a site is under development.',
+            self::SiteIcon => 'Uploaded once and re-encoded into a favicon, an Apple touch icon and a social sharing image. Square artwork works best.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
             self::MailMailer => 'How outgoing email is delivered. "Log" writes messages to the application log; "SMTP" sends through the server below.',
             self::MailHost => 'The SMTP server to send through, e.g. smtp.fastmail.com. Required before SMTP delivery is used.',

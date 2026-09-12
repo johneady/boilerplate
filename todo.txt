@@ -1,2 +1,3 @@
 1. create an artisan command that sends every email type at once to an a dummy email. I can view them in mailpit...unless you have a better option..recommend me before starting this one
-2. on the filament settings table add an seo & brand page that allows an upload of the icon and has the typical seo fields in the html headers. Update the seeders to have appropirate defaults for a "boilerplate".
+2. on the filament settings table add an seo & brand page that allows an upload of the icon and has the typical seo fields in the html headers. Update the seeders to have appropirate dummy defaults
+3. create a dummy icon to replace laravel's icon. on the settings brand tab, show the current icon beside the upload site icon button.

@@ -15,6 +15,8 @@ enum SettingsTab: string
 {
     case BusinessDetails = 'business_details';
 
+    case SeoBrand = 'seo_brand';
+
     case Registration = 'registration';
 
     case Mail = 'mail';
@@ -26,6 +28,7 @@ enum SettingsTab: string
     {
         return match ($this) {
             self::BusinessDetails => 'Business details',
+            self::SeoBrand => 'SEO & brand',
             self::Registration => 'Registration',
             self::Mail => 'Email',
         };
@@ -38,6 +41,7 @@ enum SettingsTab: string
     {
         return match ($this) {
             self::BusinessDetails => Heroicon::OutlinedBuildingOffice2,
+            self::SeoBrand => Heroicon::OutlinedGlobeAlt,
             self::Registration => Heroicon::OutlinedUserPlus,
             self::Mail => Heroicon::OutlinedEnvelope,
         };

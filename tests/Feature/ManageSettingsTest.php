@@ -1,6 +1,7 @@
 <?php
 
 use App\Filament\Pages\ManageSettings;
+use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Models\User;
 use App\Settings\SettingKey;
@@ -10,7 +11,10 @@ use Filament\Forms\Components\Field;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Tabs\Tab;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -94,6 +98,9 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'business_address',
         'business_phone',
         'business_email',
+        'seo_title',
+        'seo_description',
+        'allow_search_indexing',
         'allow_registration',
         'mail_from_address',
         'mail_from_name',
@@ -128,6 +135,7 @@ test('the business name is required', function () {
 test('the settings page renders a tab for each declared group of settings', function () {
     Livewire::test(ManageSettings::class)
         ->assertSee('Business details')
+        ->assertSee('SEO & brand')
         ->assertSee('Registration')
         ->assertSee('Email');
 });
@@ -139,7 +147,9 @@ test('each setting is edited on its declared tab', function () {
     // Fields are listed with hidden ones included, since a field conditional
     // on the mailer still belongs to its tab while hidden. The mailer group
     // is edited through the mailer button's modal rather than tab fields.
-    $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption'];
+    // The mailer group is edited through the mailer button's modal, and the
+    // site icon through the SEO & brand tab's buttons, rather than tab fields.
+    $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'site_icon'];
 
     $flattener = function (array $components) use (&$flattener): array {
         $result = [];
@@ -389,6 +399,150 @@ test('the from name hints at the value a blank falls back to', function () {
     $fields = Livewire::test(ManageSettings::class)->instance()->form->getFlatFields(withHidden: true);
 
     expect($fields['mail_from_name']->getPlaceholder())->toBe('Cromulent Widgets');
+});
+
+test('saving the form persists the seo settings', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm([
+            'seo_title' => 'Cromulent Widgets',
+            'seo_description' => 'Purveyors of fine example widgets.',
+            'allow_search_indexing' => false,
+            'mail_from_address' => 'hello@cromulent.test',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    $settings = app(Settings::class);
+
+    expect($settings->string(SettingKey::SeoTitle))->toBe('Cromulent Widgets')
+        ->and($settings->string(SettingKey::SeoDescription))->toBe('Purveyors of fine example widgets.')
+        ->and($settings->boolean(SettingKey::AllowSearchIndexing))->toBeFalse();
+});
+
+test('the seo description is capped at a search-result length', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm([
+            'seo_description' => str_repeat('x', 512),
+            'mail_from_address' => 'hello@cromulent.test',
+        ])
+        ->call('save')
+        ->assertHasFormErrors(['seo_description' => 'max']);
+});
+
+test('the seo title hints at the value a blank falls back to', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    $fields = Livewire::test(ManageSettings::class)->instance()->form->getFlatFields(withHidden: true);
+
+    expect($fields['seo_title']->getPlaceholder())->toBe('Cromulent Widgets');
+});
+
+test('the site icon button offers an upload until an icon is stored', function () {
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Upload site icon')
+        ->assertActionHidden('removeSiteIcon');
+});
+
+test('the site icon button offers a replacement once an icon is stored', function () {
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Replace site icon')
+        ->assertActionVisible('removeSiteIcon');
+});
+
+test('submitting the icon modal stages the upload and queues the processing job', function () {
+    Queue::fake();
+    Storage::fake('local');
+
+    Livewire::test(ManageSettings::class)
+        ->callAction('uploadSiteIcon', [
+            'site_icon' => UploadedFile::fake()->image('icon.png', 128, 128),
+        ]);
+
+    // The staged source must be on the private disk, never the public one --
+    // the unprocessed original is not re-encoded yet.
+    Queue::assertPushed(ProcessUploadedImage::class, fn (ProcessUploadedImage $job): bool => $job->conversionSet === 'site-icon'
+        && $job->settingKey === SettingKey::SiteIcon
+        && str_starts_with($job->sourcePath, 'uploads/pending/'));
+
+    Notification::assertNotified('Site icon uploaded');
+});
+
+test('the icon modal rejects a file type the processing job cannot decode', function () {
+    Queue::fake();
+
+    Livewire::test(ManageSettings::class)
+        ->callAction('uploadSiteIcon', [
+            'site_icon' => UploadedFile::fake()->create('icon.svg', 64, 'image/svg+xml'),
+        ]);
+
+    Queue::assertNotPushed(ProcessUploadedImage::class);
+});
+
+/**
+ * FileUpload state is client-controllable once dehydrated, so a forged
+ * request can submit an arbitrary path string instead of a fresh upload --
+ * the vector BaseFileUpload's own docblock warns about. Filament's file
+ * validation currently rejects such a string before the action runs, but
+ * only paths inside the staging directory may EVER reach the job, or
+ * anything readable on the private disk could be republished (or deleted)
+ * through this action.
+ */
+test('only freshly staged uploads qualify as icon sources', function (string $path, bool $qualifies) {
+    expect(ManageSettings::isStagedUploadPath($path))->toBe($qualifies);
+})->with([
+    'a staged upload' => ['uploads/pending/abc123.png', true],
+    'an avatar conversion' => ['avatars/1/abc/thumb.webp', false],
+    'a traversal out of staging' => ['uploads/pending/../../private/.env', false],
+    'a bare parent directory' => ['uploads/pending/..', false],
+    'a hidden file' => ['uploads/pending/.env', false],
+    'a nested path' => ['uploads/pending/nested/source.png', false],
+    'an absolute path' => ['/etc/passwd', false],
+    'an empty path' => ['', false],
+]);
+
+/**
+ * The form is filled from the whole settings table, which includes the keys
+ * the modal edits. Saving the form afterwards must not write those stale
+ * values back over what the modal persisted -- here the row moves to a new
+ * icon between mount and save, and the stale value must not win.
+ */
+test('saving the form does not revert a site icon the modal just stored', function () {
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/stale');
+
+    $page = Livewire::test(ManageSettings::class);
+
+    // What the upload modal does between mounting and saving: persists the
+    // new icon directly, out-of-band from the form state the page booted with.
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/new');
+
+    $page->fillForm(['mail_from_address' => 'hello@cromulent.test'])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('site-icon/new');
+
+    Notification::assertNotified('Settings saved');
+});
+
+test('removing the site icon clears the setting and its files', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('site-icon/abc/favicon.webp', 'stale');
+
+    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+
+    Livewire::test(ManageSettings::class)
+        ->callAction('removeSiteIcon');
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('');
+    Storage::disk('public')->assertMissing('site-icon/abc/favicon.webp');
+
+    Notification::assertNotified('Site icon removed');
 });
 
 test('the test email modal defaults to the business contact address', function () {

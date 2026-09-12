@@ -86,6 +86,22 @@ class AppServiceProvider extends ServiceProvider
         View::composer('*', function (ViewContract $view): void {
             $view->with('businessName', app(Settings::class)->businessName());
         });
+
+        // The head partial carries the SEO settings and the processed site
+        // icon's URLs, composed for the same reason as the business name:
+        // requests that render no view never query the settings table or stat
+        // the image disk.
+        View::composer('partials.head', function (ViewContract $view): void {
+            $settings = app(Settings::class);
+
+            $view->with('seoTitle', $settings->string(SettingKey::SeoTitle))
+                ->with('seoDescription', $settings->string(SettingKey::SeoDescription))
+                ->with('allowSearchIndexing', $settings->boolean(SettingKey::AllowSearchIndexing))
+                ->with('faviconUrl', $settings->siteIconUrl('favicon'))
+                ->with('appleTouchIconUrl', $settings->siteIconUrl('apple-touch'))
+                ->with('socialImageUrl', $settings->siteIconUrl('social'))
+                ->with('siteIconMime', 'image/'.(string) config('images.format'));
+        });
     }
 
     /**
