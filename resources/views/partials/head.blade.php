@@ -51,6 +51,22 @@
     <meta name="twitter:card" content="summary" />
 @endif
 
+{{--
+    Structured data describing the organisation behind the site. Omitted along
+    with indexing, because a noindex page has nothing to gain from it.
+
+    JSON_UNESCAPED_SLASHES keeps URLs readable; HEX_TAG and HEX_AMP escape the
+    characters that could otherwise close this script element early from
+    inside a stored business name.
+--}}
+@if (($allowSearchIndexing ?? true) && filled($organizationSchema ?? null))
+    <script type="application/ld+json">
+        {!! json_encode($organizationSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}
+    </script>
+@endif
+
+<link rel="sitemap" type="application/xml" href="{{ route('sitemap') }}" />
+
 @fonts
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])

@@ -2,19 +2,13 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\ProcessUploadedImage;
-use App\Mail\TestEmail;
-use App\Models\User;
-use App\Notifications\QueueJobFailed;
-use Illuminate\Auth\Notifications\ResetPassword;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Mail\PreviewableEmails;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -40,23 +34,11 @@ use Throwable;
 class PreviewMails extends Command
 {
     /**
-     * Stand-in for the token the password broker normally issues, built the
-     * same way the broker builds a real one: an HMAC-SHA256 of 40 random
-     * characters. A literal placeholder such as "preview-token" renders a
-     * reset URL a fraction of the real length, so the preview cannot show
-     * how the link actually wraps in a mail client.
-     */
-    private function resetPasswordToken(): string
-    {
-        return hash_hmac('sha256', Str::random(40), Config::get('app.key'));
-    }
-
-    /**
      * Execute the console command.
      */
-    public function handle(): int
+    public function handle(PreviewableEmails $emails): int
     {
-        $recipient = (string) ($this->argument('recipient') ?: 'preview@inbox.test');
+        $recipient = (string) ($this->argument('recipient') ?: PreviewableEmails::DEFAULT_RECIPIENT);
 
         // An explicitly empty --mailer= means "not chosen" (an unset shell
         // variable), not a mailer named "".
@@ -82,30 +64,31 @@ class PreviewMails extends Command
             Config::set('mail.default', $mailer);
         }
 
-        $user = User::factory()->unverified()->make([
-            'id' => 1,
-            'email' => $recipient,
-        ]);
+        $user = $emails->notifiable($recipient);
 
-        $emails = [
-            'settings test email' => fn () => Mail::to($recipient)->send(new TestEmail),
-            'email address verification' => fn () => Notification::sendNow($user, new VerifyEmail),
-            'password reset' => fn () => Notification::sendNow($user, new ResetPassword($this->resetPasswordToken())),
-            // Routed on demand rather than to the factory user: the real
-            // alert goes to the operations address from the mail settings,
-            // which is a bare address with no account behind it.
-            'queued job failure alert' => fn () => Notification::route('mail', $recipient)
-                ->notifyNow(new QueueJobFailed(
-                    jobName: ProcessUploadedImage::class,
-                    connection: 'database',
-                    queue: 'default',
-                    errorMessage: 'SQLSTATE[HY000] [2002] Connection refused',
-                )),
-        ];
+        $senders = [];
+
+        foreach ($emails->all($recipient) as $email) {
+            $senders[$email['description']] = function () use ($email, $user, $recipient): void {
+                if ($email['mailable'] !== null) {
+                    Mail::to($recipient)->send($email['mailable']);
+
+                    return;
+                }
+
+                if ($email['onDemand']) {
+                    Notification::route('mail', $recipient)->notifyNow($email['notification']);
+
+                    return;
+                }
+
+                Notification::sendNow($user, $email['notification']);
+            };
+        }
 
         $sent = 0;
 
-        foreach ($emails as $description => $send) {
+        foreach ($senders as $description => $send) {
             try {
                 $send();
             } catch (Throwable $e) {
@@ -118,8 +101,8 @@ class PreviewMails extends Command
             $sent++;
         }
 
-        $this->components->info("Delivered {$sent} of ".count($emails)." email types to [{$recipient}].");
+        $this->components->info("Delivered {$sent} of ".count($senders)." email types to [{$recipient}].");
 
-        return $sent === count($emails) ? self::SUCCESS : self::FAILURE;
+        return $sent === count($senders) ? self::SUCCESS : self::FAILURE;
     }
 }

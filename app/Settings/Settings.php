@@ -127,6 +127,55 @@ class Settings
     }
 
     /**
+     * The schema.org Organization description of this site, as an array.
+     *
+     * Returned as data rather than rendered JSON so the head partial can hand
+     * it straight to json_encode(): building the JSON in Blade risks an
+     * unescaped quote in a business name breaking the whole script block --
+     * and a malformed one is worse than none, because a search engine may
+     * discard every other signal on the page with it.
+     *
+     * Optional details are omitted rather than emitted empty; a blank
+     * telephone is a worse claim than no telephone at all.
+     *
+     * @return array<string, mixed>
+     */
+    public function organizationSchema(): array
+    {
+        $schema = [
+            '@context' => 'https://schema.org',
+            '@type' => 'Organization',
+            'name' => $this->businessName(),
+            'url' => url('/'),
+        ];
+
+        if (($logo = $this->logoUrl('social')) !== null) {
+            $schema['logo'] = url($logo);
+        }
+
+        if (($description = $this->string(SettingKey::SeoDescription)) !== '') {
+            $schema['description'] = $description;
+        }
+
+        if (($email = $this->string(SettingKey::BusinessEmail)) !== '') {
+            $schema['email'] = $email;
+        }
+
+        if (($phone = $this->string(SettingKey::BusinessPhone)) !== '') {
+            $schema['telephone'] = $phone;
+        }
+
+        if (($address = $this->string(SettingKey::BusinessAddress)) !== '') {
+            $schema['address'] = [
+                '@type' => 'PostalAddress',
+                'streetAddress' => $address,
+            ];
+        }
+
+        return $schema;
+    }
+
+    /**
      * The mailer messages actually send through, not merely the stored choice.
      *
      * Mirrors the conditions AppServiceProvider::configureMailFromSettings()

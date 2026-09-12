@@ -106,7 +106,10 @@ class AppServiceProvider extends ServiceProvider
                 ->with('faviconUrl', $settings->logoUrl('favicon'))
                 ->with('appleTouchIconUrl', $settings->logoUrl('apple-touch'))
                 ->with('socialImageUrl', $settings->logoUrl('social'))
-                ->with('logoMime', 'image/'.(string) config('images.format'));
+                ->with('logoMime', 'image/'.(string) config('images.format'))
+                // Composed as an array, not a JSON string: the head encodes it
+                // so a quote in a business name cannot break the script block.
+                ->with('organizationSchema', $settings->organizationSchema());
         });
     }
 
