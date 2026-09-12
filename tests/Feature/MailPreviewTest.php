@@ -22,6 +22,56 @@ test('every email renders in the browser', function (string $slug) {
     expect($html)->toContain('<!DOCTYPE');
 })->with(['test-email', 'verify-email', 'reset-password', 'queue-failure']);
 
+/**
+ * Each row opens its email in a modal rather than navigating away. The iframes
+ * are lazy -- src is bound through Alpine and assigned only when a modal opens
+ * -- so listing four emails must not render four of them up front.
+ */
+test('each email opens in a modal with a lazily loaded iframe', function () {
+    $html = (string) $this->get('/dev/mails')->assertSuccessful()->getContent();
+
+    $slugs = app(PreviewableEmails::class)->slugs();
+
+    // Counted on <dialog>, not on data-flux-modal: that attribute is also a
+    // prefix of data-flux-modal-trigger and -close, so a substring count of it
+    // silently triples.
+    //
+    // One modal and one iframe per email, and no iframe carrying a src: an
+    // eagerly loaded frame would render every email on page load.
+    expect(substr_count($html, '<dialog'))->toBe(count($slugs))
+        ->and(substr_count($html, '<iframe'))->toBe(count($slugs))
+        ->and(substr_count($html, 'x-bind:src="src"'))->toBe(count($slugs))
+        ->and($html)->not->toMatch('/<iframe[^>]*\ssrc=/');
+
+    // Opened through flux:modal.trigger, which dispatches Flux's own
+    // "modal-show" event. The "open-modal" convention from the Livewire
+    // starter kit is not an event Flux listens for, so a hand-rolled dispatch
+    // silently does nothing -- the bug this assertion exists to prevent.
+    expect(substr_count($html, 'data-flux-modal-trigger'))->toBe(count($slugs))
+        ->and($html)->not->toContain('open-modal');
+
+    foreach ($slugs as $slug) {
+        expect($html)->toContain("\$event.detail?.name === '{$slug}'")
+            ->and($html)->toContain("modal-show', { name: '{$slug}' }");
+    }
+});
+
+/**
+ * The rows stay real anchors so middle-click and "open in new tab" work, and
+ * so the page still functions before Alpine boots -- the click handler only
+ * takes over once it has. The route therefore has to remain directly
+ * reachable, which is also what a hard reload after a template edit uses.
+ */
+test('each row remains a real link to the email route', function () {
+    $html = (string) $this->get('/dev/mails')->assertSuccessful()->getContent();
+
+    foreach (app(PreviewableEmails::class)->slugs() as $slug) {
+        expect($html)->toContain('href="'.route('dev.mails.show', $slug).'"');
+
+        $this->get(route('dev.mails.show', $slug))->assertSuccessful();
+    }
+});
+
 test('an unknown email slug is not found', function () {
     $this->get('/dev/mails/carrier-pigeon')->assertNotFound();
 });
