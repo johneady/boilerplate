@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Settings\Settings;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\HtmlString;
 
 /**
  * Warns the operator that a queued job exhausted its attempts.
@@ -55,12 +56,48 @@ class QueueJobFailed extends Notification
             ->greeting(__('Background job failed'))
             ->subject(__('Background job failed on :business', ['business' => $businessName]))
             ->line(__('A queued background job failed after exhausting its retries and will not run again on its own.'))
-            ->line(__('Job: :job', ['job' => $this->jobName]))
-            ->line(__('Connection: :connection', ['connection' => $this->connection]))
-            ->line(__('Queue: :queue', ['queue' => $this->queue]))
-            ->line(__('Error: :error', ['error' => $this->errorMessage]))
+            // The specifics go in a Markdown table rather than in the run of
+            // prose: this is the part someone on call scans first, and the
+            // HTML mail renders it as a bordered table while the plain text
+            // part stays readable as aligned rows. Building the same thing
+            // out of raw <table> HTML instead collapses to one unbroken run
+            // of words in the text part, which is the version that matters
+            // most when the alert is read on a phone.
+            ->line(new HtmlString($this->detailsTable()))
             ->line(__('Run `php artisan queue:failed` on the server for the full payload and stack trace, and `php artisan queue:retry` to run it again once the cause is fixed.'))
             ->line(__('Further alerts for this job are held back briefly so a run of failures cannot flood this inbox.'));
+    }
+
+    /**
+     * The failure's specifics as a Markdown table.
+     *
+     * Values are wrapped in backticks so a class name or an error message
+     * containing Markdown punctuation renders literally, and any pipe is
+     * escaped so it cannot break out of its cell.
+     */
+    private function detailsTable(): string
+    {
+        $rows = [
+            __('Job') => $this->jobName,
+            __('Connection') => $this->connection,
+            __('Queue') => $this->queue,
+            __('Error') => $this->errorMessage,
+        ];
+
+        $lines = [
+            '| '.__('Detail').' | '.__('Value').' |',
+            '| :--- | :--- |',
+        ];
+
+        foreach ($rows as $label => $value) {
+            $lines[] = sprintf('| %s | `%s` |', $label, str_replace('|', '\|', $value));
+        }
+
+        // Wrapped exactly as the framework's x-mail::table component does: the
+        // theme styles table cells through a .table ancestor, and a bare
+        // Markdown table renders with no class at all, so without this div the
+        // rows inherit none of the borders, spacing or wrapping below.
+        return '<div class="table">'."\n\n".implode("\n", $lines)."\n\n".'</div>';
     }
 
     /**

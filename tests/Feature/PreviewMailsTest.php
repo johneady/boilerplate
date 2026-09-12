@@ -165,6 +165,66 @@ test('every email is sent as branded HTML with a plain text alternative', functi
     }
 });
 
+/**
+ * The email theme is recoloured to the app's blue accent (see
+ * resources/views/vendor/mail/html/themes/default.css). The theme is inlined
+ * at send time, so a published theme that stops being found would silently
+ * revert every message to the framework's greyscale.
+ */
+test('every email is themed with the application accent colour', function () {
+    $bodies = [];
+
+    Event::listen(function (MessageSent $event) use (&$bodies): void {
+        $bodies[] = (string) $event->message->getHtmlBody();
+    });
+
+    $this->artisan('app:preview-mails')->assertSuccessful();
+
+    expect($bodies)->toHaveCount(4);
+
+    foreach ($bodies as $body) {
+        // The accent, inlined onto the header band, and the near-black the
+        // framework's own theme would have used there instead.
+        expect($body)->toContain('#2563eb')
+            ->and($body)->not->toContain('background-color: #18181b');
+    }
+});
+
+/**
+ * Every fixed-width table in the message must collapse on a narrow screen, or
+ * the email needs sideways scrolling on a phone. The brand band is a 570px
+ * table of this application's own (resources/views/vendor/mail/html/header.blade.php),
+ * so it has to be named in the layout's media query alongside the framework's
+ * .inner-body and .footer -- it was not, and held the message open at full
+ * width in Mailpit's mobile view.
+ */
+test('every fixed width element collapses on a narrow screen', function () {
+    $bodies = [];
+
+    Event::listen(function (MessageSent $event) use (&$bodies): void {
+        $bodies[] = (string) $event->message->getHtmlBody();
+    });
+
+    $this->artisan('app:preview-mails')->assertSuccessful();
+
+    expect($bodies)->toHaveCount(4);
+
+    foreach ($bodies as $body) {
+        // Every class given a 570px width must appear in the narrow-screen
+        // media query. Read out of the rendered message rather than listed
+        // here, so a new fixed-width table is caught rather than forgotten.
+        preg_match_all('/class="([a-z-]+)"[^>]*width="570"/', $body, $matches);
+
+        expect($matches[1])->not->toBeEmpty();
+
+        preg_match('/@media only screen and \(max-width: 600px\)\s*\{(.+?)\}\s*<\/style>/s', $body, $query);
+
+        foreach (array_unique($matches[1]) as $class) {
+            expect($query[1] ?? '')->toContain('.'.$class);
+        }
+    }
+});
+
 test('it rejects an invalid recipient address', function () {
     $this->artisan('app:preview-mails', ['recipient' => 'not-an-address'])
         ->expectsOutputToContain('not a valid email address')

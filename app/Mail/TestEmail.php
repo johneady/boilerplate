@@ -47,6 +47,12 @@ class TestEmail extends Mailable
             markdown: 'mail.test-email',
             with: [
                 'businessName' => app(Settings::class)->businessName(),
+                // Named for the administrator reading it: which transport
+                // actually carried this message is the whole point of the
+                // test, and "log" arriving here is the usual explanation for
+                // "the test passed but nobody received anything".
+                'mailer' => (string) config('mail.default'),
+                'sentAt' => now()->toDayDateTimeString(),
             ],
         );
     }

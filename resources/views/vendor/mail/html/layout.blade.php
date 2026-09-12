@@ -1,7 +1,8 @@
 {{--
-    Published from the framework solely to title the message with the
-    BusinessName setting instead of config('app.name'). See the sibling
-    message.blade.php for why these templates are published at all.
+    Published from the framework to title the message with the BusinessName
+    setting instead of config('app.name'), and to add .header-band to the
+    narrow-screen media query below. See the sibling message.blade.php for why
+    these templates are published at all.
 --}}
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -14,6 +15,13 @@
 <style>
 @media only screen and (max-width: 600px) {
 .inner-body {
+width: 100% !important;
+}
+
+/* Added to the framework's list: the brand band is a 570px table of its own
+   (see header.blade.php) and would otherwise hold the message open at full
+   width on a phone while everything around it collapsed. */
+.header-band {
 width: 100% !important;
 }
 
