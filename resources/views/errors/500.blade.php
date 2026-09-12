@@ -13,8 +13,6 @@
     code="500"
     :title="__('Something went wrong on our end')"
     :message="__('This is a fault on our side, not anything you did. It has been logged for us to look at. Please try again in a few minutes.')"
-    icon="exclamation-triangle"
-    tint="from-rose-500 to-red-700"
 >
     <x-slot:actions>
         <flux:button

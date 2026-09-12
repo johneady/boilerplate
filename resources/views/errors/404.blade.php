@@ -2,8 +2,6 @@
     code="404"
     :title="__('We could not find that page')"
     :message="__('The address may be mistyped, or the page may have been moved or deleted. Nothing is wrong with your account.')"
-    icon="magnifying-glass"
-    tint="from-sky-500 to-indigo-500"
 >
     <x-slot:actions>
         <flux:button

@@ -13,8 +13,11 @@ test('the preview index lists every error page', function () {
 });
 
 test('each status renders its own template', function () {
+    // 403's copy branches on whether the viewer is signed in, and the preview
+    // is requested as a guest, so the guest heading is the one to expect here.
+    // tests/Feature/ErrorPagesTest.php covers both variants.
     $expected = [
-        403 => 'You do not have access to this',
+        403 => 'You need to sign in for this',
         404 => 'We could not find that page',
         419 => 'Your session expired',
         429 => 'Too many attempts',

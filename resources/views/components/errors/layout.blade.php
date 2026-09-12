@@ -2,8 +2,6 @@
     'code',
     'title',
     'message',
-    'icon' => 'exclamation-triangle',
-    'tint' => 'from-zinc-500 to-zinc-700',
 ])
 
 {{--
@@ -36,9 +34,17 @@
     manifest is missing the ViteException surfaces here -- acceptable, because
     a missing manifest means the deploy is broken in a way the operator needs
     to see, and Laravel's fallback page still renders.
+
+    LIGHT MODE ON PURPOSE. The signed-in shell is hardcoded dark (see
+    .ai/rules/app.md), but these pages are deliberately the opposite: an error
+    is already a jarring moment, and a bright page with a friendly figure
+    reads as "this is fine, here is what happened" rather than as a crash.
+    There is no <html class="dark"> here and no dark: variants below -- adding
+    them back would put the pages at the mercy of the viewer's OS setting,
+    which is exactly the inconsistency this avoids.
 --}}
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -53,20 +59,22 @@
 
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
+<body class="min-h-screen bg-linear-to-b from-white to-neutral-50 antialiased">
     <div class="relative flex min-h-dvh flex-col overflow-hidden">
         {{-- Decorative only, matching the public page's treatment. --}}
         <div
             aria-hidden="true"
-            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-sky-400/20 via-indigo-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-sky-300/30 via-indigo-300/20 to-transparent blur-3xl"
         ></div>
         <div
             aria-hidden="true"
-            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-violet-400/20 via-sky-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-violet-300/30 via-sky-300/20 to-transparent blur-3xl"
         ></div>
 
-        <div class="relative mx-auto flex min-h-dvh w-full max-w-2xl flex-col px-6 lg:px-8">
-            <header class="py-8">
+        {{-- No min-h-dvh here: the outer wrapper already spans the viewport,
+             and repeating it forced this column to full height too. --}}
+        <div class="relative mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 lg:px-8">
+            <header class="pt-8 pb-4">
                 {{--
                     A plain <a> to "/" rather than route('home'): a route cache
                     that failed to load is one of the ways a 500 happens, and
@@ -74,34 +82,37 @@
                     either -- Livewire's script may not have loaded on the page
                     the user came from.
                 --}}
-                <a href="/" class="inline-flex items-center gap-2 font-medium text-neutral-900 dark:text-neutral-100">
+                <a href="/" class="inline-flex items-center gap-2 font-medium text-neutral-900">
                     <x-app-logo-icon class="size-7" />
                     <span>{{ config('app.name') }}</span>
                 </a>
             </header>
 
-            <main class="flex flex-1 flex-col justify-center py-12">
-                <span class="flex size-12 items-center justify-center rounded-xl bg-linear-to-br {{ $tint }} text-white">
-                    <flux:icon :icon="$icon" variant="outline" class="size-6" />
-                </span>
+            {{--
+                Top-aligned rather than justify-center: centring in a tall
+                viewport left a large empty band under the header before the
+                figure, which read as a broken page rather than a composed
+                one. The content now starts just below the brand and the page
+                simply ends where it ends.
+            --}}
+            <main class="flex flex-1 flex-col pt-2 pb-12">
+                <x-errors.figure :status="$code" class="-ml-2" />
 
-                <p class="mt-6 font-mono text-sm font-semibold tracking-widest text-neutral-500 uppercase dark:text-neutral-400">
+                <p class="mt-6 font-mono text-sm font-semibold tracking-widest text-neutral-500 uppercase">
                     {{ __('Error :code', ['code' => $code]) }}
                 </p>
 
-                <h1 class="mt-2 text-4xl font-semibold tracking-tight text-balance text-neutral-900 sm:text-5xl dark:text-neutral-100">
+                <h1 class="mt-2 text-4xl font-semibold tracking-tight text-balance text-neutral-900 sm:text-5xl">
                     {{ $title }}
                 </h1>
 
-                <p class="mt-5 max-w-prose text-lg leading-relaxed text-neutral-600 dark:text-neutral-400">
-                    {{ $message }}
-                </p>
+                <p class="mt-5 max-w-prose text-lg leading-relaxed text-neutral-600">{{ $message }}</p>
 
                 <div class="mt-10 flex flex-wrap items-center gap-3">{{ $actions ?? '' }}</div>
             </main>
 
-            <footer class="border-t border-neutral-200 py-8 text-sm text-neutral-500 dark:border-neutral-800 dark:text-neutral-400">
-                <p class="font-medium text-neutral-900 dark:text-neutral-100">{{ config('app.name') }}</p>
+            <footer class="border-t border-neutral-200 py-8 text-sm text-neutral-500">
+                <p class="font-medium text-neutral-900">{{ config('app.name') }}</p>
             </footer>
         </div>
     </div>

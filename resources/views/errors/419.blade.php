@@ -16,8 +16,6 @@
     code="419"
     :title="__('Your session expired')"
     :message="__('This page had been open long enough that its security token expired, so the action was not carried out. Nothing was saved and nothing was lost — log in again and retry it.')"
-    icon="clock"
-    tint="from-violet-500 to-fuchsia-600"
 >
     <x-slot:actions>
         <flux:button href="/login" variant="primary" icon-trailing="arrow-right">{{ __('Log in again') }}</flux:button>

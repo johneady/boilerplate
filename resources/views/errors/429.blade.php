@@ -2,8 +2,6 @@
     code="429"
     :title="__('Too many attempts')"
     :message="__('You have made too many requests in a short period, so this one was turned away. Wait a minute or so and try again — the limit clears on its own.')"
-    icon="hand-raised"
-    tint="from-rose-500 to-red-600"
 >
     <x-slot:actions>
         {{--

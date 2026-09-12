@@ -8,8 +8,6 @@
     code="503"
     :title="__('We are down for maintenance')"
     :message="__('The site is briefly offline while we update it. Nothing is wrong with your account, and this usually takes only a few minutes. Please check back shortly.')"
-    icon="wrench-screwdriver"
-    tint="from-teal-500 to-emerald-600"
 >
     <x-slot:actions>
         {{-- full() rather than current(), so a deep link the user was on
