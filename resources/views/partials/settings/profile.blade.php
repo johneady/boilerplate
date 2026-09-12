@@ -1,18 +1,22 @@
+@php($avatarUrl = $this->avatarUrl)
+
 <div class="w-full">
     <div class="my-6 flex items-center gap-4">
         <flux:avatar
             circle
             size="xl"
-            :src="$this->avatarUrl"
+            :src="$avatarUrl"
             :name="auth()->user()->name"
             :initials="auth()->user()->initials()"
+            :style="$avatarUrl ? null : auth()->user()->avatarGradientStyle()"
+            :class="$avatarUrl ? null : 'text-white'"
         />
 
         <div class="space-y-2">
             <div class="flex items-center gap-2">
                 <flux:button size="sm" x-on:click="$refs.avatarInput.click()"> {{ __('Change photo') }} </flux:button>
 
-                @if ($this->avatarUrl)
+                @if ($avatarUrl)
                     <flux:button
                         size="sm"
                         variant="subtle"

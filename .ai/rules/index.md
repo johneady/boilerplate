@@ -5,6 +5,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | Applies to | Rule file |
 | --- | --- |
 | app/Filament/Clusters/Account/**, app/Concerns/RendersSettingsChrome.php, app/Livewire/Settings/**, resources/views/partials/settings/**, resources/views/livewire/settings/** | .ai/rules/account.md |
+| app/Models/User.php, app/Filament/Resources/Users/UserResource.php | .ai/rules/avatar-gradient.md |
 | resources/css/filament/admin/theme.css | .ai/rules/admin.md |
 | resources/views/layouts/app/** | .ai/rules/app.md |
 | app/Models/User.php, app/Providers/AppServiceProvider.php, app/Livewire/Settings/Security.php, routes/settings.php | .ai/rules/auth-gates.md |

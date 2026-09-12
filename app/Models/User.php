@@ -38,6 +38,32 @@ use Laravel\Fortify\TwoFactorAuthenticatable;
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
 class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerifyEmail, PasskeyUser
 {
+    /**
+     * Hue pairs for the initials-avatar gradient, light stop first.
+     *
+     * APPEND-ONLY, like Flux's own avatar colour list: an entry is selected by
+     * crc32 modulo the array length, so inserting or reordering entries would
+     * change the colour of every user whose hash lands after the change. New
+     * pairs go at the end, never in between.
+     *
+     * The stops are deliberately deep rather than pale: initials render white
+     * on top in both themes, so every pair must keep white text legible.
+     *
+     * @var list<array{from: string, to: string}>
+     */
+    private const array AVATAR_GRADIENTS = [
+        ['from' => '#dc2626', 'to' => '#991b1b'],
+        ['from' => '#c2410c', 'to' => '#7c2d12'],
+        ['from' => '#b45309', 'to' => '#78350f'],
+        ['from' => '#047857', 'to' => '#064e3b'],
+        ['from' => '#0f766e', 'to' => '#134e4a'],
+        ['from' => '#0284c7', 'to' => '#075985'],
+        ['from' => '#4f46e5', 'to' => '#3730a3'],
+        ['from' => '#7c3aed', 'to' => '#5b21b6'],
+        ['from' => '#db2777', 'to' => '#9d174d'],
+        ['from' => '#e11d48', 'to' => '#9f1239'],
+    ];
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
@@ -83,6 +109,42 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
         return Str::length($initials) > 1
             ? Str::substr($initials, 0, 1).Str::substr($initials, -1)
             : $initials;
+    }
+
+    /**
+     * Deterministic gradient for this user's initials avatar.
+     *
+     * Seeded from the immutable primary key rather than name or email so a
+     * user who corrects a typo in their name keeps the avatar colour their
+     * colleagues recognise. Returns two hex stops, light-to-dark, for the SVG
+     * and CSS paths alike -- Filament renders an <img>, the Flux sites an
+     * inline style, and a user must not be teal in one and orange in the
+     * other.
+     *
+     * @return array{from: string, to: string}
+     */
+    public function avatarGradient(): array
+    {
+        // Unsaved models (factories in tests) have no key yet, so the name
+        // stands in until the first save assigns one.
+        $seed = (string) ($this->getKey() ?? $this->name);
+
+        return self::AVATAR_GRADIENTS[crc32($seed) % count(self::AVATAR_GRADIENTS)];
+    }
+
+    /**
+     * Inline background for the initials fallback on the Flux avatar components.
+     *
+     * Flux builds its avatar background from fixed Tailwind classes with no
+     * gradient path, so this is applied as a style attribute. Its flat zinc
+     * default is wrapped in [:where(&)] -- zero specificity -- so the inline
+     * style wins without !important.
+     */
+    public function avatarGradientStyle(): string
+    {
+        $gradient = $this->avatarGradient();
+
+        return sprintf('background-image:linear-gradient(135deg,%s,%s)', $gradient['from'], $gradient['to']);
     }
 
     /**

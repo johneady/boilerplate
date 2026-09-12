@@ -315,6 +315,28 @@ test('the table falls back to initials when a user has no avatar', function () {
         ->assertSee('data:image/svg+xml;base64,', escape: false);
 });
 
+test('the fallback avatar embeds the same gradient as the Flux sites', function () {
+    $user = User::factory()->create();
+
+    $svg = base64_decode(
+        substr(UserResource::initialsAvatarUrl($user), strlen('data:image/svg+xml;base64,')),
+    );
+
+    $gradient = $user->avatarGradient();
+
+    // This is the test that catches the two paths drifting apart: the SVG and
+    // the inline style must derive from the same palette, or a user is teal in
+    // the sidebar and orange in the admin table.
+    expect($svg)->toContain($gradient['from'])
+        ->and($svg)->toContain($gradient['to'])
+        // White initials, matching the text-white overlay on the Flux sites.
+        ->and($svg)->toContain('fill="#ffffff"');
+
+    // The gradient id is unique per user, so several rows in one table page
+    // cannot reference each other's stops if the SVG is ever inlined.
+    expect($svg)->toContain('id="grad-'.$user->getKey().'"');
+});
+
 test('initials in the fallback avatar are escaped', function () {
     // Initials come from the user-supplied name, so a name beginning with "<"
     // would otherwise break out of the SVG <text> element.

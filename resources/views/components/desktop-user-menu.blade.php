@@ -2,13 +2,20 @@
     The user menu matches the blue sidebar it sits in. Flux hardcodes zinc for
     the menu surface, item hover and separator, so each is overridden here; the
     avatar and heading follow the accent tokens in resources/css/app.css.
+
+    The gradient fallback is conditional: a processed avatar is an opaque
+    <img>, so a gradient behind it would be dead markup.
 --}}
+@php($avatarUrl = auth()->user()->avatarUrl())
+
 <flux:dropdown position="bottom" align="start">
     <flux:sidebar.profile
         circle
         :name="auth()->user()->name"
-        :avatar="auth()->user()->avatarUrl()"
+        :avatar="$avatarUrl"
         :initials="auth()->user()->initials()"
+        :avatar:style="$avatarUrl ? null : auth()->user()->avatarGradientStyle()"
+        :avatar:class="$avatarUrl ? null : 'text-white'"
         icon:trailing="chevrons-up-down"
         class="hover:bg-blue-500/10! dark:hover:bg-blue-400/10!"
         data-test="sidebar-menu-button"
@@ -18,9 +25,11 @@
         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
             <flux:avatar
                 circle
-                :src="auth()->user()->avatarUrl()"
+                :src="$avatarUrl"
                 :name="auth()->user()->name"
                 :initials="auth()->user()->initials()"
+                :style="$avatarUrl ? null : auth()->user()->avatarGradientStyle()"
+                :class="$avatarUrl ? null : 'text-white'"
             />
             <div class="grid flex-1 text-start text-sm leading-tight">
                 <flux:heading class="truncate">{{ auth()->user()->name }}</flux:heading>

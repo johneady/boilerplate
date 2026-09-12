@@ -14,6 +14,44 @@ test('profile page is displayed', function () {
     $this->get('/settings/profile')->assertOk();
 });
 
+test('the settings page avatar falls back to the gradient with no avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['avatar_path' => null]);
+
+    $html = $this->actingAs($user)
+        ->get('/settings/profile')
+        ->assertOk()
+        ->getContent();
+
+    // The dashboard tests cover the four user-menu renders; this page adds the
+    // fifth -- the xl preview next to the "Change photo" button. Counting the
+    // avatar elements painted with the gradient (four menu renders plus the
+    // preview) proves this site fell back too rather than riding on the
+    // shell's gradients.
+    $gradientStyle = preg_quote($user->avatarGradientStyle(), '/');
+
+    expect(preg_match_all('/<[^>]*data-flux-avatar[^>]*\bstyle="'.$gradientStyle.';?"/', $html))->toBe(5);
+});
+
+test('the settings page avatar shows the processed image without the gradient', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+
+    // The shell menus resolve the thumb conversion, the preview the full one.
+    Storage::disk('public')->put('avatars/1/abc/thumb.webp', 'processed');
+    Storage::disk('public')->put('avatars/1/abc/full.webp', 'processed');
+
+    $html = $this->actingAs($user)
+        ->get('/settings/profile')
+        ->assertOk()
+        ->getContent();
+
+    expect($html)->toContain('src="/storage/avatars/1/abc/full.webp"')
+        ->and($html)->not->toContain($user->avatarGradientStyle());
+});
+
 test('profile information can be updated', function () {
     $user = User::factory()->create();
 

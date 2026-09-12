@@ -10,6 +10,8 @@
         rings; the classes here tint the sidebar surface itself, which Flux
         leaves neutral.
     --}}
+    @php($avatarUrl = auth()->user()->avatarUrl())
+
     <flux:sidebar
         sticky
         collapsible="mobile"
@@ -48,9 +50,11 @@
         <flux:dropdown position="top" align="end">
             <flux:profile
                 circle
-                :avatar="auth()->user()->avatarUrl()"
+                :avatar="$avatarUrl"
                 :name="auth()->user()->name"
                 :initials="auth()->user()->initials()"
+                :avatar:style="$avatarUrl ? null : auth()->user()->avatarGradientStyle()"
+                :avatar:class="$avatarUrl ? null : 'text-white'"
                 icon-trailing="chevron-down"
                 class="hover:bg-blue-500/10! dark:hover:bg-blue-400/10!"
             />
@@ -62,9 +66,11 @@
                         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
                             <flux:avatar
                                 circle
-                                :src="auth()->user()->avatarUrl()"
+                                :src="$avatarUrl"
                                 :name="auth()->user()->name"
                                 :initials="auth()->user()->initials()"
+                                :style="$avatarUrl ? null : auth()->user()->avatarGradientStyle()"
+                                :class="$avatarUrl ? null : 'text-white'"
                             />
 
                             <div class="grid flex-1 text-start text-sm leading-tight">

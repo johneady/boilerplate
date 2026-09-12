@@ -146,6 +146,11 @@ test('every user menu shows the uploaded avatar', function () {
     // the prop is set, so a site that lost it is a count short here rather than
     // silently rendering the one square avatar among four.
     expect(substr_count($html, 'data-circle="true"'))->toBe(4);
+
+    // A processed avatar is an opaque <img>: a gradient behind it would be
+    // dead markup, so none of the four sites may carry one.
+    expect($html)->not->toContain($user->avatarGradientStyle())
+        ->and($html)->not->toContain('linear-gradient(135deg');
 });
 
 test('every user menu falls back to initials with no avatar', function () {
@@ -157,4 +162,65 @@ test('every user menu falls back to initials with no avatar', function () {
 
     expect($html)->not->toContain('/storage/avatars/')
         ->and(substr_count($html, 'AL'))->toBeGreaterThanOrEqual(4);
+});
+
+/**
+ * Counts the avatar elements actually painted with a gradient. Anchoring to
+ * <div data-flux-avatar ... style="..."> matters: the two profile wrappers
+ * forward avatar:style down to the avatar but also echo the unprefixed
+ * attribute onto their own button (Flux renders the button before plucking),
+ * so counting the raw string would report six renders, not four.
+ */
+function gradientAvatarCount(string $html, string $gradientStyle): int
+{
+    return preg_match_all(
+        '/<[^>]*data-flux-avatar[^>]*\bstyle="'.preg_quote($gradientStyle, '/').';?"/',
+        $html,
+    );
+}
+
+test('every user menu falls back to the gradient with no avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['avatar_path' => null]);
+
+    $html = $this->actingAs($user)->get(route('dashboard'))->getContent();
+
+    // Same counting discipline as the avatar-URL test: four renders exist, so
+    // asserting the gradient merely "appears" would pass while one menu still
+    // ships the flat zinc fallback.
+    expect(gradientAvatarCount($html, $user->avatarGradientStyle()))->toBe(4);
+
+    // White initials on the saturated gradient. Flux wraps its own text
+    // colours in [:where(&)] (zero specificity), so the plain text-white
+    // class on the avatar element is what makes them legible.
+    expect(preg_match_all('/<[^>]*data-flux-avatar[^>]*\bclass="[^"]*\btext-white\b/', $html))->toBe(4);
+});
+
+test('the gradient fallback is stable for a user and varies between users', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['avatar_path' => null]);
+
+    $first = $this->actingAs($user)->get(route('dashboard'))->getContent();
+    $second = $this->actingAs($user)->get(route('dashboard'))->getContent();
+
+    // The colour derives from the immutable key, so two requests for the same
+    // user carry the same gradient in all four renders.
+    expect(gradientAvatarCount($first, $user->avatarGradientStyle()))->toBe(4)
+        ->and(gradientAvatarCount($second, $user->avatarGradientStyle()))->toBe(4);
+
+    // A spread of users must not collapse onto one palette entry. Twenty
+    // sequential keys hit at least nine of the ten current slots, and stay
+    // well above one even as the palette grows append-only -- so assert the
+    // property (more than one distinct gradient) rather than an exact count
+    // that appending a legal palette entry would break.
+    $styles = User::factory()
+        ->count(20)
+        ->create()
+        ->map(fn (User $user): string => $user->avatarGradientStyle())
+        ->unique()
+        ->values();
+
+    expect($styles->count())->toBeGreaterThan(1);
 });
