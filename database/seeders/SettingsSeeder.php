@@ -2,15 +2,9 @@
 
 namespace Database\Seeders;
 
-use App\Jobs\ProcessUploadedImage;
 use App\Models\Setting;
 use App\Settings\SettingKey;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
-use Intervention\Image\Encoders\PngEncoder;
-use Intervention\Image\ImageManager;
-use Throwable;
 
 class SettingsSeeder extends Seeder
 {
@@ -33,14 +27,6 @@ class SettingsSeeder extends Seeder
     ];
 
     /**
-     * The background colour of the seeded placeholder icon.
-     *
-     * Indigo to match the avatar gradients' first entry, so the dummy brand
-     * mark and the dummy avatars read as one palette.
-     */
-    private const PLACEHOLDER_ICON_COLOUR = '#4f46e5';
-
-    /**
      * Seed the demo details.
      *
      * The business name and the indexing toggle are deliberately absent: the
@@ -61,57 +47,5 @@ class SettingsSeeder extends Seeder
             );
         }
 
-        $this->seedSiteIcon();
-    }
-
-    /**
-     * Seed a placeholder site icon, so a fresh instance's browser tab and
-     * social link previews carry a brand mark rather than the framework's
-     * default favicon.
-     *
-     * The mark is a plain coloured square, generated and pushed through the
-     * same processing pipeline as an administrator's upload (dispatchSync runs
-     * the job inline), so what the seeder stores is exactly what the settings
-     * page would have produced. A row that already exists -- an operator's
-     * own icon -- is left alone.
-     */
-    private function seedSiteIcon(): void
-    {
-        if (Setting::query()->where('key', SettingKey::SiteIcon->value)->exists()) {
-            return;
-        }
-
-        try {
-            $icon = ImageManager::usingDriver((string) config('images.driver'))
-                ->createImage(512, 512)
-                ->fill(self::PLACEHOLDER_ICON_COLOUR)
-                ->encode(new PngEncoder);
-        } catch (Throwable) {
-            // The icon is decoration: a deployment whose image driver cannot
-            // create one must still finish seeding and come up.
-            return;
-        }
-
-        // Staged on the private disk like any upload; the job deletes the
-        // source once it has written the re-encoded conversions. A failure
-        // here (a full disk, say) is reported and skipped rather than thrown:
-        // seeding re-runs on every deploy, and an icon that will not generate
-        // must not crashloop the container over a decoration.
-        $sourcePath = 'uploads/pending/site-icon-'.Str::uuid()->toString();
-
-        Storage::disk('local')->put($sourcePath, (string) $icon);
-
-        try {
-            ProcessUploadedImage::dispatchSync(
-                sourcePath: $sourcePath,
-                conversionSet: 'site-icon',
-                targetDirectory: 'site-icon/'.Str::uuid()->toString(),
-                settingKey: SettingKey::SiteIcon,
-            );
-        } catch (Throwable $exception) {
-            report($exception);
-
-            Storage::disk('local')->delete($sourcePath);
-        }
     }
 }

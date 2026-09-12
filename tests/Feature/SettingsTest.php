@@ -180,7 +180,7 @@ test('unsaved seo settings read as indexable with no title or description', func
     // declared defaults rather than nulls the views would have to guard.
     expect($this->settings->string(SettingKey::SeoTitle))->toBe('')
         ->and($this->settings->string(SettingKey::SeoDescription))->toBe('')
-        ->and($this->settings->string(SettingKey::SiteIcon))->toBe('')
+        ->and($this->settings->string(SettingKey::Logo))->toBe('')
         ->and($this->settings->boolean(SettingKey::AllowSearchIndexing))->toBeTrue();
 });
 
@@ -218,9 +218,9 @@ test('a blank stored seo title or description reads as the empty string', functi
 test('the site icon url resolves only once the conversions exist', function () {
     Storage::fake('public');
 
-    expect($this->settings->siteIconUrl('favicon'))->toBeNull();
+    expect($this->settings->logoUrl('favicon'))->toBeNull();
 
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
 
     // Resolution is memoised per instance (the head asks three times per
     // page), so stand in for the next request's fresh instance at each step.
@@ -229,13 +229,13 @@ test('the site icon url resolves only once the conversions exist', function () {
     // A row pointing at a directory the processing job has not written yet
     // resolves to null, so the head falls back to the bundled favicon files
     // rather than linking at a file that does not exist.
-    expect(app(Settings::class)->siteIconUrl('favicon'))->toBeNull();
+    expect(app(Settings::class)->logoUrl('favicon'))->toBeNull();
 
-    Storage::disk('public')->put('site-icon/abc/favicon.webp', 'x');
+    Storage::disk('public')->put('logo/abc/favicon.webp', 'x');
 
     app()->forgetScopedInstances();
 
-    expect(app(Settings::class)->siteIconUrl('favicon'))->toBe('/storage/site-icon/abc/favicon.webp');
+    expect(app(Settings::class)->logoUrl('favicon'))->toBe('/storage/logo/abc/favicon.webp');
 });
 
 test('unsaved mail settings read as the log mailer with no connection details', function () {

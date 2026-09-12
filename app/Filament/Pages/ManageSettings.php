@@ -21,10 +21,12 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Actions;
+use Filament\Schemas\Components\Component;
 use Filament\Schemas\Components\Form;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Cache;
@@ -41,8 +43,8 @@ use Throwable;
  * no edit here -- as long as its type has a field mapped in formComponent().
  * Settings are grouped onto the page's tabs by SettingKey::tab().
  *
- * The mailer with its SMTP connection and the site icon are the exceptions:
- * the mail tab and SEO & brand tab edit them through the modals their buttons
+ * The mailer with its SMTP connection and the logo are the exceptions: the
+ * mail tab and SEO & brand tab edit them through the modals their buttons
  * open, since they change as a unit and persist the moment the modal is
  * submitted.
  *
@@ -85,7 +87,7 @@ class ManageSettings extends Page
      * @var array<int, SettingKey>
      */
     private const ACTION_EDITED_KEYS = [
-        SettingKey::SiteIcon,
+        SettingKey::Logo,
     ];
 
     /**
@@ -141,7 +143,7 @@ class ManageSettings extends Page
      * claim it, so a setting lands on a tab by its enum declaration alone.
      * The mail tab leads with the mailer button, whose modal edits the keys
      * MAILER_MODAL_KEYS holds instead of the form; the SEO & brand tab leads
-     * with the site icon buttons, which edit SiteIcon the same way.
+     * with the logo preview and its buttons, which edit Logo the same way.
      */
     protected function tabComponent(SettingsTab $settingsTab): Tab
     {
@@ -151,6 +153,7 @@ class ManageSettings extends Page
                 && ! in_array($key, [...self::MAILER_MODAL_KEYS, ...self::ACTION_EDITED_KEYS], true),
         );
 
+        /** @var array<int, Component> $components */
         $components = array_map(
             fn (SettingKey $key): Field => $this->formComponent($key),
             $keys,
@@ -161,10 +164,14 @@ class ManageSettings extends Page
         }
 
         if ($settingsTab === SettingsTab::SeoBrand) {
-            array_unshift($components, Actions::make([
-                $this->uploadSiteIconAction(),
-                $this->removeSiteIconAction(),
-            ]));
+            array_unshift(
+                $components,
+                $this->logoPreview(),
+                Actions::make([
+                    $this->uploadLogoAction(),
+                    $this->removeLogoAction(),
+                ]),
+            );
         }
 
         return Tab::make($settingsTab->label())
@@ -230,27 +237,47 @@ class ManageSettings extends Page
     }
 
     /**
-     * The button the SEO & brand tab uploads the site icon through.
+     * The preview of the logo currently in use, shown above the buttons.
+     *
+     * It renders the same x-app-logo-icon the site chrome does, so what an
+     * administrator sees here is what the sidebar, auth pages and public
+     * header render -- including the bundled default when nothing has been
+     * uploaded, which is the state the buttons alone could not convey.
+     */
+    protected function logoPreview(): View
+    {
+        // Resolved per render rather than once at schema-build time, like the
+        // buttons' label/visible closures beside it: the upload and remove
+        // actions persist out-of-band and re-render the page, so a value
+        // frozen into viewData would still describe the logo just replaced.
+        return View::make('filament.settings.logo-preview')
+            ->viewData(fn (): array => [
+                'hasUploadedLogo' => $this->settings()->string(SettingKey::Logo) !== '',
+            ]);
+    }
+
+    /**
+     * The button the SEO & brand tab uploads the logo through.
      *
      * Like the mailer button, the effect is immediate: the upload is staged on
      * the private disk and queued for processing the moment the modal is
-     * submitted, rather than riding on the form's Save -- the icon is not form
-     * state, it is a file the processing job turns into the favicon, touch
-     * icon and social image the page head renders.
+     * submitted, rather than riding on the form's Save -- the logo is not form
+     * state, it is a file the processing job turns into the brand mark, the
+     * favicon, the touch icon and the social image.
      */
-    protected function uploadSiteIconAction(): Action
+    protected function uploadLogoAction(): Action
     {
-        $iconIsStored = fn (): bool => $this->settings()->string(SettingKey::SiteIcon) !== '';
+        $logoIsStored = fn (): bool => $this->settings()->string(SettingKey::Logo) !== '';
 
-        return Action::make('uploadSiteIcon')
-            ->label(fn (): string => $iconIsStored() ? 'Replace site icon' : 'Upload site icon')
+        return Action::make('uploadLogo')
+            ->label(fn (): string => $logoIsStored() ? 'Replace logo' : 'Upload logo')
             ->icon(Heroicon::OutlinedPhoto)
-            ->color(fn (): string => $iconIsStored() ? 'success' : 'gray')
-            ->modalHeading('Site icon')
-            ->modalDescription(SettingKey::SiteIcon->helperText())
-            ->form([$this->formComponent(SettingKey::SiteIcon)])
+            ->color(fn (): string => $logoIsStored() ? 'success' : 'gray')
+            ->modalHeading('Logo')
+            ->modalDescription(SettingKey::Logo->helperText())
+            ->form([$this->formComponent(SettingKey::Logo)])
             ->action(function (array $data): void {
-                $sourcePath = (string) $data[SettingKey::SiteIcon->value];
+                $sourcePath = (string) $data[SettingKey::Logo->value];
 
                 // FileUpload state is client-controllable once dehydrated: a
                 // forged request can submit an arbitrary path string instead
@@ -262,7 +289,7 @@ class ManageSettings extends Page
                     Notification::make()
                         ->danger()
                         ->title('Upload rejected')
-                        ->body('Choose an icon file to upload.')
+                        ->body('Choose a logo file to upload.')
                         ->send();
 
                     return;
@@ -270,15 +297,15 @@ class ManageSettings extends Page
 
                 ProcessUploadedImage::dispatch(
                     sourcePath: $sourcePath,
-                    conversionSet: 'site-icon',
-                    targetDirectory: 'site-icon/'.Str::uuid()->toString(),
-                    settingKey: SettingKey::SiteIcon,
+                    conversionSet: 'logo',
+                    targetDirectory: 'logo/'.Str::uuid()->toString(),
+                    settingKey: SettingKey::Logo,
                 );
 
                 Notification::make()
                     ->success()
-                    ->title('Site icon uploaded')
-                    ->body('It will appear in the browser tab and link previews once processed.')
+                    ->title('Logo uploaded')
+                    ->body('It will appear across the site, in the browser tab and in link previews once processed.')
                     ->send();
             });
     }
@@ -302,31 +329,32 @@ class ManageSettings extends Page
     }
 
     /**
-     * The button that removes the stored site icon.
+     * The button that removes the uploaded logo, restoring the bundled mark.
      *
      * A marker is recorded first, so a replacement still queued for processing
-     * is discarded by the job rather than resurrecting the icon being removed
+     * is discarded by the job rather than resurrecting the logo being removed
      * -- the same guard the avatar's Remove button relies on.
      */
-    protected function removeSiteIconAction(): Action
+    protected function removeLogoAction(): Action
     {
-        return Action::make('removeSiteIcon')
-            ->label('Remove icon')
+        return Action::make('removeLogo')
+            ->label('Remove logo')
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
-            ->visible(fn (): bool => $this->settings()->string(SettingKey::SiteIcon) !== '')
+            ->visible(fn (): bool => $this->settings()->string(SettingKey::Logo) !== '')
             ->requiresConfirmation()
+            ->modalDescription('The bundled mark is shown across the site again until another logo is uploaded.')
             ->action(function (): void {
                 Cache::put(
-                    ProcessUploadedImage::settingRemovalKey(SettingKey::SiteIcon),
+                    ProcessUploadedImage::settingRemovalKey(SettingKey::Logo),
                     time(),
                     now()->addDay(),
                 );
 
-                $directory = $this->settings()->string(SettingKey::SiteIcon);
+                $directory = $this->settings()->string(SettingKey::Logo);
 
                 if ($directory !== '') {
-                    $this->settings()->set(SettingKey::SiteIcon, '');
+                    $this->settings()->set(SettingKey::Logo, '');
 
                     /** @var string $disk */
                     $disk = config('images.disk');
@@ -336,7 +364,7 @@ class ManageSettings extends Page
 
                 Notification::make()
                     ->success()
-                    ->title('Site icon removed')
+                    ->title('Logo removed')
                     ->send();
             });
     }
@@ -389,7 +417,7 @@ class ManageSettings extends Page
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default()),
-            SettingKey::SiteIcon => FileUpload::make($key->value)
+            SettingKey::Logo => FileUpload::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->rules($this->imageRules())

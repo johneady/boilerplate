@@ -58,19 +58,19 @@ test('turning off indexing adds the noindex directive', function () {
         ->assertSee('<meta name="robots" content="noindex, nofollow" />', false);
 });
 
-test('a stored site icon replaces the default favicon links and previews', function () {
+test('a stored logo replaces the default favicon links and previews', function () {
     Storage::fake('public');
 
     foreach (['favicon', 'apple-touch', 'social'] as $conversion) {
-        Storage::disk('public')->put("site-icon/abc/{$conversion}.webp", 'x');
+        Storage::disk('public')->put("logo/abc/{$conversion}.webp", 'x');
     }
 
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
 
     $this->get('/')
-        ->assertSee('<link rel="icon" href="/storage/site-icon/abc/favicon.webp" type="image/webp" sizes="any" />', false)
-        ->assertSee('<link rel="apple-touch-icon" href="/storage/site-icon/abc/apple-touch.webp" />', false)
-        ->assertSee('<meta property="og:image" content="'.url('/storage/site-icon/abc/social.webp').'" />', false)
+        ->assertSee('<link rel="icon" href="/storage/logo/abc/favicon.webp" type="image/webp" sizes="any" />', false)
+        ->assertSee('<link rel="apple-touch-icon" href="/storage/logo/abc/apple-touch.webp" />', false)
+        ->assertSee('<meta property="og:image" content="'.url('/storage/logo/abc/social.webp').'" />', false)
         ->assertSee('<meta name="twitter:card" content="summary" />', false)
         // The bundled svg gives way to the stored icon; the ico stays as the
         // always-decodable fallback.
@@ -79,10 +79,69 @@ test('a stored site icon replaces the default favicon links and previews', funct
 });
 
 test('a missing conversion falls back to the default icons rather than a broken link', function () {
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/gone');
+    app(Settings::class)->set(SettingKey::Logo, 'logo/gone');
 
     $this->get('/')
         ->assertSuccessful()
         ->assertSee('<link rel="icon" href="/favicon.svg" type="image/svg+xml" />', false)
         ->assertDontSee('og:image');
+});
+
+/**
+ * The upload is the site's brand mark, not only its favicon: x-app-logo-icon
+ * renders the stored "mark" conversion wherever the bundled SVG would go, so
+ * a logo uploaded from the admin panel reaches the public header and the auth
+ * pages without either layout knowing the setting exists.
+ */
+test('a stored logo becomes the brand mark on the public page', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
+
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+
+    $this->get('/')
+        ->assertSee('src="/storage/logo/abc/mark.webp"', false)
+        // The bundled gradient mark gives way to it entirely.
+        ->assertDontSee('app-logo-', false);
+});
+
+test('a stored logo becomes the brand mark on the auth pages', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
+
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+
+    // The split layout renders the mark twice: the backdrop lockup and the
+    // narrow-viewport header above the form.
+    $html = $this->get(route('login'))->assertSuccessful()->getContent();
+
+    expect(substr_count((string) $html, 'src="/storage/logo/abc/mark.webp"'))->toBe(2);
+});
+
+test('the bundled mark renders when no logo has been uploaded', function () {
+    $this->get('/')
+        ->assertSuccessful()
+        // The gradient is painted from the mark's own defs rather than
+        // inherited, so the stops are what prove the new mark rendered.
+        ->assertSee('#6366F1', false)
+        ->assertDontSee('/storage/logo/', false);
+});
+
+/**
+ * Every call site renders the business name as text beside the mark, so an
+ * alt naming the business would make a screen reader announce the link twice
+ * over ("Acme Acme"). The mark is decoration next to that name, not a second
+ * copy of it.
+ */
+test('the uploaded mark is decorative rather than a second copy of the business name', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
+
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    $html = (string) $this->get('/')->assertSuccessful()->getContent();
+
+    expect($html)->toContain('alt=""')
+        ->and($html)->not->toContain('alt="Cromulent Widgets"');
 });

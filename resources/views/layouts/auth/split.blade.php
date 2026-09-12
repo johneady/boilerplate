@@ -19,7 +19,7 @@
                 wire:navigate
             >
                 <span class="flex h-10 w-10 items-center justify-center rounded-md">
-                    <x-app-logo-icon class="me-2 h-7 fill-current text-white" />
+                    <x-app-logo-icon class="me-2 size-7" />
                 </span>
                 {{ $businessName }}
             </a>
@@ -43,7 +43,7 @@
                     wire:navigate
                 >
                     <span class="flex h-9 w-9 items-center justify-center rounded-md">
-                        <x-app-logo-icon class="size-9 fill-current text-black dark:text-white" />
+                        <x-app-logo-icon class="size-9" />
                     </span>
 
                     <span class="sr-only">{{ $businessName }}</span>

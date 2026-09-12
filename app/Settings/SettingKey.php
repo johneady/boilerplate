@@ -26,7 +26,7 @@ enum SettingKey: string
 
     case AllowSearchIndexing = 'allow_search_indexing';
 
-    case SiteIcon = 'site_icon';
+    case Logo = 'logo';
 
     case AllowRegistration = 'allow_registration';
 
@@ -53,7 +53,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
-            self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::SiteIcon => SettingsTab::SeoBrand,
+            self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName => SettingsTab::Mail,
         };
@@ -67,7 +67,7 @@ enum SettingKey: string
         return match ($this) {
             self::BusinessName => config('app.name', 'Laravel'),
             self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => '',
-            self::SeoTitle, self::SeoDescription, self::SiteIcon => '',
+            self::SeoTitle, self::SeoDescription, self::Logo => '',
             self::AllowSearchIndexing => true,
             self::AllowRegistration => false,
             self::MailMailer => 'log',
@@ -85,7 +85,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => self::toFilledString($value, $this->default()),
-            self::SeoTitle, self::SeoDescription, self::SiteIcon => self::toFilledString($value, ''),
+            self::SeoTitle, self::SeoDescription, self::Logo => self::toFilledString($value, ''),
             self::AllowSearchIndexing => self::toBoolean($value),
             self::AllowRegistration => self::toBoolean($value),
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
@@ -153,7 +153,7 @@ enum SettingKey: string
             self::SeoTitle => 'Default page title',
             self::SeoDescription => 'Meta description',
             self::AllowSearchIndexing => 'Allow search engines to index the site',
-            self::SiteIcon => 'Site icon',
+            self::Logo => 'Logo',
             self::AllowRegistration => 'Allow new user registrations',
             self::MailMailer => 'Mailer',
             self::MailHost => 'Host',
@@ -179,7 +179,7 @@ enum SettingKey: string
             self::SeoTitle => 'Used as the title of pages without their own, and as the headline of social link previews. Leave blank to use the business name.',
             self::SeoDescription => 'A sentence or two summarising the site for search results and link previews. Leave blank to omit the tag.',
             self::AllowSearchIndexing => 'When off, every page asks search engines not to index it or follow its links. Turn off while a site is under development.',
-            self::SiteIcon => 'Uploaded once and re-encoded into a favicon, an Apple touch icon and a social sharing image. Square artwork works best.',
+            self::Logo => 'Shown as the brand mark across the site and in the admin panel, and re-encoded into the favicon, Apple touch icon and social sharing image. Square artwork works best.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
             self::MailMailer => 'How outgoing email is delivered. "Log" writes messages to the application log; "SMTP" sends through the server below.',
             self::MailHost => 'The SMTP server to send through, e.g. smtp.fastmail.com. Required before SMTP delivery is used.',

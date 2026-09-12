@@ -1,8 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 42" {{ $attributes }}>
-    <path
-        fill="currentColor"
-        fill-rule="evenodd"
-        clip-rule="evenodd"
-        d="M17.2 5.633 8.6.855 0 5.633v26.51l16.2 9 16.2-9v-8.442l7.6-4.223V9.856l-8.6-4.777-8.6 4.777V18.3l-5.6 3.111V5.633ZM38 18.301l-5.6 3.11v-6.157l5.6-3.11V18.3Zm-1.06-7.856-5.54 3.078-5.54-3.079 5.54-3.078 5.54 3.079ZM24.8 18.3v-6.157l5.6 3.111v6.158L24.8 18.3Zm-1 1.732 5.54 3.078-13.14 7.302-5.54-3.078 13.14-7.3v-.002Zm-16.2 7.89 7.6 4.222V38.3L2 30.966V7.92l5.6 3.111v16.892ZM8.6 9.3 3.06 6.222 8.6 3.143l5.54 3.08L8.6 9.3Zm21.8 15.51-13.2 7.334V38.3l13.2-7.334v-6.156ZM9.6 11.034l5.6-3.11v14.6l-5.6 3.11v-14.6Z"
-    />
-</svg>
+{{--
+    The brand mark, rendered in the sidebar, the auth pages and the public
+    header. It is the logo uploaded from the admin panel's SEO & brand settings
+    when one is stored, and the bundled mark below otherwise.
+
+    $logoMarkUrl is composed onto every view (AppServiceProvider), so no call
+    site has to pass it -- a mark rendered inside a component that does not
+    receive the variable still resolves it, and null simply falls through to
+    the default.
+
+    Call sites size the mark with classes such as size-7. Those apply to both
+    branches, so the uploaded image carries object-contain and the same square
+    box: the conversion is a square cover crop, which fits those slots without
+    distortion.
+
+    The mark is decorative: EVERY call site already renders the business name
+    as text beside it (the public header and the auth lockups literally, the
+    sidebar through flux:brand's :name). An alt of the business name would
+    therefore make a screen reader announce the link as "Acme Acme", so the
+    image is given an empty alt and the svg is hidden instead.
+--}}
+@if (($logoMarkUrl ?? null) !== null)
+    <img src="{{ $logoMarkUrl }}" alt="" {{ $attributes->class('aspect-square object-contain') }} />
+@else
+    {{--
+        The gradient is painted from the mark's own <defs>, so it keeps its
+        colours rather than inheriting the call site's text colour the way the
+        previous monochrome mark did.
+
+        The gradient id is uniqued per render: the mark appears more than once
+        on a page (the sidebar brand and the mobile header, for one), and a
+        duplicate id makes every later instance resolve the first one's stops.
+
+        The bolt is drawn in white rather than knocked out of the tile: a
+        knockout shows whatever sits behind the mark, which turns the bolt
+        black on the dark auth backdrop. The gradient is saturated enough that
+        a white bolt holds contrast against every stop, in both themes.
+    --}}
+    @php
+        $gradientId = 'app-logo-'.Str::random(8);
+    @endphp
+
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-hidden="true" {{ $attributes }}>
+        <defs>
+            <linearGradient id="{{ $gradientId }}" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#22D3EE" />
+                <stop offset="0.5" stop-color="#6366F1" />
+                <stop offset="1" stop-color="#E879F9" />
+            </linearGradient>
+        </defs>
+        <path
+            fill="url(#{{ $gradientId }})"
+            d="M15 2h18c7.18 0 13 5.82 13 13v18c0 7.18-5.82 13-13 13H15C7.82 46 2 40.18 2 33V15C2 7.82 7.82 2 15 2Z"
+        />
+        <path fill="#fff" d="M26.5 7.5 12.5 28h8.2l-1.3 13.2L35.5 21h-8.4l1.4-13.5Z" />
+    </svg>
+@endif

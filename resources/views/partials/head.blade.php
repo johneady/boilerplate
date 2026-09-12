@@ -28,7 +28,7 @@
 --}}
 <link rel="icon" href="/favicon.ico" sizes="any" />
 @if (($faviconUrl ?? null) !== null)
-    <link rel="icon" href="{{ $faviconUrl }}" type="{{ $siteIconMime }}" sizes="any" />
+    <link rel="icon" href="{{ $faviconUrl }}" type="{{ $logoMime }}" sizes="any" />
 @else
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 @endif

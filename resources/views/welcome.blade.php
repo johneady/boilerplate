@@ -17,7 +17,7 @@
         <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 lg:px-8">
             <header class="flex items-center justify-between py-8">
                 <a href="{{ route('home') }}" class="flex items-center gap-2 font-medium" wire:navigate>
-                    <x-app-logo-icon class="size-7 fill-current" />
+                    <x-app-logo-icon class="size-7" />
                     <span>{{ $businessName }}</span>
                 </a>
 

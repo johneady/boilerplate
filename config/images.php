@@ -83,11 +83,14 @@ return [
             'full' => ['width' => 512, 'height' => 512, 'fit' => 'cover'],
         ],
 
-        // The site icon from the admin panel's SEO & brand settings. All
-        // conversions are square "cover" crops: a favicon and an Apple touch
-        // icon must be square, and the social image doubles as one through the
-        // summary card, which prefers a square mark.
-        'site-icon' => [
+        // The logo from the admin panel's SEO & brand settings. It is both the
+        // brand mark rendered in the page chrome ("mark") and the source of
+        // the browser and social icons. All conversions are square "cover"
+        // crops: a favicon and an Apple touch icon must be square, the social
+        // image doubles as one through the summary card, and the mark renders
+        // in square slots the layouts already size for the bundled SVG.
+        'logo' => [
+            'mark' => ['width' => 256, 'height' => 256, 'fit' => 'cover'],
             'favicon' => ['width' => 64, 'height' => 64, 'fit' => 'cover'],
             'apple-touch' => ['width' => 180, 'height' => 180, 'fit' => 'cover'],
             'social' => ['width' => 512, 'height' => 512, 'fit' => 'cover'],

@@ -25,11 +25,11 @@ class Settings
     private ?array $cache = null;
 
     /**
-     * Icon URLs already resolved for this instance, keyed by path|conversion.
+     * Logo URLs already resolved for this instance, keyed by path|conversion.
      *
      * @var array<string, string|null>
      */
-    private array $resolvedSiteIconUrls = [];
+    private array $resolvedLogoUrls = [];
 
     /**
      * Read a setting, falling back to the key's declared default.
@@ -83,17 +83,18 @@ class Settings
     }
 
     /**
-     * Get the URL of one of the site icon's conversions.
+     * Get the URL of one of the uploaded logo's conversions.
      *
      * Null until App\Jobs\ProcessUploadedImage has written the conversions,
-     * and when no icon has been uploaded at all -- which is what lets the
-     * page head fall back to the bundled favicon files rather than render a
-     * link to a file that does not exist. Like User::avatarUrl(), resolution
-     * is memoised because the head renders it three times per page.
+     * and when no logo has been uploaded at all -- which is what lets the page
+     * head fall back to the bundled favicon files, and the brand mark to the
+     * bundled x-app-logo-icon SVG, rather than link a file that does not
+     * exist. Like User::avatarUrl(), resolution is memoised because the head
+     * alone renders it three times per page.
      */
-    public function siteIconUrl(string $conversion): ?string
+    public function logoUrl(string $conversion): ?string
     {
-        $directory = $this->string(SettingKey::SiteIcon);
+        $directory = $this->string(SettingKey::Logo);
 
         if ($directory === '') {
             return null;
@@ -101,8 +102,8 @@ class Settings
 
         $cacheKey = $directory.'|'.$conversion;
 
-        if (array_key_exists($cacheKey, $this->resolvedSiteIconUrls)) {
-            return $this->resolvedSiteIconUrls[$cacheKey];
+        if (array_key_exists($cacheKey, $this->resolvedLogoUrls)) {
+            return $this->resolvedLogoUrls[$cacheKey];
         }
 
         /** @var string $disk */
@@ -116,8 +117,8 @@ class Settings
         $storage = Storage::disk($disk);
 
         // A conversion can be missing if the set was written by an older
-        // configuration; the bundled default beats a broken icon link.
-        return $this->resolvedSiteIconUrls[$cacheKey] = $storage->exists($path)
+        // configuration; the bundled default beats a broken image link.
+        return $this->resolvedLogoUrls[$cacheKey] = $storage->exists($path)
             ? $storage->url($path)
             : null;
     }

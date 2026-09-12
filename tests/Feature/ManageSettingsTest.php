@@ -149,7 +149,7 @@ test('each setting is edited on its declared tab', function () {
     // is edited through the mailer button's modal rather than tab fields.
     // The mailer group is edited through the mailer button's modal, and the
     // site icon through the SEO & brand tab's buttons, rather than tab fields.
-    $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'site_icon'];
+    $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'logo'];
 
     $flattener = function (array $components) use (&$flattener): array {
         $result = [];
@@ -439,44 +439,67 @@ test('the seo title hints at the value a blank falls back to', function () {
     expect($fields['seo_title']->getPlaceholder())->toBe('Cromulent Widgets');
 });
 
-test('the site icon button offers an upload until an icon is stored', function () {
+/**
+ * The buttons alone cannot convey which mark is actually in use, and the most
+ * common state -- nothing uploaded, the bundled mark in use -- is exactly the
+ * one an administrator needs to see before deciding to replace it.
+ */
+test('the seo and brand tab previews the bundled mark when no logo is stored', function () {
     Livewire::test(ManageSettings::class)
-        ->assertSee('Upload site icon')
-        ->assertActionHidden('removeSiteIcon');
+        ->assertSee('Default logo')
+        ->assertDontSee('Your logo');
 });
 
-test('the site icon button offers a replacement once an icon is stored', function () {
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+test('the seo and brand tab previews the uploaded logo once one is stored', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
+
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
 
     Livewire::test(ManageSettings::class)
-        ->assertSee('Replace site icon')
-        ->assertActionVisible('removeSiteIcon');
+        ->assertSee('Your logo')
+        ->assertDontSee('Default logo')
+        ->assertSee('/storage/logo/abc/mark.webp');
 });
 
-test('submitting the icon modal stages the upload and queues the processing job', function () {
+test('the logo button offers an upload until a logo is stored', function () {
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Upload logo')
+        ->assertActionHidden('removeLogo');
+});
+
+test('the logo button offers a replacement once a logo is stored', function () {
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Replace logo')
+        ->assertActionVisible('removeLogo');
+});
+
+test('submitting the logo modal stages the upload and queues the processing job', function () {
     Queue::fake();
     Storage::fake('local');
 
     Livewire::test(ManageSettings::class)
-        ->callAction('uploadSiteIcon', [
-            'site_icon' => UploadedFile::fake()->image('icon.png', 128, 128),
+        ->callAction('uploadLogo', [
+            'logo' => UploadedFile::fake()->image('icon.png', 128, 128),
         ]);
 
     // The staged source must be on the private disk, never the public one --
     // the unprocessed original is not re-encoded yet.
-    Queue::assertPushed(ProcessUploadedImage::class, fn (ProcessUploadedImage $job): bool => $job->conversionSet === 'site-icon'
-        && $job->settingKey === SettingKey::SiteIcon
+    Queue::assertPushed(ProcessUploadedImage::class, fn (ProcessUploadedImage $job): bool => $job->conversionSet === 'logo'
+        && $job->settingKey === SettingKey::Logo
         && str_starts_with($job->sourcePath, 'uploads/pending/'));
 
-    Notification::assertNotified('Site icon uploaded');
+    Notification::assertNotified('Logo uploaded');
 });
 
-test('the icon modal rejects a file type the processing job cannot decode', function () {
+test('the logo modal rejects a file type the processing job cannot decode', function () {
     Queue::fake();
 
     Livewire::test(ManageSettings::class)
-        ->callAction('uploadSiteIcon', [
-            'site_icon' => UploadedFile::fake()->create('icon.svg', 64, 'image/svg+xml'),
+        ->callAction('uploadLogo', [
+            'logo' => UploadedFile::fake()->create('icon.svg', 64, 'image/svg+xml'),
         ]);
 
     Queue::assertNotPushed(ProcessUploadedImage::class);
@@ -491,7 +514,7 @@ test('the icon modal rejects a file type the processing job cannot decode', func
  * anything readable on the private disk could be republished (or deleted)
  * through this action.
  */
-test('only freshly staged uploads qualify as icon sources', function (string $path, bool $qualifies) {
+test('only freshly staged uploads qualify as logo sources', function (string $path, bool $qualifies) {
     expect(ManageSettings::isStagedUploadPath($path))->toBe($qualifies);
 })->with([
     'a staged upload' => ['uploads/pending/abc123.png', true],
@@ -508,41 +531,60 @@ test('only freshly staged uploads qualify as icon sources', function (string $pa
  * The form is filled from the whole settings table, which includes the keys
  * the modal edits. Saving the form afterwards must not write those stale
  * values back over what the modal persisted -- here the row moves to a new
- * icon between mount and save, and the stale value must not win.
+ * logo between mount and save, and the stale value must not win.
  */
-test('saving the form does not revert a site icon the modal just stored', function () {
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/stale');
+test('saving the form does not revert a logo the modal just stored', function () {
+    app(Settings::class)->set(SettingKey::Logo, 'logo/stale');
 
     $page = Livewire::test(ManageSettings::class);
 
     // What the upload modal does between mounting and saving: persists the
-    // new icon directly, out-of-band from the form state the page booted with.
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/new');
+    // new logo directly, out-of-band from the form state the page booted with.
+    app(Settings::class)->set(SettingKey::Logo, 'logo/new');
 
     $page->fillForm(['mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('site-icon/new');
+    expect(app(Settings::class)->string(SettingKey::Logo))->toBe('logo/new');
 
     Notification::assertNotified('Settings saved');
 });
 
-test('removing the site icon clears the setting and its files', function () {
+test('removing the logo clears the setting and its files', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('site-icon/abc/favicon.webp', 'stale');
+    Storage::disk('public')->put('logo/abc/favicon.webp', 'stale');
 
-    app(Settings::class)->set(SettingKey::SiteIcon, 'site-icon/abc');
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
 
     Livewire::test(ManageSettings::class)
-        ->callAction('removeSiteIcon');
+        ->callAction('removeLogo');
 
     app()->forgetInstance(Settings::class);
 
-    expect(app(Settings::class)->string(SettingKey::SiteIcon))->toBe('');
-    Storage::disk('public')->assertMissing('site-icon/abc/favicon.webp');
+    expect(app(Settings::class)->string(SettingKey::Logo))->toBe('');
+    Storage::disk('public')->assertMissing('logo/abc/favicon.webp');
 
-    Notification::assertNotified('Site icon removed');
+    Notification::assertNotified('Logo removed');
+});
+
+/**
+ * The remove action persists out-of-band and re-renders the page in the same
+ * request. The preview must describe the logo now in use, not the one the
+ * schema was built with, or an administrator is told their upload is still
+ * live immediately after deleting it.
+ */
+test('the preview falls back to the bundled mark once the logo is removed', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
+
+    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Your logo')
+        ->callAction('removeLogo')
+        ->assertSee('Default logo')
+        ->assertDontSee('Your logo');
 });
 
 test('the test email modal defaults to the business contact address', function () {
