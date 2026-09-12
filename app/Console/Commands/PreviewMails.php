@@ -14,6 +14,7 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
@@ -39,10 +40,16 @@ use Throwable;
 class PreviewMails extends Command
 {
     /**
-     * Stand-in for the token the password broker normally issues; the
-     * notification only needs a non-empty string to build its reset URL.
+     * Stand-in for the token the password broker normally issues, built the
+     * same way the broker builds a real one: an HMAC-SHA256 of 40 random
+     * characters. A literal placeholder such as "preview-token" renders a
+     * reset URL a fraction of the real length, so the preview cannot show
+     * how the link actually wraps in a mail client.
      */
-    private const RESET_PASSWORD_TOKEN = 'preview-token';
+    private function resetPasswordToken(): string
+    {
+        return hash_hmac('sha256', Str::random(40), Config::get('app.key'));
+    }
 
     /**
      * Execute the console command.
@@ -83,7 +90,7 @@ class PreviewMails extends Command
         $emails = [
             'settings test email' => fn () => Mail::to($recipient)->send(new TestEmail),
             'email address verification' => fn () => Notification::sendNow($user, new VerifyEmail),
-            'password reset' => fn () => Notification::sendNow($user, new ResetPassword(self::RESET_PASSWORD_TOKEN)),
+            'password reset' => fn () => Notification::sendNow($user, new ResetPassword($this->resetPasswordToken())),
             // Routed on demand rather than to the factory user: the real
             // alert goes to the operations address from the mail settings,
             // which is a bare address with no account behind it.

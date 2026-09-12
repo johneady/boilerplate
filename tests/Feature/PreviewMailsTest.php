@@ -252,3 +252,53 @@ test('it reports each failed email and exits with a failure code', function () {
         ->expectsOutputToContain('Delivered 0 of 4 email types')
         ->assertFailed();
 });
+
+/**
+ * The reset link is the whole point of previewing that email, so its token has
+ * to be the length a real one is -- the broker issues an HMAC-SHA256 hex digest
+ * (64 characters), and a short literal placeholder renders a link that wraps
+ * differently in a mail client than the one a real recipient receives.
+ */
+test('the password reset link carries a token shaped like a real one', function () {
+    $bodies = [];
+
+    Event::listen(function (MessageSent $event) use (&$bodies): void {
+        $bodies[] = (string) $event->message->getTextBody();
+    });
+
+    $this->artisan('app:preview-mails')->assertSuccessful();
+
+    $links = collect($bodies)
+        ->flatMap(fn (string $body): array => preg_match('#/reset-password/([^?\s]+)#', $body, $matches) ? [$matches[1]] : [])
+        ->all();
+
+    expect($links)->toHaveCount(1)
+        ->and($links[0])->toMatch('/^[0-9a-f]{64}$/');
+});
+
+/**
+ * Random per run rather than a fixed constant, so a preview inbox holding two
+ * runs does not show the same link twice and hide a token that never changed.
+ */
+test('each run issues a different password reset token', function () {
+    $tokens = [];
+
+    Notification::fake();
+
+    foreach (range(1, 2) as $ignored) {
+        $this->artisan('app:preview-mails')->assertSuccessful();
+    }
+
+    Notification::assertSentTo(
+        previewNotifiable('preview@inbox.test'),
+        ResetPassword::class,
+        function (ResetPassword $notification) use (&$tokens): bool {
+            $tokens[] = $notification->token;
+
+            return true;
+        },
+    );
+
+    expect($tokens)->toHaveCount(2)
+        ->and($tokens[0])->not->toBe($tokens[1]);
+});
