@@ -28,6 +28,8 @@ enum Permission: string
 
     case ManageSettings = 'settings.manage';
 
+    case ViewLogs = 'logs.view';
+
     case AccessAdminPanel = 'admin-panel.access';
 
     /**
@@ -41,6 +43,7 @@ enum Permission: string
             self::UpdateUsers => 'Update users',
             self::DeleteUsers => 'Delete users',
             self::ManageSettings => 'Manage application settings',
+            self::ViewLogs => 'View application logs',
             self::AccessAdminPanel => 'Access the admin panel',
         };
     }

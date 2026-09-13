@@ -110,6 +110,14 @@ test('the panel content spans the full width', function () {
         ->toBe(Width::Full);
 });
 
+test('the panel sidebar is a fifth narrower than the Filament default', function () {
+    // The width feeds the layout's --sidebar-width custom property, so this
+    // pins the rendered menu width rather than a config value. The Filament
+    // default is 20rem.
+    expect(Filament\Facades\Filament::getPanel('admin')->getSidebarWidth())
+        ->toBe('16rem');
+});
+
 test('the panel navigation links back to the website', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->get('/admin')

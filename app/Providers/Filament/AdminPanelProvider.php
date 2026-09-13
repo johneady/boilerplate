@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use AchyutN\FilamentLogViewer\FilamentLogViewer;
+use App\Auth\Permission;
 use App\Filament\Clusters\Account\Pages\Profile;
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\FilamentAuthenticate;
@@ -64,6 +66,10 @@ class AdminPanelProvider extends PanelProvider
             // Filament caps page content at 7xl (80rem) by default, which leaves
             // a wide gutter between the sidebar and the content on large screens.
             ->maxContentWidth(Width::Full)
+            // The default 20rem sidebar is wider than this panel's short menu
+            // needs; 16rem is the same menu 20% narrower, with more room left
+            // for the full-width content beside it.
+            ->sidebarWidth('16rem')
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->discoverClusters(in: app_path('Filament/Clusters'), for: 'App\Filament\Clusters')
@@ -71,6 +77,19 @@ class AdminPanelProvider extends PanelProvider
                 Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
+            // The log viewer ships its own /admin/logs page; it is gated by the
+            // logs.view permission rather than panel access alone, because
+            // stack traces and mail bodies are operational data that not every
+            // panel-worthy role should read. Clearing stays disabled via the
+            // package default (enable_delete=false).
+            ->plugins([
+                FilamentLogViewer::make()
+                    ->authorize(fn (): bool => auth()->user()?->hasPermission(Permission::ViewLogs) ?? false)
+                    // Pinned just under Settings (sort 90) rather than left on
+                    // the package's 9999 default, so the two System items keep
+                    // their order even if that default ever changes.
+                    ->navigationSort(91),
+            ])
             // The profile link opens the Account cluster inside the panel
             // rather than /settings/profile, which would drop the user out of
             // Filament and into the Flux-chromed layout.

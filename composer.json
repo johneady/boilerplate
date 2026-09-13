@@ -15,6 +15,7 @@
     "license": "MIT",
     "require": {
         "php": "^8.3",
+        "achyutn/filament-log-viewer": "^2.5",
         "filament/filament": "^5.8",
         "intervention/image": "^4.3",
         "laravel/chisel": "^0.1.0",

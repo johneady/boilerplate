@@ -1,5 +1,6 @@
 <?php
 
+use AchyutN\FilamentLogViewer\LogTable;
 use App\Filament\Pages\ManageSettings;
 use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
@@ -24,6 +25,11 @@ beforeEach(function () {
 
 test('the panel navigation links to the settings page', function () {
     $this->get('/admin/settings')->assertSuccessful();
+});
+
+test('the settings item sits in the System group above the log viewer', function () {
+    expect(ManageSettings::getNavigationGroup())->toBe('System')
+        ->and(ManageSettings::getNavigationSort())->toBeLessThan(LogTable::getNavigationSort());
 });
 
 test('non-admins may not reach the settings page', function () {

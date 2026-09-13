@@ -38,6 +38,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Throwable;
+use UnitEnum;
 
 /**
  * Edit the application's settings.
@@ -72,6 +73,8 @@ class ManageSettings extends Page
     protected static ?string $navigationLabel = 'Settings';
 
     protected static ?string $title = 'Settings';
+
+    protected static string|UnitEnum|null $navigationGroup = 'System';
 
     protected static ?int $navigationSort = 90;
 

@@ -1,3 +1,1 @@
-2. Add a contact us page, and t&c/privacy/etc...whatever the standands pages these days the front end. ask me quesitons with recommendations for this.
-
-3. add the laravel fialemtn log plugin
+1. Add a contact us page, and t&c/privacy/etc...whatever the standands pages these days the front end. ask me quesitons with recommendations for this.
