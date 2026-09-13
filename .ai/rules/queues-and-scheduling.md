@@ -10,6 +10,7 @@ paths:
   - docker-compose.yml
   - docker-compose.dokploy.yml
   - app/Jobs/ProcessUploadedImage.php
+  - .env.production.example
 ---
 
 # Queues & scheduling
@@ -80,3 +81,14 @@ The marker lives in the cache, so it depends on CACHE_STORE being shared across 
 The job also deletes the staged source BEFORE pruning the previous avatar directory. Ordering matters: once the source is gone a retry early-returns, so pruning last means a retry can never destroy the old set after the new one was rolled back.
 
 The `local` disk sets `throw => false`, so Storage::get() returns null (not an exception) on an unreadable file. The job null-checks before decodeBinary(); without it you get a TypeError outside the try/catch, bypassing the rollback.
+
+## app:check-production audits loaded config, and names the safe environments
+`.env.production.example` is the production-shaped companion to `.env.example`, which is deliberately local-shaped (sqlite, APP_DEBUG=true, MAIL_MAILER=log) because that is what a fresh clone wants. Copying the local one to a server and editing what looks wrong is how an instance ends up with debug output on a public page or a mailer writing customer mail to a log file. Keep the two in sync when adding an env var, and keep the production file's defaults pointing the safe way.
+
+`app:check-production` is the half an example file cannot cover: it audits the configuration actually loaded, catching a stale .env carried over from a previous deploy or platform-injected vars. Every check reads config(), never env() — after `config:cache`, env() returns null for anything outside the cached file, so an env()-based check reports a correct instance as broken.
+
+The environment guard names the safe environments (`local`, `testing`) rather than excluding production, because APP_ENV is overridable on the Dokploy deploy and a staging instance owns a real database. Rewriting it as `! isProduction()` makes 12 tests fail, which is the point. Same reasoning as DB::prohibitDestructiveCommands(); see .ai/rules/dev-login.md.
+
+Failures (exit non-zero) are unsafe in every deployment: APP_DEBUG, empty APP_KEY, a non-delivering MAIL_MAILER, empty from address, array cache. Warnings are supported choices with a real cost and exit zero unless --warnings-as-errors is passed — making them always fatal breaks the command as a deploy gate, since an installation that accepted the cost could never pass.
+
+Note `fail()` and `warn()` cannot be private methods on a Command subclass: both collide with Illuminate\Console\Command's own public methods and fatal at autoload time. They are `recordFailure()`/`recordWarning()` here.

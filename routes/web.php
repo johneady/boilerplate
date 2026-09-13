@@ -3,6 +3,7 @@
 use App\Auth\DevLoginAccounts;
 use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\MailPreviewController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
@@ -23,6 +24,13 @@ Route::livewire('contact', Contact::class)->name('contact');
 // reaches PHP, which would shadow this route.
 Route::get('robots.txt', RobotsController::class)->name('robots');
 Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
+
+// The deep health check, beside rather than instead of the framework's '/up'
+// (registered in bootstrap/app.php). /up proves the framework booted and is
+// what the container HEALTHCHECK restarts on; this resolves the database,
+// cache and queue-worker heartbeat for an uptime monitor. Keeping them apart
+// is deliberate -- see config/health.php.
+Route::get('health', HealthController::class)->name('health');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

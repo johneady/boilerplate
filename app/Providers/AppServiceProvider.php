@@ -8,12 +8,15 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Http\Request;
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -45,6 +48,35 @@ class AppServiceProvider extends ServiceProvider
         $this->configureBladeDirectives();
         $this->configurePersistentMiddleware();
         $this->configureMailFromSettings();
+        $this->configureRateLimiting();
+    }
+
+    /**
+     * Register the rate limiter guarding the API surface.
+     *
+     * Applied to the versioned group in bootstrap/app.php. It lives here rather
+     * than in FortifyServiceProvider because it guards no authentication route;
+     * the limiters there are the auth ones.
+     *
+     * Keyed on the authenticated user where there is one, so a signed-in client
+     * gets its own allowance rather than sharing one with everything behind the
+     * same NAT or proxy, and falls back to the IP for the guest requests that
+     * are all this surface serves today. When token auth is added (see
+     * routes/api/v1.php) this key starts distinguishing tokens with no change.
+     */
+    protected function configureRateLimiting(): void
+    {
+        RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by(
+            // Namespaced so a user identifier can never collide with an IP.
+            // Harmless while identifiers are integers and addresses are dotted,
+            // but the whole point of the fallback above is that this key starts
+            // carrying token identifiers unchanged once Sanctum is added -- and
+            // a string identifier that happens to look like an address would
+            // then silently share a bucket with a guest on it.
+            $request->user() !== null
+                ? 'user:'.$request->user()->getAuthIdentifier()
+                : 'ip:'.$request->ip()
+        ));
     }
 
     /**

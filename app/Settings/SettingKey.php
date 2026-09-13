@@ -33,16 +33,30 @@ enum SettingKey: string
 
     /**
      * The time formats an administrator may choose between, keyed by the PHP
-     * format string with the note shown beside its rendered example. The
-     * first is the default.
+     * format string with the note shown beside its rendered example.
+     *
+     * Order is presentation only -- the default is DEFAULT_TIME_FORMAT below,
+     * not the first entry -- so these can be reordered without changing what an
+     * unsaved or invalid row reads back as.
      *
      * @var array<string, string>
      */
     public const TIME_FORMATS = [
-        'H:i' => '24-hour — Default',
-        'g:i a' => '12-hour, lowercase am/pm',
+        'g:i a' => '12-hour, lowercase am/pm — Default',
         'g:i A' => '12-hour, uppercase AM/PM',
+        'H:i' => '24-hour',
     ];
+
+    /**
+     * The time format used until an administrator chooses one.
+     *
+     * Named explicitly rather than taken from the first TIME_FORMATS entry: the
+     * default is a decision, and deriving it from array order means reordering
+     * the options for presentation silently changes the format every instance
+     * that has not saved this setting renders. The same value answers an unsaved
+     * row and a row holding a format that is not offered, so the two agree.
+     */
+    public const string DEFAULT_TIME_FORMAT = 'g:i a';
 
     /**
      * The locales an administrator may choose between, keyed by code with the
@@ -159,7 +173,7 @@ enum SettingKey: string
             self::Timezone => 'UTC',
             self::Locale => 'en',
             self::DateFormat => array_key_first(self::DATE_FORMATS),
-            self::TimeFormat => array_key_first(self::TIME_FORMATS),
+            self::TimeFormat => self::DEFAULT_TIME_FORMAT,
         };
     }
 
@@ -182,7 +196,7 @@ enum SettingKey: string
             self::Timezone => self::toTimezone($value),
             self::Locale => self::toOneOf($value, array_keys(self::LOCALES), 'en'),
             self::DateFormat => self::toOneOf($value, array_keys(self::DATE_FORMATS), array_key_first(self::DATE_FORMATS)),
-            self::TimeFormat => self::toOneOf($value, array_keys(self::TIME_FORMATS), array_key_first(self::TIME_FORMATS)),
+            self::TimeFormat => self::toOneOf($value, array_keys(self::TIME_FORMATS), self::DEFAULT_TIME_FORMAT),
         };
     }
 

@@ -61,6 +61,7 @@ class Page extends Model
         'dev',
         'dev-login',
         'forgot-password',
+        'health',
         'livewire',
         'login',
         'logout',

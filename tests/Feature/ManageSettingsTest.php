@@ -962,8 +962,8 @@ test('the format examples name the convention each option belongs to', function 
         ->assertSee('Month first — United States')
         ->assertSee('Day first — UK, Australia')
         ->assertSee('ISO 8601 — Canada, sortable')
-        ->assertSee('24-hour — Default')
-        ->assertSee('12-hour, lowercase am/pm');
+        ->assertSee('24-hour')
+        ->assertSee('12-hour, lowercase am/pm — Default');
 });
 
 test('the date format examples follow the locale as it is chosen', function () {

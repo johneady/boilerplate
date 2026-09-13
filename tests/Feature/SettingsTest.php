@@ -341,7 +341,17 @@ test('unsaved locale and time settings read as UTC, English and the default form
     expect($this->settings->string(SettingKey::Timezone))->toBe('UTC')
         ->and($this->settings->string(SettingKey::Locale))->toBe('en')
         ->and($this->settings->string(SettingKey::DateFormat))->toBe('j M Y')
-        ->and($this->settings->string(SettingKey::TimeFormat))->toBe('H:i');
+        ->and($this->settings->string(SettingKey::TimeFormat))->toBe('g:i a');
+});
+
+test('the default time format is 12-hour and does not depend on the option order', function () {
+    // Two separate claims, because the second is what stops the first
+    // regressing quietly. The default is am/pm; and it is declared rather than
+    // read off the front of TIME_FORMATS, so reordering the options for
+    // presentation cannot change what an unsaved instance renders.
+    expect(SettingKey::DEFAULT_TIME_FORMAT)->toBe('g:i a')
+        ->and(SettingKey::TimeFormat->default())->toBe('g:i a')
+        ->and(SettingKey::DEFAULT_TIME_FORMAT)->toBeIn(array_keys(SettingKey::TIME_FORMATS));
 });
 
 test('a stored timezone that is not a real identifier reads as UTC', function (mixed $stored) {
@@ -365,7 +375,7 @@ test('a stored date or time format that is not one of the presets reads as the d
     Setting::create(['key' => 'time_format', 'value' => $stored]);
 
     expect($this->settings->string(SettingKey::DateFormat))->toBe('j M Y')
-        ->and($this->settings->string(SettingKey::TimeFormat))->toBe('H:i');
+        ->and($this->settings->string(SettingKey::TimeFormat))->toBe(SettingKey::DEFAULT_TIME_FORMAT);
 })->with([
     'a format that is not offered' => ['d/m/y'],
     'a format string from another convention' => ['DD/MM/YYYY'],

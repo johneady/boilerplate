@@ -208,6 +208,15 @@ services:
     expose:
       - "80"
     healthcheck:
+      # /up, NOT /health, and that is deliberate. /health resolves the
+      # database, cache and queue-worker heartbeat; restarting on it would
+      # mean a brief database blip cycles every web container at once, taking
+      # the site down harder and for longer than the blip did. Docker restarts
+      # on "this container is broken", which is what /up answers.
+      #
+      # Point an external uptime monitor at /health instead: it reports which
+      # dependency is degraded and returns 503, without any power to restart
+      # anything. See config/health.php.
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/up || exit 1"]
       # 120s, not 30s: /up boots the full Laravel framework, so a 30s interval
       # burns real CPU for no extra signal. Docker still marks the container

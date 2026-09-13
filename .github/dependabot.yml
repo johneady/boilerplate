@@ -40,6 +40,21 @@ updates:
         dependency-type: development
         patterns:
           - '*'
+    # playwright is held back deliberately. Its npm version must match a
+    # chromium build already in ~/.cache/ms-playwright, because the browser CDN
+    # can be blocked here and the plugin refuses to run against a mismatched
+    # build (1.62.0 -> chromium-1234, 1.61.0 -> 1228). See .ai/rules/browser.md.
+    #
+    # CI is unaffected -- it runs `npx playwright install` after `npm ci` and
+    # downloads whatever the installed version wants -- so an automatic bump
+    # breaks LOCAL browser testing only, which is the quiet failure this avoids:
+    # green CI, red laptop. Bump it by hand together with the cached browser.
+    #
+    # Note this must be an `ignore`, not a group `exclude-patterns`: excluding it
+    # from the dev-tooling group would only stop it being BUNDLED, and Dependabot
+    # would still raise a PR for it on its own.
+    ignore:
+      - dependency-name: playwright
 
   - package-ecosystem: github-actions
     directory: /

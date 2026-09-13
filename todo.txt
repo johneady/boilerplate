@@ -1,5 +1,1 @@
-give me throttling recommendations for this boilerplate.
-
-set the time format default to be am/pm. and update the seeders accordingly.
-
 fix ci failing test and the mysql sqlite 
