@@ -4,7 +4,7 @@ Here is a proposal structure designed to bypass Upwork's plain-text limitations 
 
 Hi [Client Name],
 
-I built a working demo that solves [Client's Exact Words From the Job Post, e.g., "the slow inventory sync"] — you can test it here: [Insert Link to Prototype/Loom]
+I built a working demo that solves [Client's Exact Words From the Job Post, e.g., "the slow inventory sync"] — you can test it here: [Insert Link to Prototype]
 
 A quick overview of what I built into the demo to address your main requirements:
 
@@ -12,18 +12,16 @@ A quick overview of what I built into the demo to address your main requirements
 - [Feature 2]: Ensures high performance when handling [Specific Problem, e.g., large data loads, smooth UX, fast API responses].
 - [Feature 3]: Built with clean, scalable architecture to make future features easy to add.
 
-(If the link doesn't work or you'd prefer a walkthrough, I recorded a short 2-minute Loom video here: [Insert Loom Link])
-
 WHY THIS DEMO MATTERS FOR YOUR PROJECT
 
 Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
 
-1. I thoroughly understand your project goals and requirements.
+1. I understand your project goals and requirements.
 2. I have the technical stack and execution speed ready to start delivering immediately.
 
 RELEVANT TRACK RECORD
 
-I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took 6 seconds to load, and every application came in as an email thread someone re-keyed by hand.
+I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took several seconds to load, and every application came in as an email thread someone re-keyed by hand.
 
 I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds. The email chain became a proper application workflow. Staff got back several hours a week that had been going into data entry.
 
@@ -31,7 +29,7 @@ I've been doing full-stack work for 20 years, database design through deployment
 
 NEXT STEPS
 
-Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available America/Toronto timezone and can start within 1 day of agreement.
+Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
 
 Best regards,
 
