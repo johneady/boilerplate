@@ -12,9 +12,13 @@
         </div>
 
         <div class="relative flex flex-wrap items-start gap-5">
-            <span class="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-blue-600 text-2xl font-black text-white shadow-lg ring-1 ring-white/20">
-                JE
-            </span>
+            <img
+                src="{{ asset('images/dashboard/john-eady.jpeg') }}"
+                alt="John Eady"
+                width="64"
+                height="64"
+                class="size-16 shrink-0 rounded-2xl object-cover shadow-lg ring-1 ring-white/20"
+            />
 
             <div class="min-w-0 flex-1">
                 <div class="flex flex-wrap items-center gap-2">

@@ -16,7 +16,12 @@ test('admins see the work overview on the panel landing page', function () {
         ->assertSee('I build the website or app your business needs, get it live on your domain, and keep it running.')
         ->assertSee('What I can build for you')
         ->assertSee('Getting it online and keeping it there')
-        ->assertSee('https://www.upwork.com/freelancers/~017251040a29ffc859', escape: false);
+        ->assertSee('https://www.upwork.com/freelancers/~017251040a29ffc859', escape: false)
+        ->assertSee('images/dashboard/john-eady.jpeg');
+});
+
+test('the hero portrait is present on disk', function () {
+    expect(public_path('images/dashboard/john-eady.jpeg'))->toBeFile();
 });
 
 test('non-admins may not reach the dashboard', function () {
