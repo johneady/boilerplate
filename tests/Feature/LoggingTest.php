@@ -52,6 +52,9 @@ test('the retention period is taken from LOG_DAILY_DAYS', function () {
     expect($maxFiles)->toBe(7);
 });
 
-test('the retention period defaults to fourteen days', function () {
+test('the retention period defaults to fourteen days, as an integer', function () {
+    // A value read from .env arrives as the string '14', which is not what a
+    // RotatingFileHandler's int maxFiles wants, so the config casts it. The
+    // strict comparison is the point of this test: it fails if the cast goes.
     expect(config('logging.channels.daily.max_files'))->toBe(14);
 });

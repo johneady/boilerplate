@@ -1,6 +1,7 @@
 <?php
 
 use App\Settings\ServerInformation;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 /*
@@ -80,17 +81,27 @@ test('the opcache section always states its status', function () {
         ->and($rows['Status'])->toBeIn(['Enabled', 'Not enabled', 'Not installed']);
 });
 
-test('the database section reports the sqlite suite behind these tests', function () {
+test('the database section reports the connection behind these tests', function () {
     $rows = (new ServerInformation)->database();
 
-    expect($rows)->toHaveKey('Driver', 'sqlite')
+    // Not pinned to sqlite: CI runs this same suite against MySQL and
+    // MariaDB, so what is asserted is that the section reports whichever
+    // driver is actually connected, not which one it happens to be.
+    expect($rows)->toHaveKey('Driver', DB::connection()->getDriverName())
         ->and($rows['Server version'])->toBeString()
         ->not->toBeEmpty();
-
-    // The in-memory database of the test suite occupies no file, so there
-    // is no size to report -- the row is omitted rather than guessed.
-    expect($rows)->not->toHaveKey('Size');
 });
+
+test('an in-memory sqlite database reports no size', function () {
+    // The suite's in-memory database occupies no file, so there is no size
+    // to report -- the row is omitted rather than guessed.
+    $rows = (new ServerInformation)->database();
+
+    expect($rows)->not->toHaveKey('Size');
+})->skip(
+    fn () => DB::connection()->getDriverName() !== 'sqlite',
+    'Only an in-memory sqlite database has no size to measure.',
+);
 
 test('the disk section measures the filesystem the project lives on', function () {
     $disk = (new ServerInformation)->disk();
