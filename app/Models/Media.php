@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Number;
@@ -108,6 +109,46 @@ class Media extends Model
     public function model(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Whether the owning record's class still exists in the application.
+     *
+     * A media row outlives code: a model renamed or removed in a release leaves
+     * rows naming a class that no longer autoloads, and merely TOUCHING the
+     * relation then throws Error rather than returning null. That is not
+     * theoretical -- the library eager-loads `model` for every row, so one such
+     * row takes the whole page down with a 500.
+     *
+     * Checked before the relation is resolved anywhere that must not fail.
+     */
+    public function hasResolvableOwner(): bool
+    {
+        if ($this->model_type === null || $this->model_id === null) {
+            return false;
+        }
+
+        // Morph aliases resolve through the map; an unaliased type is the class
+        // name itself. Either way the question is whether it can be loaded.
+        $class = Relation::getMorphedModel($this->model_type) ?? $this->model_type;
+
+        return class_exists($class);
+    }
+
+    /**
+     * The owning record, or null when it cannot be resolved.
+     *
+     * Use this rather than `$media->model` anywhere a failure would break a
+     * page: it returns null for a deleted record AND for one whose class is
+     * gone, instead of throwing for the second.
+     */
+    public function ownerOrNull(): ?Model
+    {
+        if (! $this->hasResolvableOwner()) {
+            return null;
+        }
+
+        return $this->model;
     }
 
     /**
@@ -291,15 +332,61 @@ class Media extends Model
      * Limit the query to rows whose owning record is gone or was never set.
      *
      * These are what the prune collects: a file uploaded against a form that
-     * was abandoned, or one whose owner was deleted by a path that did not
-     * cascade. Matching on a null model_id alone would miss the second.
+     * was abandoned, one whose owner was deleted by a path that did not
+     * cascade, or one naming a model class a later release removed. Matching on
+     * a null model_id alone would miss the last two.
+     *
+     * The class check is done in PHP rather than SQL because only the
+     * application knows which types still autoload; the database cannot. The
+     * list of distinct types is tiny (one per model that holds files), so this
+     * is a single extra query, not a scan.
      *
      * @param  Builder<self>  $query
      */
     #[Scope]
     protected function orphaned(Builder $query): void
     {
-        $query->whereNull('model_id')->orWhereNull('model_type');
+        self::scopeToOrphaned($query);
+    }
+
+    /**
+     * Narrow any query to orphaned rows.
+     *
+     * The scope above is the idiomatic form, but a #[Scope] is invisible to
+     * static analysis on a generic Builder -- which is exactly what a Filament
+     * filter receives. This gives callers there one function to delegate to,
+     * instead of restating the condition and drifting from it.
+     *
+     * @param  Builder<self>  $query
+     * @return Builder<self>
+     */
+    public static function scopeToOrphaned(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->whereNull('model_id')
+                ->orWhereNull('model_type')
+                ->orWhereIn('model_type', self::unresolvableTypes());
+        });
+    }
+
+    /**
+     * Stored morph types whose class no longer exists.
+     *
+     * @return list<string>
+     */
+    public static function unresolvableTypes(): array
+    {
+        /** @var list<string> $types */
+        $types = self::query()
+            ->whereNotNull('model_type')
+            ->distinct()
+            ->pluck('model_type')
+            ->all();
+
+        return array_values(array_filter(
+            $types,
+            fn (string $type): bool => ! class_exists(Relation::getMorphedModel($type) ?? $type),
+        ));
     }
 
     /**

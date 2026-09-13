@@ -20,6 +20,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Jobs/ProcessUploadedImage.php, app/Concerns/ImageValidationRules.php, config/images.php | .ai/rules/concerns.md |
 | app/Http/Controllers/HealthController.php, app/Listeners/RecordWorkerHeartbeat.php, config/health.php, docker-compose.dokploy.yml, app/Listeners/** | .ai/rules/controllers-listeners.md |
 | app/Http/Controllers/MediaController.php, app/Settings/Settings.php | .ai/rules/controllers-settings.md |
+| app/Models/Media.php, app/Filament/Resources/Media/**, app/Http/Controllers/MediaController.php | .ai/rules/controllers.md |
 | app/Auth/DevLoginAccounts.php, app/Http/Controllers/DevLoginController.php, app/Providers/AppServiceProvider.php, config/dev-login.php, docker-compose.dokploy.yml, routes/web.php | .ai/rules/dev-login.md |
 | Dockerfile | .ai/rules/dockerfile.md |
 | resources/views/errors/**, resources/views/components/errors/** | .ai/rules/errors.md |

@@ -140,3 +140,92 @@ test('the library shows what a file is attached to', function () {
     Livewire::test(ListMedia::class)
         ->assertSee("User #{$owner->id}");
 });
+
+/*
+ * A media row outlives code. A model renamed or removed in a release leaves
+ * rows naming a class that no longer autoloads, and TOUCHING the relation then
+ * throws Error rather than returning null -- so these pin the three places that
+ * would otherwise fail on one bad row.
+ */
+test('the library renders a row whose model class no longer exists', function () {
+    Media::factory()->create(['model_type' => 'App\\Models\\Removed', 'model_id' => 3]);
+
+    // Eager-loading `model` here would take the whole page down with a 500.
+    Livewire::test(ListMedia::class)->assertOk();
+});
+
+test('a row whose model class no longer exists counts as orphaned', function () {
+    $stale = Media::factory()->create([
+        'model_type' => 'App\\Models\\Removed',
+        'model_id' => 3,
+        'created_at' => now()->subYear(),
+    ]);
+
+    // Without this it is unreachable: nothing points at it, nothing can, and
+    // the prune walks past it forever.
+    Livewire::test(ListMedia::class)
+        ->filterTable('orphaned')
+        ->assertCanSeeTableRecords([$stale]);
+
+    $this->artisan('app:prune-orphaned-media')->assertSuccessful();
+
+    expect(Media::query()->count())->toBe(0);
+});
+
+test('a still-valid owner is not swept up as unresolvable', function () {
+    $user = User::factory()->create();
+
+    $good = Media::factory()->create([
+        'model_type' => $user->getMorphClass(),
+        'model_id' => $user->getKey(),
+        'created_at' => now()->subYear(),
+    ]);
+
+    Media::factory()->create([
+        'model_type' => 'App\\Models\\Removed',
+        'model_id' => 3,
+        'created_at' => now()->subYear(),
+    ]);
+
+    $this->artisan('app:prune-orphaned-media')->assertSuccessful();
+
+    expect(Media::query()->pluck('id')->all())->toBe([$good->id]);
+});
+
+test('the delete confirmation spells out that the damage is permanent and unseen', function () {
+    $media = Media::factory()->create();
+
+    $action = Livewire::test(ListMedia::class)
+        ->mountTableAction('delete', $media)
+        ->instance()
+        ->getMountedTableAction();
+
+    $description = (string) $action->getModalDescription();
+
+    // Deleting takes the bytes with it (Media::delete()), and nothing here can
+    // list what still points at the file -- owners hold a URL, not a foreign
+    // key. The modal is the only place a user is told either of those.
+    expect($action->getModalHeading())->toBe(__('media.delete.heading'))
+        ->and($description)->toContain(__('media.delete.description'))
+        ->and($description)->toContain(__('media.delete.consequences'))
+        ->and($action->getModalSubmitActionLabel())->toBe(__('media.delete.confirm'));
+});
+
+test('the bulk delete confirmation carries the same warning', function () {
+    $media = Media::factory()->count(2)->create();
+
+    $action = Livewire::test(ListMedia::class)
+        ->mountTableBulkAction('delete', $media)
+        ->instance()
+        ->getMountedTableBulkAction();
+
+    $description = (string) $action->getModalDescription();
+
+    // Deleting many at once is the more dangerous path, not the less: it is
+    // where an unattached-looking row that a page body still names gets swept
+    // up with genuine orphans.
+    expect($action->getModalHeading())->toBe(__('media.delete.heading_bulk'))
+        ->and($description)->toContain(__('media.delete.description'))
+        ->and($description)->toContain(__('media.delete.consequences'))
+        ->and($action->getModalSubmitActionLabel())->toBe(__('media.delete.confirm_bulk'));
+});

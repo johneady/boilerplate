@@ -64,10 +64,31 @@ return [
         'download' => 'Download',
     ],
 
+    /*
+     * Delete confirmation copy.
+     *
+     * Deliberately blunt: Media::delete() removes the BYTES as well as the row,
+     * an image taking its whole conversion directory with it, and nothing in
+     * this application restores them. The records that point at a file -- a
+     * page body, an avatar, the site logo -- hold a URL rather than a foreign
+     * key, so nothing here can list what is about to break, and a live public
+     * page is a perfectly ordinary thing to break this way.
+     */
+    'delete' => [
+        'heading' => 'Delete this file permanently?',
+        'heading_bulk' => 'Delete these files permanently?',
+        'description' => 'This cannot be undone. The file and every resized version of it are erased from storage immediately — there is no recycle bin and no backup to restore from.',
+        'consequences' => 'Anything still using this file will break. Pages that show it will display a broken image to visitors, and an avatar or logo will vanish from the site. That damage is not shown here and is not reversible by re-uploading, because the new upload gets a different address.',
+        'confirm' => 'Delete permanently',
+        'confirm_bulk' => 'Delete all permanently',
+    ],
+
     'empty' => [
         'heading' => 'No files yet',
         'description' => 'Avatars, the site logo and any attachments appear here once they are uploaded.',
     ],
+
+    'unknown_owner' => '(type no longer exists)',
 
     'orphan_warning' => 'Not attached to any record. Scheduled for automatic deletion.',
 

@@ -3,6 +3,7 @@
 use App\Console\Commands\AdoptPageBodyImages;
 use App\Filament\Resources\Pages\PageResource;
 use App\Filament\Resources\Pages\Pages\ManagePages;
+use App\Jobs\ProcessUploadedImage;
 use App\Media\MediaCollection;
 use App\Media\StagedUpload;
 use App\Models\Media;
@@ -186,4 +187,58 @@ test('an adopted row records where it came from', function () {
     // The staged copy is a uuid; naming the row after the original is what
     // links it back to the file on disk, and it reads better in the library.
     expect(Media::query()->first()->file_name)->toBe('holiday-snap.png');
+});
+
+test('a run resumes an adoption whose processing has since finished', function () {
+    $path = bodyUpload();
+
+    $page = Page::factory()->create(['body' => "![x](/storage/{$path})"]);
+
+    // First run: the worker is down, so the row is written but no conversions
+    // exist and the body still names the original.
+    Queue::fake();
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    expect($page->refresh()->body)->toContain($path)
+        ->and(Storage::disk('public')->exists($path))->toBeTrue();
+
+    // The worker catches up, running the job exactly as it was queued.
+    $media = Media::query()->first();
+    (new ProcessUploadedImage(
+        sourcePath: Storage::disk('local')->files(StagedUpload::DIRECTORY)[0],
+        conversionSet: (string) $media->conversion_set,
+        targetDirectory: $media->path,
+        mediaId: $media->getKey(),
+    ))->handle();
+
+    // Second run must finish the job the first could not: without this the
+    // early return skipped the file forever, leaving the page serving the
+    // original (EXIF intact) and the file uncollectable.
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    expect($page->refresh()->body)->not->toContain($path)
+        ->and($page->body)->toContain($media->refresh()->url('wide'))
+        ->and(Storage::disk('public')->exists($path))->toBeFalse()
+        ->and(Media::query()->count())->toBe(1);
+});
+
+test('an adopted file whose pages no longer reference it is left to the row', function () {
+    $path = bodyUpload();
+
+    $page = Page::factory()->create(['body' => "![x](/storage/{$path})"]);
+
+    Queue::fake();
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    // The author removes the image from the body before the worker catches up.
+    $page->forceFill(['body' => 'no images here'])->save();
+
+    $this->artisan('app:adopt-page-body-images')
+        ->expectsOutputToContain('no longer referenced')
+        ->assertSuccessful();
+
+    // Deleting the file here would strand the row pointing at nothing; the row
+    // is now an ordinary unowned-media case for app:prune-orphaned-media.
+    expect(Media::query()->count())->toBe(1)
+        ->and(Storage::disk('local')->files(StagedUpload::DIRECTORY))->toHaveCount(1);
 });

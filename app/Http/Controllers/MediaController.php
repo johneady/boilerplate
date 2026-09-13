@@ -75,7 +75,10 @@ class MediaController extends Controller
      */
     private function authorizeAccess(Media $media): void
     {
-        $owner = $media->model;
+        // ownerOrNull() rather than the relation directly: a row naming a class
+        // a later release removed throws Error on access, which would surface
+        // as a 500 instead of the refusal this is deciding.
+        $owner = $media->ownerOrNull();
 
         if ($owner === null) {
             throw new AuthorizationException;

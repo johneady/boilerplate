@@ -114,4 +114,11 @@ Ordering is load-bearing: the original is deleted only AFTER the body rewrite co
 
 --hours=0 here means "sweep everything unreferenced now" (strict >), which is the OPPOSITE of app:prune-orphaned-media where 0 disables pruning. Different meaning on purpose: there it sets retention policy, here it is a one-off sweep instruction.
 
-A file whose processing job has not finished is left in place and picked up next run, rather than rewriting a body to a URL nothing has written yet.
+A file whose processing job has not finished is left in place and picked up next run, rather than rewriting a body to a URL nothing has written yet. That pick-up is not automatic -- see the two-run rule below for the guard that has to let it through.
+
+## Adoption spans two runs; an existing media row does not mean the file is done
+Adopting a body image is two phases split across runs: run one stages the file and queues ProcessUploadedImage, and whichever later run finds the conversions written does the body rewrite and deletes the original. The Media row (matched on file_name = the original basename) is what carries that state between runs.
+
+So the "already adopted" check must NOT be a bare exists() that continues. It was, and the file then never reached the rewrite branch: the page kept serving the original un-re-encoded PNG (EXIF intact, the exact gap this command exists to close) and the original could never be deleted, since deletion only happens after a successful rewrite. It reported "wait: adopted, awaiting processing" forever while the job had in fact finished.
+
+adoptedRow() returns the row so handle() can distinguish three cases: not yet processed (isImage() false) -> wait, leave alone; processed and still referenced -> resume, rewrite and delete via rewriteTo(); processed but no longer referenced -> keep, and let app:prune-orphaned-media collect the row as ordinary unowned media. Never re-run processInto() on a file that already has a row -- that is the duplicate-row/staged-copy leak the guard was added for, and a test asserts three runs yield one row.

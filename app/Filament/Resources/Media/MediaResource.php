@@ -27,6 +27,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 /**
@@ -77,7 +78,12 @@ class MediaResource extends Resource
      */
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->with(['uploader', 'model']);
+        // `model` is deliberately NOT eager-loaded. A row naming a class a
+        // later release removed makes Eloquent throw Error the moment the
+        // relation is touched, and eager-loading touches every row -- so one
+        // stale row would 500 the whole library rather than render as unknown.
+        // describeOwner() reads the stored columns instead, which always work.
+        return parent::getEloquentQuery()->with('uploader');
     }
 
     public static function infolist(Schema $schema): Schema
@@ -107,9 +113,9 @@ class MediaResource extends Resource
                     ->state(fn (Media $record): string => static::describeOwner($record))
                     // An orphan is about to be deleted by the hourly prune, so
                     // say so rather than showing a bare dash.
-                    ->hint(fn (Media $record): ?string => $record->model_id === null
-                        ? static::orphanWarning()
-                        : null)
+                    ->hint(fn (Media $record): ?string => $record->hasResolvableOwner()
+                        ? null
+                        : static::orphanWarning())
                     ->hintColor('warning'),
                 TextEntry::make('uploader.name')
                     ->label(__('media.fields.uploader'))
@@ -170,7 +176,7 @@ class MediaResource extends Resource
                 TextColumn::make('model_type')
                     ->label(__('media.fields.owner'))
                     ->state(fn (Media $record): string => static::describeOwner($record))
-                    ->color(fn (Media $record): ?string => $record->model_id === null ? 'warning' : null),
+                    ->color(fn (Media $record): ?string => $record->hasResolvableOwner() ? null : 'warning'),
                 TextColumn::make('uploader.name')
                     ->label(__('media.fields.uploader'))
                     ->placeholder('—')
@@ -201,12 +207,13 @@ class MediaResource extends Resource
                     ->label(__('media.filters.orphaned'))
                     // The question the prune answers, asked by hand: what is on
                     // the disk that nothing points at any more.
-                    // The scope lives on Media; the filter receives the
-                    // generic builder, so the condition is stated here.
-                    ->query(fn (Builder $query): Builder => $query
-                        ->where(fn (Builder $query): Builder => $query
-                            ->whereNull('model_id')
-                            ->orWhereNull('model_type')))
+                    //
+                    // Delegates to Media's own scope rather than restating the
+                    // condition. Restating it is how the filter came to disagree
+                    // with the prune once already: the scope learned to treat a
+                    // removed model class as orphaned and this copy did not, so
+                    // the panel hid rows the prune was about to delete.
+                    ->query(fn (Builder $query): Builder => Media::scopeToOrphaned($query))
                     ->toggle(),
                 Filter::make('images')
                     ->label(__('media.filters.images'))
@@ -248,16 +255,36 @@ class MediaResource extends Resource
                     // disk URL, which would bypass authorization entirely.
                     ->url(fn (Media $record): ?string => static::downloadUrl($record), shouldOpenInNewTab: true)
                     ->visible(fn (Media $record): bool => static::downloadUrl($record) !== null),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->modalHeading(__('media.delete.heading'))
+                    ->modalDescription(static::deleteWarning())
+                    ->modalSubmitActionLabel(__('media.delete.confirm')),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    DeleteBulkAction::make()
+                        ->modalHeading(__('media.delete.heading_bulk'))
+                        ->modalDescription(static::deleteWarning())
+                        ->modalSubmitActionLabel(__('media.delete.confirm_bulk')),
                 ]),
             ])
             ->emptyStateHeading(__('media.empty.heading'))
             ->emptyStateDescription(__('media.empty.description'))
             ->emptyStateIcon(Heroicon::OutlinedPhoto);
+    }
+
+    /**
+     * The delete confirmation warning, as one screen-reader-friendly block.
+     *
+     * A view rather than a string assembled here: markup concatenated onto
+     * __() calls is what TranslationsTest forbids, and the two sentences carry
+     * different weights. Filament gives a confirmation modal the `alertdialog`
+     * role and reads its description aloud on open, so the warning belongs in
+     * the description -- anything rendered elsewhere is not announced.
+     */
+    protected static function deleteWarning(): HtmlString
+    {
+        return new HtmlString(view('filament.media.delete-warning')->render());
     }
 
     public static function getPages(): array
@@ -297,7 +324,9 @@ class MediaResource extends Resource
             return static::absoluteUrl($record);
         }
 
-        return $record->model_id === null ? null : $record->signedUrl();
+        // A file with no resolvable owner has nothing to authorize against, so
+        // MediaController would refuse it anyway.
+        return $record->hasResolvableOwner() ? $record->signedUrl() : null;
     }
 
     /**
@@ -347,7 +376,13 @@ class MediaResource extends Resource
             return __('media.filters.orphaned');
         }
 
-        return class_basename($record->model_type)." #{$record->model_id}";
+        $label = class_basename($record->model_type)." #{$record->model_id}";
+
+        // A type whose class is gone still reads as what it used to be, marked
+        // so it is obvious why the prune is about to collect it.
+        return $record->hasResolvableOwner()
+            ? $label
+            : $label.' '.__('media.unknown_owner');
     }
 
     /**

@@ -33,6 +33,11 @@ use Throwable;
  *   row would be. Adopting these would fill the library with abandoned test
  *   uploads, which makes it useless for seeing what is actually in use.
  *
+ * Adoption spans two runs when the worker is busy: the first stages the file
+ * and queues the job, and whichever later run finds the conversions written
+ * does the rewrite. The row is what carries that state between runs, so a file
+ * is adopted once however many times this command runs.
+ *
  * Scoped to the page-body directory alone. A wider sweep would have to decide
  * what every other file on the disk is for, and the directories it would walk
  * are precisely the ones media rows already account for.
@@ -85,14 +90,41 @@ class AdoptPageBodyImages extends Command
         $kept = 0;
 
         foreach ($files as $path) {
-            // A file already adopted on an earlier run is waiting on the
-            // worker, not on this command. Re-adopting it would write a second
-            // row and stage a second copy every run -- with a worker down, the
-            // daily schedule would accumulate one of each per day, which is
-            // precisely the leak this command exists to prevent.
-            if ($this->alreadyAdopted($path)) {
-                $this->line("wait:   {$path} (adopted, awaiting processing)");
-                $kept++;
+            // A file already adopted on an earlier run must never be adopted
+            // again: that would write a second row and stage a second copy
+            // every run -- with a worker down, the daily schedule would
+            // accumulate one of each per day, which is precisely the leak this
+            // command exists to prevent.
+            //
+            // It is not finished with, though. Adoption only rewrites the body
+            // once the conversions exist, so a row whose job has since
+            // completed is one this run has to pick up -- otherwise the page
+            // keeps serving the original (EXIF and all) and the file can never
+            // be deleted, which is both halves of what this command is for.
+            $existing = $this->adoptedRow($path);
+
+            if ($existing !== null) {
+                $pages = $this->pagesReferencing($path);
+
+                if ($pages === []) {
+                    $this->line("keep:   {$path} (adopted, no longer referenced)");
+                    $kept++;
+
+                    continue;
+                }
+
+                if (! $existing->isImage()) {
+                    $this->line("wait:   {$path} (adopted, awaiting processing)");
+                    $kept++;
+
+                    continue;
+                }
+
+                $this->line("resume: {$path} (adopted, rewriting ".count($pages).')');
+
+                if (! $dryRun && $this->rewriteTo($existing, $path, $pages, $disk)) {
+                    $adopted++;
+                }
 
                 continue;
             }
@@ -172,6 +204,24 @@ class AdoptPageBodyImages extends Command
             return false;
         }
 
+        return $this->rewriteTo($media, $path, $pages, $disk);
+    }
+
+    /**
+     * Point every body at the processed file, then drop the original.
+     *
+     * Split out of adopt() because it is also the whole of what a resumed run
+     * has left to do: the row and the conversions already exist, so re-running
+     * processInto() would only duplicate them.
+     *
+     * The rewrite and the deletion are ordered, not atomic -- a body left
+     * pointing at a deleted file is a broken image on a live page, whereas the
+     * reverse just means the next run tries again.
+     *
+     * @param  array<int, Page>  $pages
+     */
+    protected function rewriteTo(Media $media, string $path, array $pages, string $disk): bool
+    {
         $replacement = $media->url('wide') ?? $media->url();
 
         if ($replacement === null) {
@@ -195,20 +245,24 @@ class AdoptPageBodyImages extends Command
     }
 
     /**
-     * Whether an earlier run already created a row for this file.
+     * The row an earlier run created for this file, if there is one.
      *
      * Matched on file_name, which processInto() sets to the ORIGINAL basename
      * rather than the uuid the staged copy carries. That makes the row say
      * where it came from, which is both more useful in the library than a hash
      * and the only link back to the file still sitting on the public disk --
      * the row's own path is a fresh uuid that resembles nothing.
+     *
+     * Returns the row rather than a bool because the caller has to tell a job
+     * still queued from one that has finished: the first is left alone, the
+     * second still owes the body a rewrite.
      */
-    protected function alreadyAdopted(string $path): bool
+    protected function adoptedRow(string $path): ?Media
     {
         return Media::query()
             ->inCollection(MediaCollection::PageImage)
             ->where('file_name', basename($path))
-            ->exists();
+            ->first();
     }
 
     /**
