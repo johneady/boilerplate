@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Auth\DevLoginAccounts;
 use App\Models\Page;
+use App\Models\User;
+use App\Notifications\PasswordChanged;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
@@ -49,6 +51,38 @@ class AppServiceProvider extends ServiceProvider
         $this->configurePersistentMiddleware();
         $this->configureMailFromSettings();
         $this->configureRateLimiting();
+        $this->configurePasswordChangeAlerts();
+    }
+
+    /**
+     * Notify a user whenever their password changes.
+     *
+     * Hooked on the model rather than called from the two places that change a
+     * password -- Settings -> Security and Fortify's reset action -- because a
+     * third path (an artisan command, an admin tool, a future SSO link) would
+     * otherwise have to remember to call it, and the one time it is forgotten
+     * is the one time it mattered.
+     *
+     * `updated` rather than `saved`, and gated on isDirty(): creating a user
+     * sets a password for the first time, which is not a change anyone needs
+     * warning about, and a profile edit that saves the model without touching
+     * the password must not send one either.
+     *
+     * The notification is queued, so this costs the request a row on the jobs
+     * table rather than an SMTP round trip.
+     */
+    protected function configurePasswordChangeAlerts(): void
+    {
+        User::updated(function (User $user): void {
+            // wasChanged(), not isDirty(): inside `updated` the attributes have
+            // already been synced, so isDirty() is false for everything and the
+            // alert would never fire.
+            if (! $user->wasChanged('password')) {
+                return;
+            }
+
+            $user->notify(new PasswordChanged(request()->ip()));
+        });
     }
 
     /**

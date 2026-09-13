@@ -24,6 +24,9 @@ x-app-base: &app-base
   depends_on:
     mysql:
       condition: service_healthy
+    # Uncomment alongside the `redis` service below.
+    # redis:
+    #   condition: service_healthy
   environment: &app-env
     APP_NAME: "Boilerplate"
     APP_ENV: production
@@ -60,11 +63,21 @@ x-app-base: &app-base
     DB_USERNAME: boilerplate
     DB_PASSWORD: secret
 
+    # All three default to `database`, which needs no extra service and is
+    # what app:prune-expired-storage exists to sweep. To try Redis instead:
+    # uncomment the `redis` service below, its depends_on entry in
+    # x-app-base, and the REDIS_* block here, then switch these three values
+    # to `redis`. The phpredis extension is already in the image, so nothing
+    # needs rebuilding.
     SESSION_DRIVER: database
     SESSION_LIFETIME: "120"
     SESSION_ENCRYPT: "true"
     CACHE_STORE: database
     QUEUE_CONNECTION: database
+
+    # REDIS_CLIENT: phpredis
+    # REDIS_HOST: redis
+    # REDIS_PORT: "6379"
     BROADCAST_CONNECTION: log
     FILESYSTEM_DISK: local
 
@@ -106,6 +119,26 @@ services:
       timeout: 5s
       retries: 20
       start_period: 30s
+
+  # Redis, commented out because every driver above defaults to `database`.
+  # Uncomment this service, the depends_on entry and the REDIS_* variables in
+  # x-app-base, then set SESSION_DRIVER/CACHE_STORE/QUEUE_CONNECTION to
+  # `redis`. The image already carries phpredis, so no rebuild is required.
+  #
+  # Note the appendonly flag: without it a container restart silently empties
+  # the store, which for SESSION_DRIVER=redis logs every user out.
+  # redis:
+  #   image: redis:8-alpine
+  #   restart: unless-stopped
+  #   command: ["redis-server", "--appendonly", "yes"]
+  #   volumes:
+  #     - redis-data:/data
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 5s
+  #     timeout: 3s
+  #     retries: 20
+  #     start_period: 10s
 
   app:
     <<: *app-base
@@ -173,3 +206,5 @@ services:
 volumes:
   mysql-data:
   storage-logs:
+  # Uncomment alongside the `redis` service.
+  # redis-data:

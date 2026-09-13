@@ -1,46 +1,55 @@
-Here is a proposal structure designed to bypass Upwork’s plain-text limitations while grabbing attention immediately in the first two sentences (which is all the client sees in their preview list).
+Here is a proposal structure designed to bypass Upwork's plain-text limitations while grabbing attention immediately in the first two sentences (which is all the client sees in their preview list).
 
 ---
 
 Hi [Client Name],
 
-I went ahead and built a working proof-of-concept prototype for your project so you can see my approach in action before making a hiring decision.
+I built a working demo that solves [Client's Exact Words From the Job Post, e.g., "the slow inventory sync"] — you can test it here: [Insert Link to Prototype/Loom]
 
-You can test the interactive demo here: [Insert Link to Prototype/Video]
+A quick overview of what I built into the demo to address your main requirements:
 
-Here is a quick overview of what I built into the prototype to address your main requirements:
+- [Feature 1]: Solves your requirement for [Specific Need] by [Brief Explanation].
+- [Feature 2]: Ensures high performance when handling [Specific Problem, e.g., large data loads, smooth UX, fast API responses].
+- [Feature 3]: Built with clean, scalable architecture to make future features easy to add.
 
-* [Feature 1]: Solves your requirement for [Specific Need] by [Brief Explanation].
-* [Feature 2]: Ensures high performance when handling [Specific Problem, e.g., large data loads, smooth UX, fast API responses].
-* [Feature 3]: Built with clean, scalable architecture to make future features easy to add.
+(If the link doesn't work or you'd prefer a walkthrough, I recorded a short 2-minute Loom video here: [Insert Loom Link])
 
 WHY THIS DEMO MATTERS FOR YOUR PROJECT
 
-Instead of telling you what I can do, I prefer to demonstrate it directly. Building this prototype proved two things:
+Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
 
 1. I thoroughly understand your project goals and requirements.
 2. I have the technical stack and execution speed ready to start delivering immediately.
 
-WHY CONSIDER MY BACKGROUND?
+RELEVANT TRACK RECORD
 
-I bring over 20 years of hands-on experience as a senior software developer and application architect. My focus is on building high-performance web applications, clean database architectures, and reliable, scalable backends.
+I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took 6 seconds to load, and every application came in as an email thread someone re-keyed by hand.
 
-* Enterprise Experience: Two decades of designing, building, and deploying custom software solutions for diverse business needs.
-* Production-Ready Quality: I write clean, maintainable, and fully documented code designed for long-term reliability.
-* Full-Lifecycle Ownership: From database schema design to server management, deployment, and security—I handle the full stack.
+I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds. The email chain became a proper application workflow. Staff got back several hours a week that had been going into data entry.
+
+I've been doing full-stack work for 20 years, database design through deployment and security. You'd be dealing with me for the whole build.
 
 NEXT STEPS
 
-Take a look at the prototype link above and let me know your thoughts. If it aligns with your vision, I would be happy to jump on a quick chat to discuss how we can turn this initial foundation into a fully polished product.
+Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available America/Toronto timezone and can start within 1 day of agreement.
 
 Best regards,
 
-[Your Name]
+John.
+
+P.S. I built this demo in ~2 hours.That is the pace you can expect on the actual project.
 
 ---
 
 ### Key Strategies to Stand Out
 
-* **Capitalized Headers as Visual Separators:** Upwork strips Markdown styling (`#`, `**`), so using `ALL CAPS HEADERS` creates natural visual breaks that make the text easily scannable on mobile and desktop screens.
-* **The First 2 Lines:** Upwork shows a 2-line snippet in the client's inbox. Leading directly with "I went ahead and built a working proof-of-concept..." guarantees maximum click-through rates.
-* **Bullet Points:** Plain dash bullets (`-`) survive Upwork's plain-text parser seamlessly and break up heavy blocks of text.
+- **The First 2 Lines Are Everything:** Upwork shows roughly a 2-line snippet (~100 characters on mobile) in the client's inbox. Mirror the client's own words from the job post in line one — it proves the proposal isn't recycled and lands the payoff before the cutoff. Leading with "I built a working demo that solves..." maximizes click-through.
+- **Capitalized Headers as Visual Separators:** Upwork strips Markdown styling (`#`, `**`), so using `ALL CAPS HEADERS` creates natural visual breaks that make the text easily scannable on mobile and desktop screens.
+- **Bullet Points:** Plain dash bullets (`-`) survive Upwork's plain-text parser seamlessly and break up heavy blocks of text. Never use asterisks (`*`) — they render as literal characters and look sloppy.
+- **Quantified Proof Over Claims:** "20 years of experience" is a claim clients skim past. One specific, quantified result ("cut API response times by 60%") outperforms any list of adjectives.
+- **End With a Question:** A specific, low-friction question ("Worth a 10-minute call this week?") gives the client an easy reason to reply. Vague CTAs like "let me know your thoughts" suppress response rates.
+- **Use a P.S.:** The P.S. is the second-most-read line after the opener. Use it to reframe the demo from free spec work into proof of execution speed.
+- **Link Fallback:** External links can get stripped or ignored. Always pair the prototype link with a short Loom walkthrough (under 2 minutes) — video replies convert noticeably better than links alone.
+- **Availability Signals:** State time zone overlap and start-date availability near the CTA. Immediacy is a common deciding factor, especially against overseas competition.
+- **Send Timing:** Send within the first 4 hours of the job posting. Proposal ordering heavily influences visibility; late proposals rarely get seen.
+- **Reserve the Prototype Play for High-Value Jobs:** Building a demo per proposal doesn't scale and attracts tire-kickers. Use this full template only for jobs above your target value; for smaller posts, use a lighter variant (personalized first 2 lines mirroring the job post + one relevant portfolio link + question CTA).

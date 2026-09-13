@@ -91,6 +91,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && docker-php-ext-install pdo_mysql \
     && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
     && docker-php-ext-install gd \
+    # phpredis comes from PECL, so it needs `pecl install` + `docker-php-ext-enable`
+    # rather than docker-php-ext-install (which only knows bundled extensions).
+    #
+    # Installed even though every default is `database`: the extension is what
+    # makes REDIS a flip of the env rather than an image rebuild. Without it,
+    # setting CACHE_STORE=redis on a running deployment fails at boot with
+    # "please make sure the PHP Redis extension is installed" -- at which point
+    # the person flipping it is already in production wondering why.
+    #
+    # ~2MB in the image and nothing loads it while the drivers stay on
+    # database, so the cost of carrying it is close to zero.
+    && pecl install redis \
+    && docker-php-ext-enable redis \
     && rm -rf /var/lib/apt/lists/*
 
 # The CLI opcache file_cache directory. PHP treats a missing or unwritable

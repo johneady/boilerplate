@@ -2,9 +2,7 @@
 
 namespace App\Notifications;
 
-use App\Settings\Settings;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -21,8 +19,13 @@ use Illuminate\Support\HtmlString;
  * dispatched with -- model attributes, tokens, addresses -- and this is
  * unencrypted email to an address configured in the admin panel, so it names
  * the job and the error and leaves the rest for `queue:failed`.
+ *
+ * The "deliberately not queued" note above is why this extends
+ * BaseNotification without implementing ShouldQueue -- the base class is
+ * unqueued by default precisely so this stays a decision rather than a default
+ * someone has to remember to undo.
  */
-class QueueJobFailed extends Notification
+class QueueJobFailed extends BaseNotification
 {
     public function __construct(
         private readonly string $jobName,
@@ -32,29 +35,16 @@ class QueueJobFailed extends Notification
     ) {}
 
     /**
-     * The delivery channels for this notification.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
-    {
-        return ['mail'];
-    }
-
-    /**
      * Build the mail representation of the notification.
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $businessName = app(Settings::class)->businessName();
-
-        return (new MailMessage)
+        return $this->mailMessage(__('Background job failed'))
             ->error()
             // Without an explicit greeting, ->error() renders the framework's
             // default "Whoops!" header, which reads as an apology to a
             // customer rather than a status report to whoever is on call.
             ->greeting(__('Background job failed'))
-            ->subject(__('Background job failed on :business', ['business' => $businessName]))
             ->line(__('A queued background job failed after exhausting its retries and will not run again on its own.'))
             // The specifics go in a Markdown table rather than in the run of
             // prose: this is the part someone on call scans first, and the

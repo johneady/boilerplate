@@ -80,14 +80,36 @@ x-app-base: &app-base
     DB_USERNAME: ${DB_USERNAME:?set DB_USERNAME in Dokploy}
     DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in Dokploy}
 
-    SESSION_DRIVER: database
+    SESSION_DRIVER: ${SESSION_DRIVER:-database}
     SESSION_LIFETIME: "120"
     SESSION_ENCRYPT: "true"
     # Behind TLS-terminating Traefik, the session cookie must carry the
     # Secure attribute so it is never sent over plain HTTP.
     SESSION_SECURE_COOKIE: "true"
-    CACHE_STORE: database
-    QUEUE_CONNECTION: database
+    # All three default to `database`, which needs no extra service: the
+    # managed MariaDB above carries them, and app:prune-expired-storage sweeps
+    # what those drivers leave behind.
+    #
+    # To move to Redis: provision one in Dokploy (the same way MariaDB is
+    # provisioned -- it joins dokploy-network, so REDIS_HOST is its service
+    # name), set the REDIS_* variables below in the Dokploy environment, and
+    # change these to `redis`. The image already carries phpredis, so this is
+    # an env change and a redeploy, not an image rebuild.
+    #
+    # Self-hosting it instead means adding a `redis` service to this file --
+    # ABOVE `app`, never below, for the Traefik-label reason documented there
+    # -- with a persistent volume and `--appendonly yes`. A Redis that loses
+    # its data on restart logs every user out when SESSION_DRIVER=redis.
+    CACHE_STORE: ${CACHE_STORE:-database}
+    QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+
+    # Consulted only when one of the drivers above is set to `redis`. Left
+    # unset otherwise -- config/database.php supplies the defaults, and naming
+    # a host here that does not exist would be a trap waiting for the flip.
+    REDIS_CLIENT: ${REDIS_CLIENT:-phpredis}
+    REDIS_HOST: ${REDIS_HOST:-127.0.0.1}
+    REDIS_PORT: ${REDIS_PORT:-6379}
+    REDIS_PASSWORD: ${REDIS_PASSWORD:-null}
     BROADCAST_CONNECTION: log
     FILESYSTEM_DISK: local
 

@@ -92,3 +92,12 @@ The environment guard names the safe environments (`local`, `testing`) rather th
 Failures (exit non-zero) are unsafe in every deployment: APP_DEBUG, empty APP_KEY, a non-delivering MAIL_MAILER, empty from address, array cache. Warnings are supported choices with a real cost and exit zero unless --warnings-as-errors is passed — making them always fatal breaks the command as a deploy gate, since an installation that accepted the cost could never pass.
 
 Note `fail()` and `warn()` cannot be private methods on a Command subclass: both collide with Illuminate\Console\Command's own public methods and fatal at autoload time. They are `recordFailure()`/`recordWarning()` here.
+
+## Redis is wired but commented out; database stays the default
+Both compose files ship Redis ready to switch on, not switched on. docker-compose.yml carries a commented-out `redis` service (redis:8-alpine, `--appendonly yes`, its own volume and a redis-cli ping healthcheck) plus commented depends_on and REDIS_* entries; docker-compose.dokploy.yml instead parameterises CACHE_STORE/QUEUE_CONNECTION/SESSION_DRIVER and the REDIS_* vars, because Dokploy provisions Redis as a managed service on dokploy-network the same way it provisions MariaDB. Self-hosting it there means adding the service ABOVE `app` — never below, for the Traefik-label reason documented in queues-and-scheduling.md.
+
+`--appendonly yes` and a persistent volume are not optional in that commented block: a Redis that loses its data on restart logs every user out when SESSION_DRIVER=redis.
+
+app:prune-expired-storage stays scheduled after any switch. It exists because the database cache and session stores never delete their own expired rows; Redis expires keys itself, and the command already skips any store that is not `database` (verified: `CACHE_STORE=redis SESSION_DRIVER=redis php artisan app:prune-expired-storage` prints "skipping" for both). A mixed setup — Redis cache, database queue — is normal, so do not remove it.
+
+The phpredis extension is already in the image (see .ai/rules/dockerfile.md), so switching a driver is an env change plus a running Redis, never an image rebuild.

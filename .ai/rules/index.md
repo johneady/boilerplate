@@ -7,6 +7,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Filament/Clusters/Account/** | .ai/rules/account.md |
 | resources/css/filament/admin/theme.css | .ai/rules/admin.md |
 | app/Http/Middleware/ThrottleSensitiveAuthRequests.php, app/Providers/FortifyServiceProvider.php, bootstrap/app.php, routes/api/** | .ai/rules/api.md |
+| app/Notifications/** | .ai/rules/app-notifications.md |
 | resources/views/layouts/app/** | .ai/rules/app.md |
 | app/Models/User.php, app/Providers/AppServiceProvider.php, app/Livewire/Settings/Security.php, routes/settings.php | .ai/rules/auth-gates.md |
 | app/Models/User.php, app/Filament/Resources/Users/UserResource.php | .ai/rules/avatar-gradient.md |

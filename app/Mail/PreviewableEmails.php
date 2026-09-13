@@ -6,6 +6,7 @@ use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
 use App\Models\User;
 use App\Notifications\ContactSubmissionReceived;
+use App\Notifications\PasswordChanged;
 use App\Notifications\QueueJobFailed;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -95,6 +96,16 @@ class PreviewableEmails
                 'mailable' => null,
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $contactSubmission->toMail($notifiable),
+            ],
+            'password-changed' => [
+                'description' => 'password change security alert',
+                // Routed to the factory user rather than on demand: unlike the
+                // two operator alerts, this one goes to the account holder, so
+                // the preview should exercise the same path the real mail takes.
+                'notification' => $passwordChanged = new PasswordChanged('203.0.113.42'),
+                'mailable' => null,
+                'onDemand' => false,
+                'render' => fn (): MailMessage => $passwordChanged->toMail($notifiable),
             ],
             'queue-failure' => [
                 'description' => 'queued job failure alert',

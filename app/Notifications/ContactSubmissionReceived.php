@@ -3,9 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\ContactSubmission;
-use App\Settings\Settings;
 use Illuminate\Notifications\Messages\MailMessage;
-use Illuminate\Notifications\Notification;
 use Illuminate\Support\HtmlString;
 
 /**
@@ -22,31 +20,20 @@ use Illuminate\Support\HtmlString;
  * answers the person -- the from address stays the application's, because
  * sending as an unverified visitor address is how mail gets marked as spoofed.
  */
-class ContactSubmissionReceived extends Notification
+class ContactSubmissionReceived extends BaseNotification
 {
     public function __construct(private readonly ContactSubmission $submission) {}
-
-    /**
-     * The delivery channels for this notification.
-     *
-     * @return array<int, string>
-     */
-    public function via(object $notifiable): array
-    {
-        return ['mail'];
-    }
 
     /**
      * Build the mail representation of the notification.
      */
     public function toMail(object $notifiable): MailMessage
     {
-        $businessName = app(Settings::class)->businessName();
+        $businessName = $this->businessName();
 
         $subject = $this->submission->subject;
 
-        $message = (new MailMessage)
-            ->subject(__('New contact form message on :business', ['business' => $businessName]))
+        $message = $this->mailMessage(__('New contact form message'))
             ->greeting(__('New contact form message'))
             ->replyTo($this->submission->email, $this->submission->name)
             ->line(__('Somebody sent this through the contact form on :business.', ['business' => $businessName]))
