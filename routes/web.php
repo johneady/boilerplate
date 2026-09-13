@@ -4,11 +4,18 @@ use App\Auth\DevLoginAccounts;
 use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\MailPreviewController;
+use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
+use App\Livewire\Contact;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
+
+// Declared as its own route rather than served by the content-page catch-all
+// below: it validates, persists and sends mail, so it is a Livewire component,
+// and 'contact' is in Page::RESERVED_SLUGS so no page can shadow it.
+Route::livewire('contact', Contact::class)->name('contact');
 
 // Served by the application rather than as files in public/, so both follow
 // the AllowSearchIndexing setting. public/robots.txt was deleted for this
@@ -50,3 +57,22 @@ if (app()->environment(['local', 'testing'])) {
 }
 
 require __DIR__.'/settings.php';
+
+// A FALLBACK, not an ordinary catch-all, and that distinction is load-bearing.
+//
+// Laravel matches routes in registration order, so `Route::get('{page:slug}')`
+// here would claim every single-segment path and shadow anything registered
+// afterwards -- not only the settings routes required above, but any route a
+// package, a test or a future edit adds later. Two tests in ErrorPagesTest
+// register a route at runtime and got a 404 from exactly that.
+//
+// A fallback route is tried only once every other route has failed to match,
+// whenever it was registered, so a page can never shadow a real route. The
+// constraint still applies (a fallback with a parameter pattern that does not
+// match simply 404s as normal), keeping this off paths with a dot or a slash in
+// them, and Page::RESERVED_SLUGS stops an administrator creating a page whose
+// slug a real route answers on -- which would save cleanly and then be quietly
+// unreachable.
+Route::fallback(PageController::class)
+    ->where('fallbackPlaceholder', '[a-z0-9]+(?:-[a-z0-9]+)*')
+    ->name('pages.show');

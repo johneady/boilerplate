@@ -1,0 +1,69 @@
+<?php
+
+/*
+|--------------------------------------------------------------------------
+| Admin Panel: Content Pages
+|--------------------------------------------------------------------------
+|
+| Strings for the Filament page and contact submission resources. Dotted keys
+| rather than the JSON file's English-as-key convention -- see .ai/rules/i18n.md
+| for which applies where.
+|
+| The public-facing copy for these pages is NOT here: it is in lang/en.json with
+| the rest of the Blade and Livewire strings.
+|
+*/
+
+return [
+
+    'resource' => [
+        'label' => 'Page',
+        'plural_label' => 'Pages',
+    ],
+
+    'fields' => [
+        'title' => 'Title',
+        'slug' => 'URL slug',
+        'slug_help' => 'The address the page is served at, e.g. "privacy" for /privacy. Lowercase letters, numbers and hyphens only. Changing it on a published page breaks any link already shared.',
+        'slug_reserved' => 'That address is already used by the application. Choose another.',
+        'slug_format' => 'Use lowercase letters, numbers and hyphens only, e.g. "cookie-policy".',
+        'body' => 'Content',
+        'body_help' => 'Markdown: # for headings, - for lists, [text](url) for links. HTML is shown as plain text rather than rendered.',
+        'seo_description' => 'Search description',
+        'seo_description_help' => 'A sentence summarising this page for search results and link previews. Leave blank to use the site-wide description.',
+        'is_published' => 'Published',
+        'is_published_help' => 'When off, the page is reachable only by people who can edit it.',
+        'show_in_footer' => 'Link in footer',
+        'show_in_footer_help' => 'Whether the public site\'s footer links to this page.',
+        'sort_order' => 'Footer order',
+        'sort_order_help' => 'Lower numbers appear first. Pages sharing a number are ordered by title.',
+        'updated' => 'Last updated',
+    ],
+
+    'actions' => [
+        'view' => 'View',
+    ],
+
+    'submissions' => [
+        'label' => 'Contact message',
+        'plural_label' => 'Contact messages',
+
+        'fields' => [
+            'name' => 'From',
+            'email' => 'Email address',
+            'subject' => 'Subject',
+            'no_subject' => 'No subject',
+            'message' => 'Message',
+            'received' => 'Received',
+            'handled' => 'Handled',
+            'ip_address' => 'IP address',
+            'user_agent' => 'Browser',
+        ],
+
+        'actions' => [
+            'mark_handled' => 'Mark handled',
+            'mark_unhandled' => 'Mark unhandled',
+        ],
+    ],
+
+];

@@ -3,7 +3,11 @@
 namespace App\Providers;
 
 use App\Auth\Permission;
+use App\Models\ContactSubmission;
+use App\Models\Page;
 use App\Models\User;
+use App\Policies\ContactSubmissionPolicy;
+use App\Policies\PagePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -43,6 +47,8 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     private const array POLICIES = [
+        ContactSubmission::class => ContactSubmissionPolicy::class,
+        Page::class => PagePolicy::class,
         User::class => UserPolicy::class,
     ];
 

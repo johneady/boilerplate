@@ -10,6 +10,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Models/User.php, app/Providers/AppServiceProvider.php, app/Livewire/Settings/Security.php, routes/settings.php | .ai/rules/auth-gates.md |
 | app/Models/User.php, app/Filament/Resources/Users/UserResource.php | .ai/rules/avatar-gradient.md |
 | tests/Browser/** | .ai/rules/browser.md |
+| resources/views/layouts/public.blade.php, resources/views/components/business-footer.blade.php, app/Providers/AppServiceProvider.php | .ai/rules/components-providers.md |
 | resources/views/components/app-logo-icon.blade.php, resources/views/components/app-logo.blade.php | .ai/rules/components-views-components.md |
 | resources/views/components/desktop-user-menu.blade.php | .ai/rules/components.md |
 | app/Jobs/ProcessUploadedImage.php, app/Concerns/ImageValidationRules.php, config/images.php | .ai/rules/concerns.md |
@@ -23,12 +24,15 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Listeners/SendQueueFailureAlert.php | .ai/rules/listeners.md |
 | config/logging.php, .env.example, docker-compose.yml, docker-compose.dokploy.yml | .ai/rules/logging.md |
 | app/Http/Middleware/EnsureRegistrationIsEnabled.php | .ai/rules/middleware.md |
+| app/Livewire/Contact.php, app/Models/ContactSubmission.php, app/Notifications/ContactSubmissionReceived.php | .ai/rules/models-notifications.md |
+| routes/web.php, app/Http/Controllers/PageController.php, app/Models/Page.php | .ai/rules/models.md |
 | app/Http/Controllers/RobotsController.php, app/Http/Controllers/SitemapController.php, docker/nginx/default.conf, resources/views/sitemap.blade.php | .ai/rules/nginx-views.md |
 | resources/views/vendor/mail/**, resources/views/vendor/notifications/** | .ai/rules/notifications.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
 | app/Settings/Settings.php, resources/views/partials/head.blade.php | .ai/rules/partials.md |
 | app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
 | app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php | .ai/rules/queues-and-scheduling.md |
+| app/Models/Page.php, resources/views/pages/**, app/Filament/Resources/Pages/** | .ai/rules/resources-pages.md |
 | database/seeders/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
 | resources/views/layouts/app/**, resources/views/components/desktop-user-menu.blade.php | .ai/rules/views-components.md |

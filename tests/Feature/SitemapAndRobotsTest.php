@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SitemapController;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 
@@ -50,12 +51,17 @@ test('the sitemap lists the public pages as valid xml', function () {
     $content = (string) $response->getContent();
 
     expect($content)->toStartWith('<?xml version="1.0" encoding="UTF-8"?>')
-        ->toContain('<loc>'.route('home').'</loc>');
+        ->toContain('<loc>'.route('home').'</loc>')
+        ->toContain('<loc>'.route('contact').'</loc>');
 
     $xml = simplexml_load_string($content);
 
+    // Counted from the constant rather than written as a literal: this database
+    // holds no pages, so the named routes are the whole sitemap, and deriving it
+    // means adding a route does not fail this test for the wrong reason. The
+    // page rows' own entries are covered in PageTest.
     expect($xml)->not->toBeFalse()
-        ->and($xml->url)->toHaveCount(1);
+        ->and($xml->url)->toHaveCount(count(SitemapController::ROUTES));
 });
 
 test('the sitemap is empty while indexing is off', function () {

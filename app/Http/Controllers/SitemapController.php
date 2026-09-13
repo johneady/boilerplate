@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Page;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Illuminate\Http\Response;
@@ -29,7 +30,19 @@ class SitemapController extends Controller
      */
     public const array ROUTES = [
         'home' => ['changefreq' => 'weekly', 'priority' => '1.0'],
+        'contact' => ['changefreq' => 'yearly', 'priority' => '0.5'],
     ];
+
+    /**
+     * The change frequency and priority given to an administrator's pages.
+     *
+     * One shared value rather than a per-page setting: the distinction between
+     * 0.4 and 0.5 is not one an administrator should be asked to make, and
+     * crawlers treat priority as a hint between a site's own URLs at best.
+     *
+     * @var array{changefreq: string, priority: string}
+     */
+    private const array PAGE_DEFAULTS = ['changefreq' => 'yearly', 'priority' => '0.5'];
 
     /**
      * Render the sitemap.
@@ -50,7 +63,17 @@ class SitemapController extends Controller
     }
 
     /**
-     * The absolute URL and metadata for each listed route.
+     * The absolute URL and metadata for each crawlable page.
+     *
+     * There are two sources here, and the split is deliberate. ROUTES above
+     * covers the pages that are part of the application -- they exist in every
+     * deployment, so they are named in code. The administrator's content pages
+     * cannot be: they are rows, and which of them exist is a decision made in
+     * the panel after deployment, so they are read from the table.
+     *
+     * Only published pages are listed. A draft is a 404 to the public (see
+     * PageController), and pointing a crawler at a URL that 404s is worse than
+     * omitting it.
      *
      * @return list<array{loc: string, changefreq: string, priority: string}>
      */
@@ -66,6 +89,27 @@ class SitemapController extends Controller
             ];
         }
 
-        return $urls;
+        // Keyed by URL while building, so a page whose slug matches one of the
+        // named routes above appears once rather than twice. The seeded
+        // 'contact' page is exactly that case: it supplies the copy shown above
+        // the form on route('contact'), so both resolve to the same URL, and a
+        // sitemap listing one URL twice is a malformed sitemap.
+        $urls = array_column($urls, null, 'loc');
+
+        foreach (Page::query()->published()->orderBy('sort_order')->get(['id', 'slug']) as $page) {
+            $loc = route('pages.show', $page);
+
+            if (array_key_exists($loc, $urls)) {
+                continue;
+            }
+
+            $urls[$loc] = [
+                'loc' => $loc,
+                'changefreq' => self::PAGE_DEFAULTS['changefreq'],
+                'priority' => self::PAGE_DEFAULTS['priority'],
+            ];
+        }
+
+        return array_values($urls);
     }
 }

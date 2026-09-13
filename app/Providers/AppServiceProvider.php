@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Auth\DevLoginAccounts;
+use App\Models\Page;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RequirePassword;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
@@ -76,7 +78,20 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with('businessAddress', $settings->string(SettingKey::BusinessAddress))
                 ->with('businessPhone', $settings->string(SettingKey::BusinessPhone))
-                ->with('businessEmail', $settings->string(SettingKey::BusinessEmail));
+                ->with('businessEmail', $settings->string(SettingKey::BusinessEmail))
+                // A closure rather than the collection itself, so the query runs
+                // only if the footer actually renders links. This composer runs
+                // for every render of the component, and the compact variant on
+                // the auth pages has no link row -- those pages must keep
+                // rendering when the database is unreachable, which is the same
+                // property Settings::all() protects by degrading to defaults.
+                //
+                // Only the columns the links need, so the policy bodies -- the
+                // largest column in the table -- are not loaded on every page
+                // render to print a list of titles.
+                ->with('footerPages', fn (): Collection => Page::query()
+                    ->inFooter()
+                    ->get(['id', 'slug', 'title']));
         });
 
         // Composed rather than shared: View::share() would resolve the settings
@@ -100,8 +115,16 @@ class AppServiceProvider extends ServiceProvider
         View::composer('partials.head', function (ViewContract $view): void {
             $settings = app(Settings::class);
 
+            // A page that supplies its own description keeps it: a composer runs
+            // after the view's own data is bound and would otherwise overwrite
+            // it, leaving every content page describing the site rather than
+            // itself. The setting is the fallback, not the override.
+            $description = $view->getData()['seoDescription'] ?? null;
+
             $view->with('seoTitle', $settings->string(SettingKey::SeoTitle))
-                ->with('seoDescription', $settings->string(SettingKey::SeoDescription))
+                ->with('seoDescription', filled($description)
+                    ? $description
+                    : $settings->string(SettingKey::SeoDescription))
                 ->with('allowSearchIndexing', $settings->boolean(SettingKey::AllowSearchIndexing))
                 ->with('faviconUrl', $settings->logoUrl('favicon'))
                 ->with('appleTouchIconUrl', $settings->logoUrl('apple-touch'))

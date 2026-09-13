@@ -16,6 +16,18 @@ use Illuminate\Support\Facades\Notification;
 use Symfony\Component\Mime\Address;
 
 /**
+ * How many emails the catalogue holds.
+ *
+ * Derived rather than written as a literal: these assertions exist to prove the
+ * command renders EVERY email, and a hardcoded count turns "somebody added an
+ * email type" into a puzzling failure in eight tests at once.
+ */
+function previewableEmailCount(): int
+{
+    return count((new PreviewableEmails)->all());
+}
+
+/**
  * The command delivers the framework notifications to an unpersisted factory
  * user carrying the preview address. The notification fake matches a
  * notifiable by class and key rather than instance, so assertions can build
@@ -45,7 +57,7 @@ test('it delivers every email type to the requested address', function () {
     $this->artisan('app:preview-mails', ['recipient' => 'inbox@mailpit.test'])
         ->assertSuccessful();
 
-    Event::assertDispatched(MessageSent::class, 4, fn (MessageSent $event): bool => addressedTo($event, 'inbox@mailpit.test'));
+    Event::assertDispatched(MessageSent::class, previewableEmailCount(), fn (MessageSent $event): bool => addressedTo($event, 'inbox@mailpit.test'));
 });
 
 test('it sends each email type without touching the database', function () {
@@ -106,7 +118,7 @@ test('it falls back to the built-in preview address', function () {
 
     $this->artisan('app:preview-mails')->assertSuccessful();
 
-    Event::assertDispatched(MessageSent::class, 4, fn (MessageSent $event): bool => addressedTo($event, 'preview@inbox.test'));
+    Event::assertDispatched(MessageSent::class, previewableEmailCount(), fn (MessageSent $event): bool => addressedTo($event, 'preview@inbox.test'));
 });
 
 /**
@@ -131,7 +143,7 @@ test('an explicit mailer overrides a mailer stored in settings', function () {
 
     expect(config('mail.default'))->toBe('array');
 
-    Event::assertDispatchedTimes(MessageSent::class, 4);
+    Event::assertDispatchedTimes(MessageSent::class, previewableEmailCount());
 });
 
 /**
@@ -153,7 +165,7 @@ test('every email is branded with the business name rather than the app name', f
 
     $this->artisan('app:preview-mails')->assertSuccessful();
 
-    expect($bodies)->toHaveCount(4);
+    expect($bodies)->toHaveCount(previewableEmailCount());
 
     foreach ($bodies as $body) {
         expect($body)->toContain('Acme Widgets')
@@ -176,7 +188,7 @@ test('every email is sent as branded HTML with a plain text alternative', functi
 
     $this->artisan('app:preview-mails')->assertSuccessful();
 
-    expect($messages)->toHaveCount(4);
+    expect($messages)->toHaveCount(previewableEmailCount());
 
     foreach ($messages as $message) {
         // Asserted as strings: a text-only mailable returns null here, which
@@ -203,7 +215,7 @@ test('every email is themed with the application accent colour', function () {
 
     $this->artisan('app:preview-mails')->assertSuccessful();
 
-    expect($bodies)->toHaveCount(4);
+    expect($bodies)->toHaveCount(previewableEmailCount());
 
     foreach ($bodies as $body) {
         // The accent, inlined onto the header band, and the near-black the
@@ -230,7 +242,7 @@ test('every fixed width element collapses on a narrow screen', function () {
 
     $this->artisan('app:preview-mails')->assertSuccessful();
 
-    expect($bodies)->toHaveCount(4);
+    expect($bodies)->toHaveCount(previewableEmailCount());
 
     foreach ($bodies as $body) {
         // Every class given a 570px width must appear in the narrow-screen
@@ -272,7 +284,7 @@ test('it reports each failed email and exits with a failure code', function () {
         ->expectsOutputToContain('Failed to send the email address verification')
         ->expectsOutputToContain('Failed to send the password reset')
         ->expectsOutputToContain('Failed to send the queued job failure alert')
-        ->expectsOutputToContain('Delivered 0 of 4 email types')
+        ->expectsOutputToContain('Delivered 0 of '.previewableEmailCount().' email types')
         ->assertFailed();
 });
 
@@ -354,8 +366,8 @@ test('emails sharing a description are all still delivered', function () {
     Event::fake([MessageSent::class]);
 
     $this->artisan('app:preview-mails')
-        ->expectsOutputToContain('Delivered 4 of 4 email types')
+        ->expectsOutputToContain('Delivered '.previewableEmailCount().' of '.previewableEmailCount().' email types')
         ->assertSuccessful();
 
-    Event::assertDispatchedTimes(MessageSent::class, 4);
+    Event::assertDispatchedTimes(MessageSent::class, previewableEmailCount());
 });

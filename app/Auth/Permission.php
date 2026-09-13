@@ -26,6 +26,20 @@ enum Permission: string
 
     case DeleteUsers = 'users.delete';
 
+    case ViewPages = 'pages.view';
+
+    case CreatePages = 'pages.create';
+
+    case UpdatePages = 'pages.update';
+
+    case DeletePages = 'pages.delete';
+
+    case ViewContactSubmissions = 'contact-submissions.view';
+
+    case UpdateContactSubmissions = 'contact-submissions.update';
+
+    case DeleteContactSubmissions = 'contact-submissions.delete';
+
     case ManageSettings = 'settings.manage';
 
     case ViewLogs = 'logs.view';
@@ -42,6 +56,13 @@ enum Permission: string
             self::CreateUsers => 'Create users',
             self::UpdateUsers => 'Update users',
             self::DeleteUsers => 'Delete users',
+            self::ViewPages => 'View public content pages',
+            self::CreatePages => 'Create public content pages',
+            self::UpdatePages => 'Update public content pages',
+            self::DeletePages => 'Delete public content pages',
+            self::ViewContactSubmissions => 'View contact form submissions',
+            self::UpdateContactSubmissions => 'Mark contact form submissions handled',
+            self::DeleteContactSubmissions => 'Delete contact form submissions',
             self::ManageSettings => 'Manage application settings',
             self::ViewLogs => 'View application logs',
             self::AccessAdminPanel => 'Access the admin panel',

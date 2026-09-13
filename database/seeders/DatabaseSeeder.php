@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AdminUserSeeder::class,
             SettingsSeeder::class,
+            PagesSeeder::class,
         ]);
 
         // Seeded wherever the quick dev logins are offered -- which is every

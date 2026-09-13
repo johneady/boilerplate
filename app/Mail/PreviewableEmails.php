@@ -3,7 +3,9 @@
 namespace App\Mail;
 
 use App\Jobs\ProcessUploadedImage;
+use App\Models\ContactSubmission;
 use App\Models\User;
+use App\Notifications\ContactSubmissionReceived;
 use App\Notifications\QueueJobFailed;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -72,6 +74,27 @@ class PreviewableEmails
                 'mailable' => null,
                 'onDemand' => false,
                 'render' => fn (): MailMessage => $resetPassword->toMail($notifiable),
+            ],
+            'contact-submission' => [
+                'description' => 'contact form submission',
+                // Routed on demand, like the queue alert below: the real
+                // message goes to the business address from the settings, which
+                // is a bare address with no account behind it.
+                //
+                // The submission is made, not created: rendering a preview must
+                // not leave a row in the contact inbox.
+                'notification' => $contactSubmission = new ContactSubmissionReceived(
+                    ContactSubmission::factory()->make([
+                        'id' => 1,
+                        'name' => 'Sam Visitor',
+                        'email' => 'sam@example.test',
+                        'subject' => 'Question about your widgets',
+                        'message' => "Hello,\n\nDo the widgets come in blue? I need about forty of them by the end of the month.\n\nThanks,\nSam",
+                    ]),
+                ),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $contactSubmission->toMail($notifiable),
             ],
             'queue-failure' => [
                 'description' => 'queued job failure alert',
