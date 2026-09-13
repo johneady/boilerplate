@@ -101,3 +101,5 @@ Both compose files ship Redis ready to switch on, not switched on. docker-compos
 app:prune-expired-storage stays scheduled after any switch. It exists because the database cache and session stores never delete their own expired rows; Redis expires keys itself, and the command already skips any store that is not `database` (verified: `CACHE_STORE=redis SESSION_DRIVER=redis php artisan app:prune-expired-storage` prints "skipping" for both). A mixed setup — Redis cache, database queue — is normal, so do not remove it.
 
 The phpredis extension is already in the image (see .ai/rules/dockerfile.md), so switching a driver is an env change plus a running Redis, never an image rebuild.
+
+That holds INSIDE the container only. The extension is not installed on a developer's own PHP, so flipping a driver while running natively (`composer run dev`) fails with 'Class "Redis" not found' — verified. Trial Redis through the compose stack, or install a client locally first (`pecl install redis`, or predis with REDIS_CLIENT=predis). Deliberately not added to composer.json: the compose stack is the intended way to trial it and the dependency list stays clean.
