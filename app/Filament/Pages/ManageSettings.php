@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Settings\DiagnosticResult;
 use App\Settings\DiagnosticSeverity;
 use App\Settings\ProductionDiagnostics;
+use App\Settings\ServerInformation;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use App\Settings\SettingsTab;
@@ -51,14 +52,17 @@ use UnitEnum;
  * Settings are grouped onto the page's tabs by SettingKey::tab().
  *
  * The mailer with its SMTP connection and the logo are the exceptions: the
- * mail tab and SEO & brand tab edit them through the modals their buttons
+ * mail tab and Brand tab edit them through the modals their buttons
  * open, since they change as a unit and persist the moment the modal is
  * submitted.
  *
  * The Diagnostics tab edits nothing at all. It reports on configuration that
  * lives in the environment rather than the settings table -- debug mode, the
  * database driver, session cookie flags -- which an administrator otherwise
- * has no way to inspect without shell access to the container.
+ * has no way to inspect without shell access to the container. The Server
+ * tab is the same idea for the machine itself: the PHP build, the database
+ * server and the disk it lives on, reported read-only from
+ * App\Settings\ServerInformation.
  *
  * @property-read Schema $form
  */
@@ -163,7 +167,7 @@ class ManageSettings extends Page
      * Tabs are rendered per SettingsTab case, each collecting the keys that
      * claim it, so a setting lands on a tab by its enum declaration alone.
      * The mail tab leads with the mailer button, whose modal edits the keys
-     * MAILER_MODAL_KEYS holds instead of the form; the SEO & brand tab leads
+     * MAILER_MODAL_KEYS holds instead of the form; the Brand tab leads
      * with the logo preview and its buttons, which edit Logo the same way.
      *
      * The Email and Diagnostics tabs carry a badge flagging what cannot be
@@ -203,6 +207,10 @@ class ManageSettings extends Page
 
         if ($settingsTab === SettingsTab::Diagnostics) {
             $components[] = $this->diagnosticsReport();
+        }
+
+        if ($settingsTab === SettingsTab::Server) {
+            $components[] = $this->serverReport();
         }
 
         $tab = Tab::make($settingsTab->label())
@@ -358,6 +366,21 @@ class ManageSettings extends Page
     }
 
     /**
+     * The read-only server report shown on the Server tab.
+     *
+     * Resolved per render rather than frozen into viewData at schema-build
+     * time, matching the diagnostics report beside it: the server it
+     * describes is the one handling this request, not an earlier one.
+     */
+    protected function serverReport(): View
+    {
+        return View::make('filament.settings.server-report')
+            ->viewData(fn (): array => [
+                'report' => app(ServerInformation::class)->toArray(),
+            ]);
+    }
+
+    /**
      * The checks that did not pass, run once per render.
      *
      * The Diagnostics tab badge's closures and the report beside them all
@@ -412,7 +435,7 @@ class ManageSettings extends Page
     }
 
     /**
-     * The button the SEO & brand tab uploads the logo through.
+     * The button the Brand tab uploads the logo through.
      *
      * Like the mailer button, the effect is immediate: the upload is staged on
      * the private disk and queued for processing the moment the modal is

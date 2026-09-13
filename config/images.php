@@ -83,7 +83,7 @@ return [
             'full' => ['width' => 512, 'height' => 512, 'fit' => 'cover'],
         ],
 
-        // The logo from the admin panel's SEO & brand settings. It is both the
+        // The logo from the admin panel's Brand settings. It is both the
         // brand mark rendered in the page chrome ("mark") and the source of
         // the browser and social icons. All conversions are square "cover"
         // crops: a favicon and an Apple touch icon must be square, the social

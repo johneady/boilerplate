@@ -1,5 +1,5 @@
 {{--
-    The current logo, shown on the SEO & brand tab above its upload buttons.
+    The current logo, shown on the Brand tab above its upload buttons.
 
     It renders x-app-logo-icon rather than the stored URL directly, so the
     preview is the same component the site chrome renders -- including the

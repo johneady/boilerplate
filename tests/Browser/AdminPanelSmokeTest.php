@@ -24,7 +24,7 @@ test('the settings page renders its tabs', function () {
 
     $page = visit('/admin/settings');
 
-    $page->assertSee('Business details')
+    $page->assertSee('Business')
         ->assertSee('Diagnostics')
         ->assertNoJavaScriptErrors();
 });

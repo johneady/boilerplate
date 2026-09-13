@@ -24,7 +24,7 @@ class SettingsSeeder extends Seeder
         'business_phone' => '+1 (555) 123-4567',
         'business_email' => 'hello@example.com',
         'seo_title' => 'Cromulent Widgets',
-        'seo_description' => 'Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s SEO & brand settings.',
+        'seo_description' => 'Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s Brand settings.',
         // A named zone rather than the bare UTC default: the demo details are
         // American, and a regional identifier demonstrates the setting better
         // than the storage timezone would.

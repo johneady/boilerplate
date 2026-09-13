@@ -34,7 +34,7 @@ test('it seeds the demo seo copy', function () {
     $settings = app(Settings::class);
 
     expect($settings->string(SettingKey::SeoTitle))->toBe('Cromulent Widgets')
-        ->and($settings->string(SettingKey::SeoDescription))->toBe('Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s SEO & brand settings.');
+        ->and($settings->string(SettingKey::SeoDescription))->toBe('Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s Brand settings.');
 });
 
 test('it seeds the demo display timezone', function () {

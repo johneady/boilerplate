@@ -1,6 +1,6 @@
 {{--
     The brand mark, rendered in the sidebar, the auth pages and the public
-    header. It is the logo uploaded from the admin panel's SEO & brand settings
+    header. It is the logo uploaded from the admin panel's Brand settings
     when one is stored, and the bundled mark below otherwise.
 
     $logoMarkUrl is composed onto every view (AppServiceProvider), so no call

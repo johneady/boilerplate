@@ -178,13 +178,32 @@ test('the business name is required', function () {
 });
 
 test('the settings page renders a tab for each declared group of settings', function () {
+    $page = Livewire::test(ManageSettings::class);
+
+    foreach (SettingsTab::cases() as $settingsTab) {
+        $page->assertSee($settingsTab->label());
+    }
+});
+
+/**
+ * The Server tab reports on the machine rather than the settings table, so
+ * like the Diagnostics tab it has no fields of its own -- these cover that
+ * its findings actually reach the page, and that a host which exposes less
+ * (no web server name under the CLI) still renders the rest.
+ */
+test('the server tab reports the build it is running on', function () {
     Livewire::test(ManageSettings::class)
-        ->assertSee('Business details')
-        ->assertSee('SEO & brand')
-        ->assertSee('Registration')
-        ->assertSee('Email')
-        ->assertSee('Locale & time')
-        ->assertSee('Diagnostics');
+        ->assertSee('Server report')
+        ->assertSee(PHP_VERSION)
+        ->assertSee(app()->version())
+        ->assertSee(PHP_OS_FAMILY)
+        ->assertSee('Loaded extensions');
+});
+
+test('the server tab reports the database behind the site', function () {
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Database')
+        ->assertSee('sqlite');
 });
 
 /**
@@ -276,7 +295,7 @@ test('each setting is edited on its declared tab', function () {
     // on the mailer still belongs to its tab while hidden. The mailer group
     // is edited through the mailer button's modal rather than tab fields.
     // The mailer group is edited through the mailer button's modal, and the
-    // site icon through the SEO & brand tab's buttons, rather than tab fields.
+    // site icon through the Brand tab's buttons, rather than tab fields.
     $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'logo'];
 
     $flattener = function (array $components) use (&$flattener): array {
