@@ -4,6 +4,7 @@ use App\Auth\Role;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Resources\Users\UserResource;
 use App\Models\User;
+use App\Settings\Settings;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -388,6 +389,22 @@ test('a new user with no usable role gets the default', function () {
     ]);
 
     expect($user->fresh()->role)->toBe(Role::DEFAULT);
+});
+
+test('the registered column renders through the locale and time settings', function () {
+    app(Settings::class)->setMany([
+        'timezone' => 'Australia/Sydney',
+        'date_format' => 'd/m/Y',
+        'time_format' => 'H:i',
+    ]);
+
+    // A fixed instant rather than now(): the assertion pins the UTC-to-Sydney
+    // conversion (00:30 UTC is 11:30 AEDT in January) as well as the format.
+    $user = User::factory()->create(['created_at' => '2026-01-15 00:30:00']);
+
+    $column = Livewire::test(ManageUsers::class)->instance()->getTable()->getColumn('created_at');
+
+    expect($column?->formatState($user->created_at))->toBe('15/01/2026, 11:30');
 });
 
 test('the role help text survives a tampered or cleared select', function () {

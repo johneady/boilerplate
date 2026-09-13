@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users;
 use App\Auth\Role;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
+use App\Settings\Settings;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
@@ -109,9 +110,13 @@ class UserResource extends Resource
                     ->label('Verified')
                     ->boolean()
                     ->sortable(),
+                // Formatted through the settings service rather than
+                // ->dateTime(): the Registered column is a wall-clock date
+                // for an administrator, so it follows the display timezone,
+                // format and locale settings the rest of the site does.
                 TextColumn::make('created_at')
                     ->label('Registered')
-                    ->dateTime()
+                    ->formatStateUsing(fn ($state): string => app(Settings::class)->formatDateTime($state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])

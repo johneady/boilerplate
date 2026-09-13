@@ -3,6 +3,7 @@
 use App\Models\Setting;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -334,4 +335,104 @@ test('a missing settings table still fails loudly', function () {
 
     expect(fn () => $missing->newQuery()->pluck('value', 'key'))
         ->toThrow(QueryException::class);
+});
+
+test('unsaved locale and time settings read as UTC, English and the default formats', function () {
+    expect($this->settings->string(SettingKey::Timezone))->toBe('UTC')
+        ->and($this->settings->string(SettingKey::Locale))->toBe('en')
+        ->and($this->settings->string(SettingKey::DateFormat))->toBe('j M Y')
+        ->and($this->settings->string(SettingKey::TimeFormat))->toBe('H:i');
+});
+
+test('a stored timezone that is not a real identifier reads as UTC', function (mixed $stored) {
+    // Every date the application renders flows through this setting, so a
+    // row hand-edited to a typo must fail closed rather than hand Carbon an
+    // identifier it throws on at render time.
+    Setting::create(['key' => 'timezone', 'value' => $stored]);
+
+    expect($this->settings->string(SettingKey::Timezone))->toBe('UTC');
+})->with([
+    'a typo' => ['Australia/Sydny'],
+    'a made-up zone' => ['Mars/Olympus_Mons'],
+    'an offset instead of a zone' => ['+10:00'],
+    'an empty string' => [''],
+    'a boolean true' => [true],
+    'null' => [null],
+]);
+
+test('a stored date or time format that is not one of the presets reads as the default', function (mixed $stored) {
+    Setting::create(['key' => 'date_format', 'value' => $stored]);
+    Setting::create(['key' => 'time_format', 'value' => $stored]);
+
+    expect($this->settings->string(SettingKey::DateFormat))->toBe('j M Y')
+        ->and($this->settings->string(SettingKey::TimeFormat))->toBe('H:i');
+})->with([
+    'a format that is not offered' => ['d/m/y'],
+    'a format string from another convention' => ['DD/MM/YYYY'],
+    'an empty string' => [''],
+    'a boolean true' => [true],
+    'null' => [null],
+]);
+
+test('a stored locale that is not offered reads as English', function (mixed $stored) {
+    Setting::create(['key' => 'locale', 'value' => $stored]);
+
+    expect($this->settings->string(SettingKey::Locale))->toBe('en');
+})->with([
+    'a language without translations shipped' => ['tlh'],
+    'an English name' => ['english'],
+    'an empty string' => [''],
+    'a boolean true' => [true],
+    'null' => [null],
+]);
+
+test('dates are formatted through the timezone and formats in force', function () {
+    app(Settings::class)->setMany([
+        'timezone' => 'Australia/Sydney',
+        'date_format' => 'd/m/Y',
+        'time_format' => 'H:i',
+    ]);
+
+    app()->forgetScopedInstances();
+
+    $settings = app(Settings::class);
+
+    // Parsed as UTC, the storage timezone: 00:30 UTC is 11:30 in Sydney on
+    // a January day, which is the conversion an administrator expects to
+    // see rather than the UTC wall clock the database holds.
+    $instant = CarbonImmutable::parse('2026-01-15 00:30:00');
+
+    expect($settings->formatDateTime($instant))->toBe('15/01/2026, 11:30')
+        ->and($settings->formatDate($instant))->toBe('15/01/2026')
+        ->and($settings->formatTime($instant))->toBe('11:30');
+});
+
+test('month and day names follow the locale setting', function () {
+    app(Settings::class)->setMany([
+        'locale' => 'fr',
+        'date_format' => 'j F Y',
+    ]);
+
+    app()->forgetScopedInstances();
+
+    expect(app(Settings::class)->formatDate(CarbonImmutable::parse('2026-01-15 00:30:00')))
+        ->toBe('15 janvier 2026');
+});
+
+test('relative times follow the locale setting', function () {
+    app(Settings::class)->set(SettingKey::Locale, 'fr');
+
+    app()->forgetScopedInstances();
+
+    $diff = app(Settings::class)->formatRelative(CarbonImmutable::now()->subHours(2));
+
+    expect($diff)->toContain('heures')
+        ->and($diff)->not->toContain('hours');
+});
+
+test('a null date formats as the empty string', function () {
+    expect($this->settings->formatDate(null))->toBe('')
+        ->and($this->settings->formatTime(null))->toBe('')
+        ->and($this->settings->formatDateTime(null))->toBe('')
+        ->and($this->settings->formatRelative(null))->toBe('');
 });

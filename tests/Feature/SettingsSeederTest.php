@@ -37,6 +37,26 @@ test('it seeds the demo seo copy', function () {
         ->and($settings->string(SettingKey::SeoDescription))->toBe('Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s SEO & brand settings.');
 });
 
+test('it seeds the demo display timezone', function () {
+    $this->seed(SettingsSeeder::class);
+
+    app()->forgetInstance(Settings::class);
+
+    // A named zone rather than the bare UTC default: the demo details are
+    // American, and a regional identifier shows what the setting does.
+    expect(app(Settings::class)->string(SettingKey::Timezone))->toBe('America/New_York');
+});
+
+test('re-seeding does not overwrite an operator\'s own timezone', function () {
+    app(Settings::class)->set(SettingKey::Timezone, 'Australia/Sydney');
+
+    $this->seed(SettingsSeeder::class);
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::Timezone))->toBe('Australia/Sydney');
+});
+
 test('it seeds no logo, leaving the bundled mark in use', function () {
     $this->seed(SettingsSeeder::class);
 

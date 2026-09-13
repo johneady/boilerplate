@@ -11,7 +11,10 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use App\Settings\SettingsTab;
 use BackedEnum;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Closure;
+use DateTimeZone;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\FileUpload;
@@ -533,7 +536,103 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->email()
                 ->maxLength(255),
+            SettingKey::Timezone => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options(static::timezoneOptions())
+                ->searchable()
+                ->selectablePlaceholder(false),
+            // Live so the date-format examples re-render with the chosen
+            // locale's month names the moment it changes -- the clearest way
+            // to show the two settings interact before anything is saved.
+            SettingKey::Locale => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options(SettingKey::LOCALES)
+                ->selectablePlaceholder(false)
+                ->live(),
+            SettingKey::DateFormat => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options(fn (Get $get): array => static::formatExamples(SettingKey::DATE_FORMATS, $get))
+                ->selectablePlaceholder(false),
+            SettingKey::TimeFormat => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options(fn (): array => static::formatExamples(SettingKey::TIME_FORMATS))
+                ->selectablePlaceholder(false),
         };
+    }
+
+    /**
+     * The timezone choices, grouped by region for the searchable select.
+     *
+     * Keys are the full identifiers the setting stores, and the cast
+     * validates against the same identifier list, so a select value and a
+     * stored row can never disagree about what a timezone is.
+     *
+     * @return array<string, string|array<string, string>>
+     */
+    protected static function timezoneOptions(): array
+    {
+        $regions = [];
+
+        foreach (DateTimeZone::listIdentifiers() as $identifier) {
+            // The Etc/ region duplicates UTC offsets in a form nobody
+            // searches for; leaving it out leaves the choice clearer.
+            if (! str_contains($identifier, '/') || str_starts_with($identifier, 'Etc/')) {
+                continue;
+            }
+
+            [$region, $city] = explode('/', $identifier, 2);
+
+            $regions[$region][$identifier] = str_replace('_', ' ', $city);
+        }
+
+        return ['UTC' => 'UTC'] + $regions;
+    }
+
+    /**
+     * Render each candidate format as the example shown in its select.
+     *
+     * The sample is chosen to distinguish every format character at a glance:
+     * day 5 against 05, March as a translatable month name, 14:07 as a
+     * 24-hour clock against 2:07 pm. Each example carries the format's note
+     * naming the convention it belongs to, so an administrator chooses
+     * "Month first — United States" rather than decoding format characters.
+     * Date examples localise to the locale select's current value, which is
+     * what demonstrates that locale drives the names while the format drives
+     * the shape.
+     *
+     * @param  array<string, string>  $formats  Format string => note.
+     * @return array<string, string>
+     */
+    protected static function formatExamples(array $formats, ?Get $get = null): array
+    {
+        $locale = $get !== null ? (string) ($get('locale') ?? 'en') : 'en';
+
+        $examples = [];
+
+        foreach ($formats as $format => $note) {
+            $examples[$format] = static::sampleDate()->locale($locale)->translatedFormat($format).' — '.$note;
+        }
+
+        return $examples;
+    }
+
+    /**
+     * The fixed date the format examples render with.
+     *
+     * Declared as the interface so callers chain the localising methods on
+     * CarbonInterface rather than on a concrete class.
+     */
+    protected static function sampleDate(): CarbonInterface
+    {
+        return CarbonImmutable::parse('2021-03-05 14:07');
     }
 
     /**

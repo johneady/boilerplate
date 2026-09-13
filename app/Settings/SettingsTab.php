@@ -26,6 +26,8 @@ enum SettingsTab: string
 
     case Mail = 'mail';
 
+    case LocaleTime = 'locale_time';
+
     case Diagnostics = 'diagnostics';
 
     /**
@@ -38,6 +40,7 @@ enum SettingsTab: string
             self::SeoBrand => 'SEO & brand',
             self::Registration => 'Registration',
             self::Mail => 'Email',
+            self::LocaleTime => 'Locale & time',
             self::Diagnostics => 'Diagnostics',
         };
     }
@@ -52,6 +55,7 @@ enum SettingsTab: string
             self::SeoBrand => Heroicon::OutlinedGlobeAlt,
             self::Registration => Heroicon::OutlinedUserPlus,
             self::Mail => Heroicon::OutlinedEnvelope,
+            self::LocaleTime => Heroicon::OutlinedClock,
             self::Diagnostics => Heroicon::OutlinedShieldCheck,
         };
     }

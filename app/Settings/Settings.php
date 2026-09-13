@@ -3,6 +3,7 @@
 namespace App\Settings;
 
 use App\Models\Setting;
+use Carbon\CarbonInterface;
 use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\SQLiteDatabaseDoesNotExistException;
@@ -195,6 +196,73 @@ class Settings
         }
 
         return 'smtp';
+    }
+
+    /**
+     * Format a date as the administrator configured, in the display timezone.
+     */
+    public function formatDate(?CarbonInterface $date): string
+    {
+        return $this->format($date, $this->string(SettingKey::DateFormat));
+    }
+
+    /**
+     * Format a time of day as the administrator configured, in the display
+     * timezone.
+     */
+    public function formatTime(?CarbonInterface $date): string
+    {
+        return $this->format($date, $this->string(SettingKey::TimeFormat));
+    }
+
+    /**
+     * Format a full date and time as the administrator configured, in the
+     * display timezone.
+     *
+     * The date and time formats are chosen separately on the settings page;
+     * this is where they meet, so a full timestamp is never formatted by a
+     * call site inventing its own combination.
+     */
+    public function formatDateTime(?CarbonInterface $date): string
+    {
+        return $this->format($date, $this->string(SettingKey::DateFormat).', '.$this->string(SettingKey::TimeFormat));
+    }
+
+    /**
+     * Render a date as a relative time such as "2 hours ago", localised.
+     *
+     * Timezone-independent -- "2 hours ago" is the same distance in every
+     * timezone -- but the words follow the locale setting, like the formats.
+     */
+    public function formatRelative(?CarbonInterface $date): string
+    {
+        if ($date === null) {
+            return '';
+        }
+
+        return $date->locale($this->string(SettingKey::Locale))->diffForHumans();
+    }
+
+    /**
+     * Convert a date to the display timezone and format it, with month and
+     * day names translated per the locale setting.
+     *
+     * Storage is pinned to UTC in config, so converting HERE and only here is
+     * what keeps the display timezone a presentation choice: a model's
+     * attribute stays UTC, and changing the setting never reinterprets a
+     * stored timestamp. Null reads as the empty string so call sites can hand
+     * nullable attributes straight over.
+     */
+    private function format(?CarbonInterface $date, string $format): string
+    {
+        if ($date === null) {
+            return '';
+        }
+
+        return $date
+            ->locale($this->string(SettingKey::Locale))
+            ->timezone($this->string(SettingKey::Timezone))
+            ->translatedFormat($format);
     }
 
     /**

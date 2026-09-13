@@ -9,8 +9,9 @@ use Illuminate\Database\Seeder;
 class SettingsSeeder extends Seeder
 {
     /**
-     * Demo business details and SEO copy, so a fresh instance's footer,
-     * settings form and page head have something to show rather than blanks.
+     * Demo business details, SEO copy and display timezone, so a fresh
+     * instance's footer, settings form and page head have something to show
+     * rather than blanks.
      *
      * Public and placeholder, like the seeded accounts: a real deployment
      * replaces them from the admin panel's settings page. Keyed by SettingKey
@@ -24,6 +25,10 @@ class SettingsSeeder extends Seeder
         'business_email' => 'hello@example.com',
         'seo_title' => 'Cromulent Widgets',
         'seo_description' => 'Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s SEO & brand settings.',
+        // A named zone rather than the bare UTC default: the demo details are
+        // American, and a regional identifier demonstrates the setting better
+        // than the storage timezone would.
+        'timezone' => 'America/New_York',
     ];
 
     /**

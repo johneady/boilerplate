@@ -105,6 +105,10 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'mail_from_address',
         'mail_from_name',
         'ops_alert_email',
+        'timezone',
+        'locale',
+        'date_format',
+        'time_format',
     ]);
 });
 
@@ -139,6 +143,7 @@ test('the settings page renders a tab for each declared group of settings', func
         ->assertSee('SEO & brand')
         ->assertSee('Registration')
         ->assertSee('Email')
+        ->assertSee('Locale & time')
         ->assertSee('Diagnostics');
 });
 
@@ -660,4 +665,90 @@ test('the test email action reports when the message only reached the log', func
         ->callAction('testEmail', ['recipient' => 'postmaster@cromulent.test']);
 
     Notification::assertNotified('Test email written to the log');
+});
+
+test('the locale and time tab opens on the stored values', function () {
+    app(Settings::class)->setMany([
+        'timezone' => 'Australia/Sydney',
+        'locale' => 'fr',
+        'date_format' => 'd/m/Y',
+        'time_format' => 'g:i a',
+    ]);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSchemaStateSet([
+            'timezone' => 'Australia/Sydney',
+            'locale' => 'fr',
+            'date_format' => 'd/m/Y',
+            'time_format' => 'g:i a',
+        ]);
+});
+
+test('saving the form persists the locale and time settings', function () {
+    Livewire::test(ManageSettings::class)
+        ->fillForm([
+            'mail_from_address' => 'hello@cromulent.test',
+            'timezone' => 'Australia/Sydney',
+            'locale' => 'de',
+            'date_format' => 'Y-m-d',
+            'time_format' => 'g:i A',
+        ])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    $settings = app(Settings::class);
+
+    expect($settings->string(SettingKey::Timezone))->toBe('Australia/Sydney')
+        ->and($settings->string(SettingKey::Locale))->toBe('de')
+        ->and($settings->string(SettingKey::DateFormat))->toBe('Y-m-d')
+        ->and($settings->string(SettingKey::TimeFormat))->toBe('g:i A');
+});
+
+test('the timezone select offers the identifiers grouped by region', function () {
+    $fields = Livewire::test(ManageSettings::class)->instance()->form->getFlatFields(withHidden: true);
+
+    /** @var array<string, mixed> $options */
+    $options = $fields['timezone']->getOptions();
+
+    expect($options)->toHaveKey('UTC')
+        ->and($options['Australia'])->toBeArray()
+        ->and($options['Australia'])->toHaveKey('Australia/Sydney');
+});
+
+test('the format examples demonstrate each candidate format', function () {
+    Livewire::test(ManageSettings::class)
+        ->assertSee('5 Mar 2021')
+        ->assertSee('5 March 2021')
+        ->assertSee('05/03/2021')
+        ->assertSee('03/05/2021')
+        ->assertSee('05.03.2021')
+        ->assertSee('05-03-2021')
+        ->assertSee('2021-03-05')
+        ->assertSee('14:07')
+        ->assertSee('2:07 pm')
+        ->assertSee('2:07 PM');
+});
+
+test('the format examples name the convention each option belongs to', function () {
+    // The notes are what let an administrator pick a convention rather than
+    // decode format characters: an example alone says what it looks like,
+    // not who writes dates that way.
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Month first — United States')
+        ->assertSee('Day first — UK, Australia')
+        ->assertSee('ISO 8601 — Canada, sortable')
+        ->assertSee('24-hour — Default')
+        ->assertSee('12-hour, lowercase am/pm');
+});
+
+test('the date format examples follow the locale as it is chosen', function () {
+    // Locale drives the names while the format drives the shape; the live
+    // re-render is what shows an administrator the two interact before
+    // anything is saved.
+    Livewire::test(ManageSettings::class)
+        ->set('data.locale', 'fr')
+        ->assertSee('5 mars 2021')
+        ->assertDontSee('5 Mar 2021');
 });

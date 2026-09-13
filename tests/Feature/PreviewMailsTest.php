@@ -5,6 +5,7 @@ use App\Mail\TestEmail;
 use App\Models\User;
 use App\Notifications\QueueJobFailed;
 use App\Settings\Settings;
+use Carbon\CarbonImmutable;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Mail\Events\MessageSent;
@@ -77,6 +78,27 @@ test('it sends each email type without touching the database', function () {
 
     // The notifiable is a factory-made stand-in: no row may appear for it.
     expect(User::count())->toBe(0);
+});
+
+/**
+ * The test email is the one message every administrator receives, and its
+ * timestamp is a date a person reads: it must render in the display timezone
+ * and format settings rather than the UTC wall clock the server keeps.
+ */
+test('the test email renders its timestamp through the locale and time settings', function () {
+    app(Settings::class)->setMany([
+        'timezone' => 'Australia/Sydney',
+        'date_format' => 'd/m/Y',
+        'time_format' => 'H:i',
+    ]);
+
+    // Frozen so the assertion pins the UTC-to-Sydney conversion rather than
+    // racing the clock: 00:30 UTC is 11:30 AEDT on a January day.
+    $this->travelTo(CarbonImmutable::parse('2026-01-15 00:30:00'));
+
+    $this->get('/dev/mails/test-email')
+        ->assertSuccessful()
+        ->assertSee('15/01/2026, 11:30');
 });
 
 test('it falls back to the built-in preview address', function () {

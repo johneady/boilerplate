@@ -2,6 +2,8 @@
 
 namespace App\Settings;
 
+use DateTimeZone;
+
 /**
  * Every application setting stored in the `settings` table.
  *
@@ -12,6 +14,74 @@ namespace App\Settings;
  */
 enum SettingKey: string
 {
+    /**
+     * The date formats an administrator may choose between, keyed by the PHP
+     * format string with the note shown beside its rendered example. The
+     * first is the default.
+     *
+     * @var array<string, string>
+     */
+    public const DATE_FORMATS = [
+        'j M Y' => 'Default',
+        'j F Y' => 'Full month name',
+        'd/m/Y' => 'Day first — UK, Australia',
+        'm/d/Y' => 'Month first — United States',
+        'd.m.Y' => 'Dotted — Germany, central Europe',
+        'd-m-Y' => 'Dashed — Netherlands, Portugal',
+        'Y-m-d' => 'ISO 8601 — Canada, sortable',
+    ];
+
+    /**
+     * The time formats an administrator may choose between, keyed by the PHP
+     * format string with the note shown beside its rendered example. The
+     * first is the default.
+     *
+     * @var array<string, string>
+     */
+    public const TIME_FORMATS = [
+        'H:i' => '24-hour — Default',
+        'g:i a' => '12-hour, lowercase am/pm',
+        'g:i A' => '12-hour, uppercase AM/PM',
+    ];
+
+    /**
+     * The locales an administrator may choose between, keyed by code with the
+     * English name shown in the panel.
+     *
+     * Curated rather than exhaustive: every code here is one Carbon ships
+     * translations for, so month and day names and relative times localise
+     * the moment it is chosen. Add a code here only once its translations
+     * actually exist, or the panel will offer locales that change nothing.
+     *
+     * @var array<string, string>
+     */
+    public const LOCALES = [
+        'en' => 'English',
+        'en_GB' => 'English (British)',
+        'en_AU' => 'English (Australian)',
+        'en_CA' => 'English (Canadian)',
+        'fr' => 'French',
+        'de' => 'German',
+        'es' => 'Spanish',
+        'it' => 'Italian',
+        'nl' => 'Dutch',
+        'pt' => 'Portuguese',
+        'pt_BR' => 'Portuguese (Brazil)',
+        'da' => 'Danish',
+        'sv' => 'Swedish',
+        'nb' => 'Norwegian',
+        'pl' => 'Polish',
+        'tr' => 'Turkish',
+        'ru' => 'Russian',
+        'uk' => 'Ukrainian',
+        'ja' => 'Japanese',
+        'ko' => 'Korean',
+        'zh_CN' => 'Chinese (Simplified)',
+        'ar' => 'Arabic',
+        'hi' => 'Hindi',
+        'id' => 'Indonesian',
+    ];
+
     case BusinessName = 'business_name';
 
     case BusinessAddress = 'business_address';
@@ -48,6 +118,14 @@ enum SettingKey: string
 
     case OpsAlertEmail = 'ops_alert_email';
 
+    case Timezone = 'timezone';
+
+    case Locale = 'locale';
+
+    case DateFormat = 'date_format';
+
+    case TimeFormat = 'time_format';
+
     /**
      * The settings-page tab this key is edited on.
      */
@@ -58,6 +136,7 @@ enum SettingKey: string
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => SettingsTab::Mail,
+            self::Timezone, self::Locale, self::DateFormat, self::TimeFormat => SettingsTab::LocaleTime,
         };
     }
 
@@ -74,6 +153,13 @@ enum SettingKey: string
             self::AllowRegistration => false,
             self::MailMailer => 'log',
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => '',
+            // UTC is the storage timezone this application pins in config, so
+            // the display setting defaults to it too: reading an unsaved row
+            // and reading a hand-edited one agree.
+            self::Timezone => 'UTC',
+            self::Locale => 'en',
+            self::DateFormat => array_key_first(self::DATE_FORMATS),
+            self::TimeFormat => array_key_first(self::TIME_FORMATS),
         };
     }
 
@@ -93,7 +179,25 @@ enum SettingKey: string
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
             self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => self::toFilledString($value, ''),
+            self::Timezone => self::toTimezone($value),
+            self::Locale => self::toOneOf($value, array_keys(self::LOCALES), 'en'),
+            self::DateFormat => self::toOneOf($value, array_keys(self::DATE_FORMATS), array_key_first(self::DATE_FORMATS)),
+            self::TimeFormat => self::toOneOf($value, array_keys(self::TIME_FORMATS), array_key_first(self::TIME_FORMATS)),
         };
+    }
+
+    /**
+     * Interpret a stored value as a timezone identifier, failing closed.
+     *
+     * A timezone pervades every date the application renders, so a row
+     * hand-edited to a typo must fall back to UTC rather than hand Carbon
+     * an identifier it throws on at render time.
+     */
+    private static function toTimezone(mixed $value): string
+    {
+        return is_string($value) && in_array($value, DateTimeZone::listIdentifiers(), true)
+            ? $value
+            : 'UTC';
     }
 
     /**
@@ -166,6 +270,10 @@ enum SettingKey: string
             self::MailFromAddress => 'From address',
             self::MailFromName => 'From name',
             self::OpsAlertEmail => 'Failure alert address',
+            self::Timezone => 'Display timezone',
+            self::Locale => 'Locale',
+            self::DateFormat => 'Date format',
+            self::TimeFormat => 'Time format',
         };
     }
 
@@ -193,6 +301,10 @@ enum SettingKey: string
             self::MailFromAddress => 'The address outgoing email is sent from. Required.',
             self::MailFromName => 'The name outgoing email is sent from. Leave blank to use the business name.',
             self::OpsAlertEmail => 'Where to email a warning when a queued background job fails. Leave blank to send no alerts; failures are written to the application log either way.',
+            self::Timezone => 'Dates and times are stored as UTC and shown converted to this timezone across the site. Changing it never rewrites stored data, so it is safe to change at any time.',
+            self::Locale => 'Localises month and day names and relative times such as "2 hours ago". Interface text stays in English until translation files are added to the application.',
+            self::DateFormat => 'How dates are shown. Each option names the convention it belongs to; month and day names follow the locale chosen above.',
+            self::TimeFormat => 'Shown beside the date wherever a full date and time appears.',
         };
     }
 }

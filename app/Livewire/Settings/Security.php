@@ -5,6 +5,7 @@ namespace App\Livewire\Settings;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\RendersSettingsChrome;
 use App\Concerns\ResolvesAuthenticatedUser;
+use App\Settings\Settings;
 use Exception;
 use Flux\Flux;
 use Illuminate\Support\Facades\DB;
@@ -147,8 +148,10 @@ class Security extends Component
                 'id' => $passkey->id,
                 'name' => $passkey->name,
                 'authenticator' => $passkey->authenticator,
-                'created_at_diff' => $passkey->created_at?->diffForHumans(),
-                'last_used_at_diff' => $passkey->last_used_at?->diffForHumans(),
+                // Localised through the settings service so the words follow
+                // the locale setting the same way formatted dates do.
+                'created_at_diff' => app(Settings::class)->formatRelative($passkey->created_at),
+                'last_used_at_diff' => app(Settings::class)->formatRelative($passkey->last_used_at),
             ])
             ->all();
     }

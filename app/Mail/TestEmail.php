@@ -43,16 +43,21 @@ class TestEmail extends Mailable
      */
     public function content(): Content
     {
+        $settings = app(Settings::class);
+
         return new Content(
             markdown: 'mail.test-email',
             with: [
-                'businessName' => app(Settings::class)->businessName(),
+                'businessName' => $settings->businessName(),
                 // Named for the administrator reading it: which transport
                 // actually carried this message is the whole point of the
                 // test, and "log" arriving here is the usual explanation for
                 // "the test passed but nobody received anything".
                 'mailer' => (string) config('mail.default'),
-                'sentAt' => now()->toDayDateTimeString(),
+                // Through the settings service like every date a person
+                // reads, so the timestamp lands in the display timezone and
+                // format rather than the UTC wall clock the server keeps.
+                'sentAt' => $settings->formatDateTime(now()),
             ],
         );
     }
