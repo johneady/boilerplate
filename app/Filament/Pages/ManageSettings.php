@@ -6,6 +6,8 @@ use App\Concerns\ImageValidationRules;
 use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Models\User;
+use App\Settings\DiagnosticResult;
+use App\Settings\DiagnosticSeverity;
 use App\Settings\ProductionDiagnostics;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
@@ -103,6 +105,13 @@ class ManageSettings extends Page
     ];
 
     /**
+     * The checks that did not pass, memoized for the render that asked.
+     *
+     * @var list<DiagnosticResult>|null
+     */
+    protected ?array $diagnosticFailures = null;
+
+    /**
      * The form's state, keyed by SettingKey value.
      *
      * @var array<string, mixed>|null
@@ -156,6 +165,12 @@ class ManageSettings extends Page
      * The mail tab leads with the mailer button, whose modal edits the keys
      * MAILER_MODAL_KEYS holds instead of the form; the SEO & brand tab leads
      * with the logo preview and its buttons, which edit Logo the same way.
+     *
+     * The Email and Diagnostics tabs carry a badge flagging what cannot be
+     * seen without opening them: the mailer actually sending while it is not
+     * SMTP, and the number of failing checks -- red the moment an error is
+     * among them, amber while only warnings are. Both resolve per render,
+     * so they follow an out-of-band save made in this same request.
      */
     protected function tabComponent(SettingsTab $settingsTab): Tab
     {
@@ -190,9 +205,27 @@ class ManageSettings extends Page
             $components[] = $this->diagnosticsReport();
         }
 
-        return Tab::make($settingsTab->label())
+        $tab = Tab::make($settingsTab->label())
             ->icon($settingsTab->icon())
             ->schema($components);
+
+        if ($settingsTab === SettingsTab::Mail) {
+            $tab
+                ->badge(fn (): ?string => $this->settings()->effectiveMailer() === 'smtp' ? null : $this->mailerLabel())
+                ->badgeColor('warning')
+                ->badgeTooltip(fn (): ?string => $this->settings()->effectiveMailer() === 'smtp'
+                    ? null
+                    : 'Messages are sent through '.$this->mailerLabel().' rather than SMTP. Change it with the mailer button on this tab.');
+        }
+
+        if ($settingsTab === SettingsTab::Diagnostics) {
+            $tab
+                ->badge(fn (): ?string => static::diagnosticsBadge($this->diagnosticFailures())['label'])
+                ->badgeColor(fn (): string => static::diagnosticsBadge($this->diagnosticFailures())['color'])
+                ->badgeTooltip(fn (): ?string => static::diagnosticsBadge($this->diagnosticFailures())['tooltip']);
+        }
+
+        return $tab;
     }
 
     /**
@@ -215,16 +248,10 @@ class ManageSettings extends Page
      */
     protected function configureMailerAction(): Action
     {
-        $mailerInUse = fn (): string => $this->settings()->effectiveMailer();
-
         return Action::make('configureMailer')
-            ->label(fn (): string => 'Mailer: '.match ($mailerInUse()) {
-                'smtp' => 'SMTP',
-                'log' => 'Log',
-                default => str($mailerInUse())->ucfirst()->toString(),
-            })
+            ->label(fn (): string => 'Mailer: '.$this->mailerLabel())
             ->icon(Heroicon::OutlinedServerStack)
-            ->color(fn (): string => $mailerInUse() === 'smtp' ? 'success' : 'gray')
+            ->color(fn (): string => $this->settings()->effectiveMailer() === 'smtp' ? 'success' : 'gray')
             ->modalHeading('Change mailer')
             ->modalDescription(SettingKey::MailMailer->helperText())
             ->form(array_map(
@@ -297,6 +324,24 @@ class ManageSettings extends Page
     }
 
     /**
+     * The mailer's display name, as the mailer button and the Email tab's
+     * badge both show it.
+     *
+     * Keyed off effectiveMailer(), so the two always agree on which mailer
+     * is described -- including the incomplete-SMTP fallback to log.
+     */
+    protected function mailerLabel(): string
+    {
+        $mailer = $this->settings()->effectiveMailer();
+
+        return match ($mailer) {
+            'smtp' => 'SMTP',
+            'log' => 'Log',
+            default => str($mailer)->ucfirst()->toString(),
+        };
+    }
+
+    /**
      * The read-only configuration report shown on the Diagnostics tab.
      *
      * Resolved per render rather than frozen into viewData at schema-build
@@ -310,6 +355,60 @@ class ManageSettings extends Page
                 'results' => app(ProductionDiagnostics::class)->run(),
                 'environment' => (string) config('app.env'),
             ]);
+    }
+
+    /**
+     * The checks that did not pass, run once per render.
+     *
+     * The Diagnostics tab badge's closures and the report beside them all
+     * ask for the findings; memoizing keeps a render to a single run of
+     * the checks.
+     *
+     * @return list<DiagnosticResult>
+     */
+    protected function diagnosticFailures(): array
+    {
+        return $this->diagnosticFailures ??= app(ProductionDiagnostics::class)->failures();
+    }
+
+    /**
+     * The Diagnostics tab's badge, from the checks that did not pass.
+     *
+     * A pure function of the findings so it can be pinned by a test of its
+     * own, independent of the configuration that produced them: the label
+     * is the number of failures, the colour the worst severity among them,
+     * and the tooltip the breakdown the count alone does not give.
+     *
+     * @param  list<DiagnosticResult>  $failures
+     * @return array{label: ?string, color: string, tooltip: ?string}
+     */
+    public static function diagnosticsBadge(array $failures): array
+    {
+        $errors = count(array_filter(
+            $failures,
+            fn (DiagnosticResult $result): bool => $result->severity === DiagnosticSeverity::Error,
+        ));
+
+        $warnings = count(array_filter(
+            $failures,
+            fn (DiagnosticResult $result): bool => $result->severity === DiagnosticSeverity::Warning,
+        ));
+
+        $breakdown = [];
+
+        if ($errors > 0) {
+            $breakdown[] = $errors === 1 ? '1 error' : "{$errors} errors";
+        }
+
+        if ($warnings > 0) {
+            $breakdown[] = $warnings === 1 ? '1 warning' : "{$warnings} warnings";
+        }
+
+        return [
+            'label' => $breakdown === [] ? null : (string) count($failures),
+            'color' => $errors > 0 ? 'danger' : 'warning',
+            'tooltip' => $breakdown === [] ? null : implode(', ', $breakdown),
+        ];
     }
 
     /**

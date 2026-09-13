@@ -5,6 +5,8 @@ use App\Filament\Pages\ManageSettings;
 use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Models\User;
+use App\Settings\DiagnosticResult;
+use App\Settings\DiagnosticSeverity;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use App\Settings\SettingsTab;
@@ -22,6 +24,38 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
     $this->actingAs($this->admin);
 });
+
+/**
+ * The built tab for a settings group, badge included.
+ *
+ * The badge's closures resolve when read, so the tab an assertion inspects
+ * describes the state at the moment of the call -- exactly what the strip
+ * renders.
+ */
+function settingsPageTab(SettingsTab $settingsTab): Tab
+{
+    $flattener = function (array $components) use (&$flattener): array {
+        $result = [];
+
+        foreach ($components as $component) {
+            $result[] = $component;
+
+            if ($component instanceof Component) {
+                $result = [...$result, ...$flattener($component->getChildComponents())];
+            }
+        }
+
+        return $result;
+    };
+
+    $tab = collect($flattener(Livewire::test(ManageSettings::class)->instance()->form->getComponents()))
+        ->filter(fn (object $component): bool => $component instanceof Tab)
+        ->first(fn (Tab $candidate): bool => $candidate->getLabel() === $settingsTab->label());
+
+    expect($tab)->not->toBeNull("No tab built for [{$settingsTab->label()}].");
+
+    return $tab;
+}
 
 test('the panel navigation links to the settings page', function () {
     $this->get('/admin/settings')->assertSuccessful();
@@ -181,6 +215,53 @@ test('the diagnostics tab reports when every check passes', function () {
         ->assertSee('No issues found');
 });
 
+/**
+ * The tab badge is the headline the report's own badges would otherwise
+ * bury: a failing check is visible on the tab strip without opening the
+ * tab. The environment the checks read is pinned to a single error, since
+ * the badge counts every failure at once.
+ */
+test('the diagnostics tab is flagged with the count of failing checks', function () {
+    config()->set('app.debug', true);
+
+    $tab = settingsPageTab(SettingsTab::Diagnostics);
+
+    expect($tab->getBadge())->toBe('1')
+        ->and($tab->getBadgeColor())->toBe('danger')
+        ->and($tab->getBadgeTooltip())->toBe('1 error');
+});
+
+test('the diagnostics tab carries no flag when every check passes', function () {
+    config()->set('app.debug', false);
+
+    expect(settingsPageTab(SettingsTab::Diagnostics)->getBadge())->toBeNull();
+});
+
+/**
+ * Pinned independently of the configuration that produces the findings, so
+ * the amber errors-take-precedence branch and the pluralised breakdown are
+ * exercised without having to stage a warnings-only production environment.
+ */
+test('the diagnostics flag reads directly off its findings', function (array $severities, ?string $label, string $color, ?string $tooltip) {
+    $failures = array_map(
+        fn (DiagnosticSeverity $severity): DiagnosticResult => new DiagnosticResult('Check', false, $severity, 'detail'),
+        $severities,
+    );
+
+    expect(ManageSettings::diagnosticsBadge($failures))->toBe([
+        'label' => $label,
+        'color' => $color,
+        'tooltip' => $tooltip,
+    ]);
+})->with([
+    'no failures' => [[], null, 'warning', null],
+    'one error' => [[DiagnosticSeverity::Error], '1', 'danger', '1 error'],
+    'many errors' => [[DiagnosticSeverity::Error, DiagnosticSeverity::Error], '2', 'danger', '2 errors'],
+    'one warning' => [[DiagnosticSeverity::Warning], '1', 'warning', '1 warning'],
+    'warnings only' => [[DiagnosticSeverity::Warning, DiagnosticSeverity::Warning], '2', 'warning', '2 warnings'],
+    'mixed' => [[DiagnosticSeverity::Error, DiagnosticSeverity::Error, DiagnosticSeverity::Warning], '3', 'danger', '2 errors, 1 warning'],
+]);
+
 test('non-admins cannot reach the diagnostics report', function () {
     $this->actingAs(User::factory()->create())
         ->get('/admin/settings')
@@ -326,6 +407,36 @@ test('an smtp choice without a host shows as the log mailer it falls back to', f
 
     Livewire::test(ManageSettings::class)
         ->assertSee('Mailer: Log');
+});
+
+/**
+ * The Email tab's badge is the tab-strip flag for what the mailer button
+ * reports once the tab is open: while mail does not go out through SMTP,
+ * the mailer actually sending is named beside the tab label.
+ */
+test('the email tab is flagged with the mailer in use while it is not smtp', function () {
+    config(['mail.default' => 'log']);
+
+    $tab = settingsPageTab(SettingsTab::Mail);
+
+    expect($tab->getBadge())->toBe('Log')
+        ->and($tab->getBadgeColor())->toBe('warning')
+        ->and($tab->getBadgeTooltip())->toBe('Messages are sent through Log rather than SMTP. Change it with the mailer button on this tab.');
+});
+
+test('the email tab carries no flag while the mailer is smtp', function () {
+    config(['mail.default' => 'smtp']);
+
+    expect(settingsPageTab(SettingsTab::Mail)->getBadge())->toBeNull();
+});
+
+test('the email tab flag follows an incomplete smtp choice back to the log', function () {
+    app(Settings::class)->setMany([
+        'mail_mailer' => 'smtp',
+        'mail_host' => '',
+    ]);
+
+    expect(settingsPageTab(SettingsTab::Mail)->getBadge())->toBe('Log');
 });
 
 test('submitting smtp without a host warns that mail stays on the log', function () {
