@@ -103,3 +103,8 @@ test('the message is shown as text rather than rendered', function () {
 test('the resource sits in the content navigation group', function () {
     expect(ContactSubmissionResource::getNavigationGroup())->toBe('Content');
 });
+
+test('the menu line is shortened to messages while the screen keeps the full name', function () {
+    expect(ContactSubmissionResource::getNavigationLabel())->toBe('Messages')
+        ->and(ContactSubmissionResource::getPluralModelLabel())->toBe('Contact messages');
+});

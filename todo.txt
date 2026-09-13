@@ -1,5 +1,3 @@
-1. the user icon in filament is a black circle with the initals in it, vs the one that I see on the user index page. It works once I upload an image for the user, but before it should be that default one we show on the user index.
 
-2. Change the filmanet "Contact Messages" menu line to just "Messages"
 
-3. In filament in the top left corner, before thebusiness name, show the business logo.
+

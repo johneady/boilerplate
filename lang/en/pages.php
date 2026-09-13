@@ -49,6 +49,10 @@ return [
         'label' => 'Contact message',
         'plural_label' => 'Contact messages',
 
+        // The sidebar line, shorter than the plural label: in the panel's
+        // Content group the "contact" half adds no information.
+        'navigation_label' => 'Messages',
+
         'fields' => [
             'name' => 'From',
             'email' => 'Email address',

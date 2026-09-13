@@ -5,6 +5,7 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Filament\Support\Enums\Width;
+use Illuminate\Support\Facades\Storage;
 
 test('the panel does not register a login page of its own', function () {
     expect(Route::has('filament.admin.auth.login'))->toBeFalse();
@@ -156,4 +157,30 @@ test('the panel brand follows a business name changed after boot', function () {
     app()->forgetScopedInstances();
 
     expect($panel->getBrandName())->toBe('Cromulent Widgets');
+});
+
+test('the panel brand shows the bundled mark beside the business name', function () {
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    // In-order searching starts from the mark, so the name it finds after it
+    // is the lockup's copy, not the one in <title> up in the head.
+    $this->actingAs(User::factory()->admin()->create())
+        ->get('/admin')
+        ->assertSuccessful()
+        ->assertSeeInOrder(['app-logo-', 'Cromulent Widgets']);
+});
+
+test('a stored logo becomes the panel brand mark', function () {
+    Storage::fake('public');
+
+    $this->storeLogo('logo/abc');
+
+    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+
+    $this->actingAs(User::factory()->admin()->create())
+        ->get('/admin')
+        ->assertSuccessful()
+        ->assertSeeInOrder(['/storage/logo/abc/mark.webp', 'Cromulent Widgets'])
+        // The bundled gradient mark gives way to the upload entirely.
+        ->assertDontSee('app-logo-', false);
 });

@@ -20,6 +20,7 @@ use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
 use Filament\View\PanelsRenderHook;
+use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
@@ -51,6 +52,11 @@ class AdminPanelProvider extends PanelProvider
             // boot, so reading the setting here directly would pin the brand to
             // whatever was stored then and ignore later edits.
             ->brandName(fn (): string => app(Settings::class)->businessName())
+            // The lockup that brandName labels: the mark before the name, in
+            // the sidebar header and the mobile topbar. A View is lazy, so the
+            // composers binding $businessName and $logoMarkUrl run at render
+            // time -- the same property the brandName closure above preserves.
+            ->brandLogo(fn (): Htmlable => view('filament.brand-logo'))
             // No resource is worth a topbar search field on this panel yet.
             ->globalSearch(false)
             // amber and zinc back the role badges (App\Auth\Role::color()).

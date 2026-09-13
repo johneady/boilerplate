@@ -51,6 +51,16 @@ class ContactSubmissionResource extends Resource
     }
 
     /**
+     * The sidebar line. Shorter than the plural label, which stays on the
+     * screen itself: the menu already sits in the Content group, where the
+     * "contact" half of the name adds no information.
+     */
+    public static function getNavigationLabel(): string
+    {
+        return __('pages.submissions.navigation_label');
+    }
+
+    /**
      * The count of submissions nobody has dealt with yet.
      *
      * Returned as null rather than "0" when the inbox is clear, so the sidebar
