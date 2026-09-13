@@ -213,4 +213,12 @@ jobs:
         # Browser tests are excluded: this job installs no Playwright browser,
         # and what it exists to prove is that the schema and queries behave on
         # a real database server -- which the Unit and Feature suites cover.
-        run: vendor/bin/pest --ci --testsuite=Unit,Feature
+        #
+        # --parallel works here because Laravel's TestDatabases concern gives
+        # each worker its own schema (testing_test_1, testing_test_2, ...) and
+        # migrates it, rather than the workers sharing `testing`. Capped at 4
+        # processes deliberately: every worker holds connections to ONE service
+        # container, and the default (a process per core) is a heavier load on
+        # it than the sqlite job's per-worker :memory: files, which cost the
+        # server nothing.
+        run: vendor/bin/pest --ci --parallel --processes=4 --testsuite=Unit,Feature
