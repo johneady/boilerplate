@@ -1,7 +1,7 @@
 ---
 paths:
   - 'tests/Browser/**'
-  - 'tests/Pest.php'
+  - tests/Pest.php
 ---
 
 # Browser

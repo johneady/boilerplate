@@ -12,6 +12,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Models/User.php, app/Providers/AppServiceProvider.php, app/Livewire/Settings/Security.php, routes/settings.php | .ai/rules/auth-gates.md |
 | app/Models/User.php, app/Filament/Resources/Users/UserResource.php | .ai/rules/avatar-gradient.md |
 | tests/Browser/**, tests/Pest.php | .ai/rules/browser.md |
+| tests/** | .ai/rules/tests.md |
 | app/Jobs/ProcessUploadedImage.php, app/Console/Commands/PruneOrphanedMedia.php | .ai/rules/commands.md |
 | resources/views/layouts/public.blade.php, resources/views/components/business-footer.blade.php, app/Providers/AppServiceProvider.php | .ai/rules/components-providers.md |
 | resources/views/components/app-logo-icon.blade.php, resources/views/components/app-logo.blade.php | .ai/rules/components-views-components.md |

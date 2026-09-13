@@ -92,7 +92,12 @@ test('it records the written conversions and geometry on the media row', functio
 
     // Until this runs the row has null conversions, which is what Media::url()
     // reads as "still in flight" and renders as a placeholder.
-    expect($media->conversions)->toBe([
+    // toEqualCanonicalizing, not toBe: the column is json, and MySQL/MariaDB
+    // store that natively and return object keys in their own order, so an
+    // order-sensitive assertion passes on sqlite and fails in CI. Nothing
+    // reads this map positionally -- Media::url() looks conversions up by
+    // name -- so the order genuinely does not matter.
+    expect($media->conversions)->toEqualCanonicalizing([
         'thumb' => 'avatars/1/abc/thumb.webp',
         'full' => 'avatars/1/abc/full.webp',
     ])
