@@ -146,6 +146,19 @@ return [
         'relying_party_id' => parse_url(config('app.url'), PHP_URL_HOST),
         'allowed_origins' => [config('app.url')],
         'user_handle_secret' => env('PASSKEYS_USER_HANDLE_SECRET', config('app.key')),
+
+        /*
+         * Whether a dedicated secret was configured, as opposed to falling
+         * back to the application key above. Recorded here because the
+         * resolved secret is never empty, so nothing downstream can tell the
+         * two apart -- and the fallback is what silently invalidates every
+         * registered passkey if APP_KEY is ever rotated.
+         *
+         * Evaluated here rather than by calling env() at runtime, which
+         * returns null once the configuration is cached.
+         */
+        'has_dedicated_user_handle_secret' => filled(env('PASSKEYS_USER_HANDLE_SECRET')),
+
         'timeout' => 60000,
     ],
 

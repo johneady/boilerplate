@@ -10,6 +10,11 @@ use Filament\Support\Icons\Heroicon;
  * SettingKey::tab() assigns every key to one of these, and the page builds a
  * tab per case in declaration order -- adding a tab is a case here plus the
  * keys that claim it, with no separate list to keep in step.
+ *
+ * Diagnostics is the exception: it claims no keys and edits nothing, rendering
+ * a read-only report of the configuration the other tabs cannot express. It
+ * lives here anyway so it appears alongside the settings it audits rather than
+ * behind a separate navigation entry.
  */
 enum SettingsTab: string
 {
@@ -21,6 +26,8 @@ enum SettingsTab: string
 
     case Mail = 'mail';
 
+    case Diagnostics = 'diagnostics';
+
     /**
      * The heading shown on the tab in the admin panel.
      */
@@ -31,6 +38,7 @@ enum SettingsTab: string
             self::SeoBrand => 'SEO & brand',
             self::Registration => 'Registration',
             self::Mail => 'Email',
+            self::Diagnostics => 'Diagnostics',
         };
     }
 
@@ -44,6 +52,7 @@ enum SettingsTab: string
             self::SeoBrand => Heroicon::OutlinedGlobeAlt,
             self::Registration => Heroicon::OutlinedUserPlus,
             self::Mail => Heroicon::OutlinedEnvelope,
+            self::Diagnostics => Heroicon::OutlinedShieldCheck,
         };
     }
 }

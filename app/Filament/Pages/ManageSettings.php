@@ -6,6 +6,7 @@ use App\Concerns\ImageValidationRules;
 use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Models\User;
+use App\Settings\ProductionDiagnostics;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use App\Settings\SettingsTab;
@@ -47,6 +48,11 @@ use Throwable;
  * mail tab and SEO & brand tab edit them through the modals their buttons
  * open, since they change as a unit and persist the moment the modal is
  * submitted.
+ *
+ * The Diagnostics tab edits nothing at all. It reports on configuration that
+ * lives in the environment rather than the settings table -- debug mode, the
+ * database driver, session cookie flags -- which an administrator otherwise
+ * has no way to inspect without shell access to the container.
  *
  * @property-read Schema $form
  */
@@ -174,6 +180,10 @@ class ManageSettings extends Page
             );
         }
 
+        if ($settingsTab === SettingsTab::Diagnostics) {
+            $components[] = $this->diagnosticsReport();
+        }
+
         return Tab::make($settingsTab->label())
             ->icon($settingsTab->icon())
             ->schema($components);
@@ -253,6 +263,22 @@ class ManageSettings extends Page
         return View::make('filament.settings.logo-preview')
             ->viewData(fn (): array => [
                 'hasUploadedLogo' => $this->settings()->string(SettingKey::Logo) !== '',
+            ]);
+    }
+
+    /**
+     * The read-only configuration report shown on the Diagnostics tab.
+     *
+     * Resolved per render rather than frozen into viewData at schema-build
+     * time, so reopening the tab after changing a setting -- or after a deploy
+     * that changed the environment -- reports the configuration in force now.
+     */
+    protected function diagnosticsReport(): View
+    {
+        return View::make('filament.settings.diagnostics-report')
+            ->viewData(fn (): array => [
+                'results' => app(ProductionDiagnostics::class)->run(),
+                'environment' => (string) config('app.env'),
             ]);
     }
 

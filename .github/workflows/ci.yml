@@ -75,7 +75,63 @@ jobs:
         # passed, which makes it run the full suite instead of trusting Tia's
         # cached dependency graph. `artisan test` does not forward the flag, so
         # Pest is invoked directly. See README "Tia in CI".
-        run: vendor/bin/pest --ci --parallel
+        #
+        # Browser tests are excluded here and run in their own job: they need a
+        # Playwright browser download this job has no reason to pay for, and
+        # keeping them apart stops browser flakiness from masking a real unit
+        # or feature failure.
+        run: vendor/bin/pest --ci --parallel --testsuite=Unit,Feature
+
+  browser:
+    name: Pest (browser)
+    runs-on: ubuntu-latest
+
+    # Separate from the Pest job above so the fast feedback loop stays fast:
+    # this one downloads a browser and drives a real page, which is both slower
+    # and likelier to fail for reasons unrelated to the change under test.
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: intl, zip, gd, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        uses: ramsey/composer-install@v3
+
+      - name: Set up environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # The plugin drives Playwright from node_modules and refuses to run
+      # against a browser build that does not match the installed version, so
+      # this must come from the same lockfile npm ci just installed.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build assets
+        run: npm run build
+
+      - name: Run browser tests
+        run: vendor/bin/pest --ci --testsuite=Browser
+
+      # The plugin writes a screenshot beside each failing assertion, which is
+      # usually the fastest way to see why a browser test failed in CI.
+      - name: Upload failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-screenshots
+          path: tests/Browser/Screenshots
+          if-no-files-found: ignore
 
   database:
     name: Pest (${{ matrix.database }})
@@ -154,4 +210,7 @@ jobs:
           DB_USERNAME: root
           DB_PASSWORD: root
           DB_URL: ''
-        run: vendor/bin/pest --ci
+        # Browser tests are excluded: this job installs no Playwright browser,
+        # and what it exists to prove is that the schema and queries behave on
+        # a real database server -- which the Unit and Feature suites cover.
+        run: vendor/bin/pest --ci --testsuite=Unit,Feature

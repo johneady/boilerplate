@@ -138,7 +138,42 @@ test('the settings page renders a tab for each declared group of settings', func
         ->assertSee('Business details')
         ->assertSee('SEO & brand')
         ->assertSee('Registration')
-        ->assertSee('Email');
+        ->assertSee('Email')
+        ->assertSee('Diagnostics');
+});
+
+/**
+ * The Diagnostics tab reports on the environment rather than the settings
+ * table, so it has no fields of its own -- these cover that its findings
+ * actually reach the page, since a tab rendering nothing would look identical
+ * to a healthy one.
+ */
+test('the diagnostics tab reports a failing check', function () {
+    config()->set('app.debug', true);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Debug mode')
+        ->assertSee('Any error renders a stack trace');
+});
+
+test('the diagnostics tab reports the environment it audited', function () {
+    config()->set('app.env', 'production');
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('Environment: production');
+});
+
+test('the diagnostics tab reports when every check passes', function () {
+    config()->set('app.debug', false);
+
+    Livewire::test(ManageSettings::class)
+        ->assertSee('No issues found');
+});
+
+test('non-admins cannot reach the diagnostics report', function () {
+    $this->actingAs(User::factory()->create())
+        ->get('/admin/settings')
+        ->assertForbidden();
 });
 
 test('each setting is edited on its declared tab', function () {

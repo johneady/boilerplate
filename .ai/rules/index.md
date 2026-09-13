@@ -9,6 +9,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/layouts/app/** | .ai/rules/app.md |
 | app/Models/User.php, app/Providers/AppServiceProvider.php, app/Livewire/Settings/Security.php, routes/settings.php | .ai/rules/auth-gates.md |
 | app/Models/User.php, app/Filament/Resources/Users/UserResource.php | .ai/rules/avatar-gradient.md |
+| tests/Browser/** | .ai/rules/browser.md |
 | resources/views/components/app-logo-icon.blade.php, resources/views/components/app-logo.blade.php | .ai/rules/components-views-components.md |
 | resources/views/components/desktop-user-menu.blade.php | .ai/rules/components.md |
 | app/Jobs/ProcessUploadedImage.php, app/Concerns/ImageValidationRules.php, config/images.php | .ai/rules/concerns.md |
@@ -30,5 +31,6 @@ Before planning or editing, find the row whose globs match the file's path and r
 | database/seeders/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
 | resources/views/layouts/app/**, resources/views/components/desktop-user-menu.blade.php | .ai/rules/views-components.md |
+| resources/views/filament/** | .ai/rules/views-filament.md |
 | resources/views/** | .ai/rules/views.md |
 | .github/workflows/**, .github/dependabot.yml | .ai/rules/workflows.md |

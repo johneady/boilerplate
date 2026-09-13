@@ -233,10 +233,53 @@ unset on a same-host nginx → php-fpm deploy, where trusting those headers from
 any client would let it spoof both scheme and IP. A comma-separated list names
 specific proxies instead.
 
+#### Checking a deployment's configuration
+
+[`docker-compose.dokploy.yml`](docker-compose.dokploy.yml) is the reference for
+production values — it pins `APP_DEBUG=false`, `SESSION_ENCRYPT`,
+`SESSION_SECURE_COOKIE` and the rest, and fails the stack outright when a
+required secret is missing. There is deliberately no `.env.production.example`
+beside it; a second copy of those values would only drift.
+
+What the compose file cannot tell you is what a *running* instance actually
+resolved. **Admin → Settings → Diagnostics** audits the live configuration and
+reports what is wrong: debug mode, a missing application key, SQLite in
+production, unencrypted sessions or an insecure session cookie are errors; a
+wildcard proxy list, a container-local image disk, the log mailer, a fallback
+passkey secret and debug-level logging are warnings, since each is defensible in
+some deployments.
+
+The checks live in [`App\Settings\ProductionDiagnostics`](app/Settings/ProductionDiagnostics.php)
+and read resolved config rather than the env file, so a value baked in by
+`config:cache` is reported as it actually is.
+
 ### Settings
 
 Livewire components for profile updates, security (2FA, passkeys), appearance,
 and account deletion, routed from `routes/settings.php`.
+
+### API
+
+A deliberately thin, versioned skeleton — enough that adding the first endpoint
+is writing a route, not wiring a subsystem.
+
+- [`routes/api/v1.php`](routes/api/v1.php), registered from
+  [`bootstrap/app.php`](bootstrap/app.php) under the `api` middleware group with
+  the `api/v1` prefix and `api.v1.` name prefix. The version is in the filename,
+  so a v2 is a new file beside it rather than a rewrite.
+- [`BaseApiResource`](app/Http/Resources/BaseApiResource.php) pins the `data`
+  envelope per-resource instead of relying on the global, mutable default, with
+  [`UserResource`](app/Http/Resources/UserResource.php) as the worked example —
+  fields listed explicitly, so a column added later is never published by
+  accident, and `avatar_url` opt-in via `->withAvatarUrl()` because resolving it
+  stats the images disk once per user.
+- JSON error shapes come from `shouldRenderJsonWhen` in `bootstrap/app.php`;
+  `ApiSkeletonTest` pins that a 404 and a 422 under `api/*` stay JSON even when
+  the client asks for HTML.
+
+Sanctum is **not** installed. Token auth is a ten-minute addition when a project
+needs it, and an unused authentication surface until then; `routes/api/v1.php`
+carries a commented `auth:sanctum` group showing where it goes.
 
 ### Error pages
 
@@ -283,6 +326,28 @@ plus settings, the dashboard, and the admin/dev-login behaviour described above:
 composer test        # config clear, Pint check, PHPStan, then the suite (parallel)
 vendor/bin/pest      # the suite alone
 ```
+
+#### Browser tests
+
+A handful of smoke tests in [`tests/Browser`](tests/Browser) drive a real
+browser through [Pest's browser plugin](https://pestphp.com/docs/browser-testing),
+covering what a server-side assertion cannot see: a page that returns 200 while
+throwing in the browser. They cover login, a rejected password, the 2FA
+challenge screen, and that the admin panel and its settings tabs render.
+
+```bash
+npx playwright install chromium         # once
+vendor/bin/pest --testsuite=Browser
+```
+
+They run as their own CI job so a browser download and the occasional browser
+flake stay out of the fast feedback loop. Two limits are worth knowing before
+adding more, both recorded in [`.ai/rules/browser.md`](.ai/rules/browser.md):
+**file uploads do not work** (the plugin's test server discards uploaded files,
+so Livewire uploads fail there while working in a real browser), and **WebAuthn
+cannot be driven** (no CDP session, so no virtual authenticator). Passkey
+coverage therefore stops at the server's challenge payload, in
+`PasskeyLoginOptionsTest`.
 
 ## Test Impact Analysis (Tia)
 
