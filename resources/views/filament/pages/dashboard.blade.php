@@ -36,7 +36,7 @@
 
                 <h2 class="mt-2 text-2xl font-extrabold tracking-tight text-white sm:text-3xl">John Eady</h2>
                 <p class="mt-1 text-base font-medium text-sky-300">
-                    I build web apps and get them online, from the code to the domain to the server.
+                    I build the website or app your business needs, get it live on your domain, and keep it running.
                 </p>
                 <p class="mt-1.5 text-xs font-medium tracking-wider text-slate-400 uppercase">
                     Laravel &middot; Livewire &middot; Filament &middot; PHP
@@ -46,10 +46,10 @@
     </section>
 
     <p class="text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-        A lot of developers hand over a repository and leave the rest to you. I stay on it until the thing is genuinely
-        working at an address your customers can visit: the app itself, the database behind it, the admin screens your
-        team runs it from, plus the domain, the SSL and the server. One person to ask, and nothing dropped between the
-        code being finished and the site being up.
+        A lot of developers hand over the code and leave the rest to you. I stay with it until the thing is genuinely
+        working at an address your customers can visit: the site itself, the data behind it, the admin screens your team
+        runs it from, plus the domain, the security certificate and the server. One person to ask, and nothing dropped
+        between the code being finished and the site being up.
     </p>
 
     {{-- Work sample --}}
@@ -59,17 +59,18 @@
             You are looking at the work sample
         </h3>
         <p class="mt-2 text-sm leading-relaxed text-blue-900/80 dark:text-blue-200/80">
-            Not a screenshot or a case study. This panel, the authentication behind it and the site it belongs to are
-            all mine, so have a proper look around. Behind the scenes there is passkey sign-in, two-factor
-            authentication, an admin panel for managing users, and settings your team can change without a deploy.
-            Built, hosted and kept running by me.
+            Not a screenshot or a case study. This panel, the secure sign-in behind it and the site it belongs to are
+            all mine, so have a proper look around. Behind the scenes there is passkey sign-in (a fingerprint or face
+            instead of a password), an extra verification step like your bank asks for, an admin area for managing
+            users, and settings your team can change themselves without calling a developer. Built, hosted and kept
+            running by me.
         </p>
     </section>
 
     {{-- How I work --}}
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         @foreach ([
-            ['heroicon-s-chat-bubble-left-right', 'Responsive', 'I answer messages quickly during my working hours, in plain English rather than jargon. Ask me where something stands at any point and you will get a straight answer.'],
+            ['heroicon-s-chat-bubble-left-right', 'Quick, honest answers', 'I answer messages quickly during my working hours, in plain English rather than jargon. Ask me where something stands at any point and you will get a straight answer.'],
             ['heroicon-s-currency-dollar', 'Agreed price up front', 'We settle the scope and the number for each stage before I start it. If you want to change something along the way, I will tell you what it costs first, so the invoice never surprises you.'],
             ['heroicon-s-rocket-launch', 'Online, not just built', 'Working on my laptop does not count. It is finished when it is running on your domain, backed up and monitored, and you have clicked through it yourself and are happy.'],
             ['heroicon-s-key', 'Everything is yours', 'The code, the repository, the domain and the server logins are in your name from day one. Hand the project to someone else whenever you like and nothing about it will be awkward.'],
@@ -93,9 +94,9 @@
 
         <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ([
-                ['heroicon-s-code-bracket', 'The application', ['Laravel and PHP', 'Admin panels your team can use', 'Connecting other services and APIs', 'Jobs that run on a schedule']],
+                ['heroicon-s-code-bracket', 'The site or app itself', ['Built around how your business actually works', 'Admin panels your team can use', 'Connected to the software you already use', 'Automatic jobs, like reports that send themselves']],
                 ['heroicon-s-circle-stack', 'Your data', ['Designing how it is stored', 'Moving data off an old system', 'Reports and spreadsheet exports', 'Keeping it quick as it grows']],
-                ['heroicon-s-shield-check', 'Doing it properly', ['Tests that catch breakages', 'Works on phones and desktops', 'Secure sign-in, including passkeys', 'Code the next developer can follow']],
+                ['heroicon-s-shield-check', 'Doing it properly', ['Automatic checks that catch problems before your customers do', 'Works on phones and desktops', 'Secure sign-in, including passkeys', 'Code the next developer can follow']],
             ] as [$icon, $heading, $items])
                 <div class="rounded-xl border border-zinc-200 bg-zinc-50/60 p-4 dark:border-zinc-800 dark:bg-zinc-900/60">
                     <div class="flex items-center gap-2">
@@ -154,9 +155,7 @@
 
     {{-- Footer call to action, mirroring the modal's footer. --}}
     <footer class="flex flex-wrap items-center justify-between gap-4 rounded-xl border-t border-zinc-200 bg-zinc-50 px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900/80">
-        <p class="text-sm text-zinc-600 dark:text-zinc-400">
-            Want something like this built and running on your own domain?
-        </p>
+        <p class="text-sm text-zinc-600 dark:text-zinc-400">Want something like this for your business?</p>
 
         <x-filament::button
             tag="a"
@@ -166,7 +165,7 @@
             icon="heroicon-m-arrow-top-right-on-square"
             icon-position="after"
         >
-            View Upwork profile
+            Message me on Upwork
         </x-filament::button>
     </footer>
 </x-filament-panels::page>
