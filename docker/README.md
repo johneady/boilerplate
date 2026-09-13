@@ -70,15 +70,16 @@ you have since changed.
    each one is a single double-click to select.
 
    ```dotenv
-   # ---- required: the deploy fails with a named error if any is missing ----
-   # Generate with: php artisan key:generate --show
-   # Reuse the same key across redeploys: sessions are encrypted, so changing
-   # it logs everyone out. Never deploy a key published in a repo.
-   APP_KEY=FILL_ME_IN
-   # Must be the https:// domain Traefik serves, e.g. https://app.example.com
+   APP_ENV=local
+   APP_KEY=base64:4Y8Dl6aeVTwEdWQ+M9NK+l5+3k4QmtUQSPZDav73V+s=
+   # e.g. https://app.example.com
    APP_URL=FILL_ME_IN
 
-   # The Dokploy-managed MariaDB, NOT localhost
+   # Must match the server you provisioned: mariadb or mysql. Not sqlite --
+   # the image ships only pdo_mysql, and queue/cache/sessions all live here.
+   DB_CONNECTION=mariadb
+   DB_PORT=3306
+   RUN_SEEDERS=true
    DB_HOST=FILL_ME_IN
    DB_DATABASE=FILL_ME_IN
    DB_USERNAME=FILL_ME_IN
@@ -91,9 +92,7 @@ you have since changed.
    # oldest file is deleted as each new one opens rather than one file growing
    # for the life of the volume.
    LOG_DAILY_DAYS=14
-   DB_CONNECTION=mariadb
-   DB_PORT=3306
-   RUN_SEEDERS=true
+
    ```
 
    Mail is not configured here. Until a mailer is chosen from
