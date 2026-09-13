@@ -202,6 +202,13 @@ class ManageSettings extends Page
      * is meaningless without the other. Submitting persists immediately --
      * the same direct effect the test email action has -- while the from
      * fields stay on the form, because they apply to whichever mailer sends.
+     *
+     * The modal is stopped at the button itself until a from address is
+     * stored: this is the only path to choosing SMTP, the modal cannot edit
+     * the from fields, and a submitted-without-one row would send real mail
+     * from an address nobody chose. Together with the form's
+     * required-on-smtp rule this makes a live SMTP mailer without a from
+     * address unreachable from the panel.
      */
     protected function configureMailerAction(): Action
     {
@@ -221,10 +228,27 @@ class ManageSettings extends Page
                 fn (SettingKey $key): Field => $this->formComponent($key),
                 self::MAILER_MODAL_KEYS,
             ))
-            ->fillForm(fn (): array => array_intersect_key(
-                $this->settings()->toArray(),
-                array_flip(array_map(fn (SettingKey $key): string => $key->value, self::MAILER_MODAL_KEYS)),
-            ))
+            // mountUsing rather than fillForm: fillForm is itself just a
+            // mountUsing callback, so the guard and the fill share the one
+            // hook. Halting inside mount unmounts the action, so the mailer
+            // modal never opens -- the administrator is told why instead of
+            // being left to fail validation after it does.
+            ->mountUsing(function (Action $action, ?Schema $schema): void {
+                if ($this->settings()->string(SettingKey::MailFromAddress) === '') {
+                    Notification::make()
+                        ->warning()
+                        ->title('Add a from address before changing the mailer')
+                        ->body('SMTP cannot be chosen until a from address is set, and this button is where the mailer is chosen. Set one on the Email tab, save, then come back.')
+                        ->send();
+
+                    $action->halt();
+                }
+
+                $schema?->fill(array_intersect_key(
+                    $this->settings()->toArray(),
+                    array_flip(array_map(fn (SettingKey $key): string => $key->value, self::MAILER_MODAL_KEYS)),
+                ));
+            })
             ->action(function (array $data): void {
                 $this->settings()->setMany($data);
 
@@ -513,11 +537,18 @@ class ManageSettings extends Page
                 ])
                 ->selectablePlaceholder(false)
                 ->visible($this->whenMailerIsSmtp()),
+            // Required only while the mailer actually sending is SMTP. The
+            // mailer is chosen in the modal and persisted the moment it is
+            // submitted, so the saved mailer -- what effectiveMailer()
+            // reports, including the incomplete-SMTP fallback to log -- is
+            // the condition, never form state this field sits beside. On the
+            // log mailer a blank stands down to the deployment's own
+            // MAIL_FROM_ADDRESS rather than being forced.
             SettingKey::MailFromAddress => TextInput::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default())
-                ->required()
+                ->required(fn (): bool => $this->settings()->effectiveMailer() === 'smtp')
                 ->email()
                 ->notIn([(string) config('mail.from.address')])
                 ->maxLength(255),

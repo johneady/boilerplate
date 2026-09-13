@@ -323,6 +323,11 @@ test('an smtp choice without a host shows as the log mailer it falls back to', f
 });
 
 test('submitting smtp without a host warns that mail stays on the log', function () {
+    // A from address is stored first so the button's from-address guard lets
+    // the modal open: this test is about the host warning, which only the
+    // action itself -- after the modal opens and submits -- can issue.
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+
     Livewire::test(ManageSettings::class)
         ->callAction('configureMailer', [
             'mail_mailer' => 'smtp',
@@ -340,6 +345,7 @@ test('the mailer modal opens on the stored connection', function () {
         'mail_username' => 'mailer',
         'mail_password' => 'secret',
         'mail_encryption' => 'tls',
+        'mail_from_address' => 'hello@cromulent.test',
     ]);
 
     Livewire::test(ManageSettings::class)
@@ -355,6 +361,10 @@ test('the mailer modal opens on the stored connection', function () {
 });
 
 test('submitting the mailer modal persists the mail settings', function () {
+    // A from address is stored first: the button is stopped until one is,
+    // and the SMTP this test submits goes live on submit.
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+
     Livewire::test(ManageSettings::class)
         ->callAction('configureMailer', [
             'mail_mailer' => 'smtp',
@@ -379,7 +389,60 @@ test('submitting the mailer modal persists the mail settings', function () {
     Notification::assertNotified('Mailer updated');
 });
 
+test('the mailer button is stopped until a from address is set', function () {
+    // The button is the only path to choosing SMTP, and the modal it opens
+    // cannot edit the from fields -- so it never opens while no from
+    // address is stored. The administrator is told to add one first rather
+    // than being left to fail after the modal opens.
+    Livewire::test(ManageSettings::class)
+        ->mountAction('configureMailer');
+
+    Notification::assertNotified('Add a from address before changing the mailer');
+
+    app()->forgetInstance(Settings::class);
+
+    // Nothing was submitted because nothing was open to submit.
+    expect(app(Settings::class)->has(SettingKey::MailMailer))->toBeFalse();
+
+    Notification::assertNotNotified('Mailer updated');
+});
+
+test('a forged submission cannot switch the mailer while no from address is set', function () {
+    // The button is stopped in the browser, but actions are server-side:
+    // mounting runs the same guard, so a request that calls the action
+    // directly is halted before the mailer modal's form ever exists.
+    Livewire::test(ManageSettings::class)
+        ->callAction('configureMailer', [
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+        ]);
+
+    Notification::assertNotified('Add a from address before changing the mailer');
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->has(SettingKey::MailMailer))->toBeFalse();
+});
+
+test('the mailer button opens again once a from address is set', function () {
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+
+    Livewire::test(ManageSettings::class)
+        ->callAction('configureMailer', ['mail_mailer' => 'log'])
+        ->assertHasNoActionErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::MailMailer))->toBe('log');
+
+    Notification::assertNotified('Mailer updated');
+});
+
 test('the mail port is rejected when it is not a port number', function () {
+    // A from address is stored first so the button's guard lets the modal
+    // open; the port rule this test pins runs at submission.
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+
     // The modal halts on validation, so nothing it edits is stored.
     Livewire::test(ManageSettings::class)
         ->callAction('configureMailer', [
@@ -393,11 +456,34 @@ test('the mail port is rejected when it is not a port number', function () {
     expect(app(Settings::class)->has(SettingKey::MailMailer))->toBeFalse();
 });
 
-test('the from address is required', function () {
+test('the from address is required while the mailer is smtp', function () {
+    // The mailer choice is persisted by the modal before the form ever
+    // saves, so the field keys off the stored row: with SMTP live, a blank
+    // would send real mail from an address nobody chose.
+    app(Settings::class)->setMany([
+        'mail_mailer' => 'smtp',
+        'mail_host' => 'smtp.example.com',
+    ]);
+
     Livewire::test(ManageSettings::class)
         ->fillForm(['mail_from_address' => ''])
         ->call('save')
         ->assertHasFormErrors(['mail_from_address' => 'required']);
+});
+
+test('the from address is optional while the mailer is log', function () {
+    app(Settings::class)->set(SettingKey::MailMailer, 'log');
+
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['mail_from_address' => ''])
+        ->call('save')
+        ->assertHasNoFormErrors();
+
+    app()->forgetInstance(Settings::class);
+
+    // A blank row is the meaningful "keep the deployment address" value,
+    // not a missing one the cast quietly replaces.
+    expect(app(Settings::class)->string(SettingKey::MailFromAddress))->toBe('');
 });
 
 test('the from address is rejected when it is the deployment default', function () {
@@ -419,6 +505,7 @@ test('switching the mailer back to log keeps the stored connection', function ()
         'mail_host' => 'smtp.example.com',
         'mail_username' => 'mailer',
         'mail_password' => 's3cret',
+        'mail_from_address' => 'hello@cromulent.test',
     ]);
 
     Livewire::test(ManageSettings::class)
