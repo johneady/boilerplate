@@ -261,6 +261,31 @@ enum SettingKey: string
     }
 
     /**
+     * Whether this setting holds a credential that must never be recorded.
+     *
+     * Read by App\Settings\Settings when writing the audit trail: a secret
+     * setting records that it changed, never what it changed to or from. The
+     * audit table is readable by every administrator and outlives the change
+     * by the configured retention, so a password copied into it is a password
+     * stored twice, in the less guarded of the two places.
+     *
+     * A match rather than a list, so a new case must be classified here and
+     * PHPStan reports the omission instead of defaulting it to "not secret".
+     */
+    public function isSecret(): bool
+    {
+        return match ($this) {
+            self::MailPassword => true,
+            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
+            self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
+            self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
+            self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
+            self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
+            self::TimeFormat => false,
+        };
+    }
+
+    /**
      * The label shown for this setting in the admin panel.
      */
     public function label(): string

@@ -2,6 +2,8 @@
 
 namespace App\Livewire\Settings;
 
+use App\Audit\AuditEvent;
+use App\Audit\AuditLogger;
 use App\Concerns\PasswordValidationRules;
 use App\Concerns\RendersSettingsChrome;
 use App\Concerns\ResolvesAuthenticatedUser;
@@ -205,6 +207,13 @@ class Security extends Component
 
         if (! $this->requiresConfirmation) {
             $this->twoFactorEnabled = $this->authenticatedUser()->hasEnabledTwoFactorAuthentication();
+
+            // Only when confirmation is switched off, because only then has
+            // enabling actually taken effect here. With confirmation required
+            // this call has merely generated a secret the user may never
+            // confirm, and an audit entry saying two-factor was enabled would
+            // be wrong. confirmTwoFactor() records that case instead.
+            $this->recordTwoFactorAudit(AuditEvent::TwoFactorEnabled);
         }
 
         $this->loadSetupData();
@@ -263,6 +272,8 @@ class Security extends Component
         $this->closeModal();
 
         $this->twoFactorEnabled = true;
+
+        $this->recordTwoFactorAudit(AuditEvent::TwoFactorEnabled);
     }
 
     /**
@@ -280,9 +291,36 @@ class Security extends Component
      */
     public function disable(DisableTwoFactorAuthentication $disableTwoFactorAuthentication): void
     {
+        $wasEnabled = $this->authenticatedUser()->hasEnabledTwoFactorAuthentication();
+
         $disableTwoFactorAuthentication($this->authenticatedUser());
 
         $this->twoFactorEnabled = false;
+
+        // Guarded on the prior state: mount() calls this action's underlying
+        // work to clear an unconfirmed secret on every page load, and recording
+        // that would fill the trail with disables the user never performed.
+        if ($wasEnabled) {
+            $this->recordTwoFactorAudit(AuditEvent::TwoFactorDisabled);
+        }
+    }
+
+    /**
+     * Write one two-factor change to the audit trail.
+     *
+     * These are the events AuditEvent declares for the purpose, and without
+     * this nothing ever wrote them: the panel offered "Two-factor enabled" as a
+     * filter that always returned nothing, reading as "no one has ever changed
+     * their two-factor" rather than "this is not recorded". The underlying
+     * model write cannot stand in for them -- every column it touches is on the
+     * audit denylist, so it redacts to an entry with no content at all.
+     *
+     * The actor is passed explicitly: this is always the user acting on their
+     * own account, and saying so beats relying on the guard lookup.
+     */
+    private function recordTwoFactorAudit(AuditEvent $event): void
+    {
+        app(AuditLogger::class)->record($event, [], $this->authenticatedUser());
     }
 
     /**

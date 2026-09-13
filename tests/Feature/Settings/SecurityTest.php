@@ -1,6 +1,8 @@
 <?php
 
+use App\Audit\AuditEvent;
 use App\Livewire\Settings\Security;
+use App\Models\AuditLog;
 use App\Models\User;
 use App\Settings\Settings;
 use Illuminate\Auth\Middleware\RequirePassword;
@@ -143,6 +145,58 @@ test('two factor authentication can be disabled', function () {
     expect($user->two_factor_secret)->toBeNull()
         ->and($user->two_factor_recovery_codes)->toBeNull()
         ->and($user->two_factor_confirmed_at)->toBeNull();
+});
+
+/*
+ * AuditEvent declares these two events and the panel offers them as filters.
+ * Nothing wrote them, so the filter always returned nothing -- which reads as
+ * "no one has ever changed their two-factor", not "this is not recorded". The
+ * underlying model write cannot stand in: every column it touches is on the
+ * audit denylist, so it redacts to an entry with no content at all.
+ */
+test('confirming two factor authentication is recorded in the audit log', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    $component = Livewire::test(Security::class)->call('enable');
+
+    // With confirmation required, enabling has only generated a secret -- the
+    // user may never confirm it, so nothing is recorded yet.
+    expect(AuditLog::query()->ofEvent(AuditEvent::TwoFactorEnabled)->count())->toBe(0);
+
+    $component->set('code', app(Google2FA::class)->getCurrentOtp(decrypt($user->refresh()->two_factor_secret)))
+        ->call('confirmTwoFactor')
+        ->assertHasNoErrors();
+
+    expect(AuditLog::query()->ofEvent(AuditEvent::TwoFactorEnabled)->where('user_id', $user->id)->exists())
+        ->toBeTrue();
+});
+
+test('disabling two factor authentication is recorded in the audit log', function () {
+    $user = User::factory()->withTwoFactor()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test(Security::class)->call('disable');
+
+    expect(AuditLog::query()->ofEvent(AuditEvent::TwoFactorDisabled)->where('user_id', $user->id)->exists())
+        ->toBeTrue();
+});
+
+/*
+ * mount() clears an unconfirmed secret on every page load through the same
+ * action. Recording that would fill the trail with disables the user never
+ * performed.
+ */
+test('a user without two factor enabled records no disable entry', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test(Security::class)->call('disable');
+
+    expect(AuditLog::query()->ofEvent(AuditEvent::TwoFactorDisabled)->count())->toBe(0);
 });
 
 test('the password confirmation requirement persists across livewire update requests', function () {

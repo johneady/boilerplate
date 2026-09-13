@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Auth\Permission;
 use App\Auth\Role;
+use App\Concerns\Auditable;
 use App\Concerns\HasRoles;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
@@ -73,7 +74,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     ];
 
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use Auditable, HasFactory, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     /**
      * Avatar URLs already resolved for this instance, keyed by path|conversion.
@@ -96,6 +97,23 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     protected $attributes = [
         'role' => Role::DEFAULT->value,
     ];
+
+    /**
+     * Attributes kept out of the audit trail beyond the global denylist.
+     *
+     * The secrets themselves (password, two_factor_secret, the recovery codes,
+     * remember_token) are excluded globally in config('audit.never_record'),
+     * not here -- they must stay out whatever writes them. These two are
+     * merely noise: Fortify rewrites two_factor_confirmed_at as part of
+     * enrolment, and updated_at changes on every save, so an entry would list
+     * them alongside whatever actually changed.
+     *
+     * @return list<string>
+     */
+    protected function auditExclude(): array
+    {
+        return ['two_factor_confirmed_at', 'updated_at'];
+    }
 
     /**
      * Get the attributes that should be cast.

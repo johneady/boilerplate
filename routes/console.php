@@ -74,6 +74,20 @@ Schedule::command('app:prune-expired-storage')
     ->description('Prune expired session and cache rows');
 
 /**
+ * Trim the audit trail to its retention period.
+ *
+ * The audit table takes a row per model change, sign-in and rejected sign-in,
+ * so it is the fastest-growing table here and a failed-login burst adds
+ * thousands in minutes. Retention is time-based only -- see
+ * App\Console\Commands\PruneAuditLog for why it must stay that way.
+ */
+Schedule::command('app:prune-audit-log')
+    ->daily()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Prune audit log entries past their retention period');
+
+/**
  * Restart queue workers nightly.
  *
  * Long-lived PHP processes accumulate memory; --max-time in the supervisor

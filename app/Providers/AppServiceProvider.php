@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Audit\AuditLogger;
 use App\Auth\DevLoginAccounts;
 use App\Models\Page;
 use App\Models\User;
@@ -38,6 +39,11 @@ class AppServiceProvider extends ServiceProvider
         // for the life of the worker -- drops it between jobs and re-reads,
         // rather than acting on a value an administrator has since changed.
         $this->app->scoped(Settings::class);
+
+        // Scoped for the same reason, and a sharper one: AuditLogger resolves
+        // the acting user, so a singleton on a long-lived worker would
+        // attribute every entry to whoever was authenticated when it booted.
+        $this->app->scoped(AuditLogger::class);
     }
 
     /**

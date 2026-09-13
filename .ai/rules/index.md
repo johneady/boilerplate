@@ -16,7 +16,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/components/app-logo-icon.blade.php, resources/views/components/app-logo.blade.php | .ai/rules/components-views-components.md |
 | resources/views/components/desktop-user-menu.blade.php | .ai/rules/components.md |
 | app/Jobs/ProcessUploadedImage.php, app/Concerns/ImageValidationRules.php, config/images.php | .ai/rules/concerns.md |
-| app/Http/Controllers/HealthController.php, app/Listeners/RecordWorkerHeartbeat.php, config/health.php, docker-compose.dokploy.yml | .ai/rules/controllers-listeners.md |
+| app/Http/Controllers/HealthController.php, app/Listeners/RecordWorkerHeartbeat.php, config/health.php, docker-compose.dokploy.yml, app/Listeners/** | .ai/rules/controllers-listeners.md |
 | app/Auth/DevLoginAccounts.php, app/Http/Controllers/DevLoginController.php, app/Providers/AppServiceProvider.php, config/dev-login.php, docker-compose.dokploy.yml, routes/web.php | .ai/rules/dev-login.md |
 | Dockerfile | .ai/rules/dockerfile.md |
 | resources/views/errors/**, resources/views/components/errors/** | .ai/rules/errors.md |
@@ -33,6 +33,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/vendor/mail/**, resources/views/vendor/notifications/** | .ai/rules/notifications.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
 | app/Settings/Settings.php, resources/views/partials/head.blade.php | .ai/rules/partials.md |
+| app/Audit/**, app/Concerns/Auditable.php, app/Models/AuditLog.php, app/Policies/AuditLogPolicy.php, config/audit.php | .ai/rules/policies.md |
 | app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
 | app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php, .env.production.example | .ai/rules/queues-and-scheduling.md |
 | app/Models/Page.php, resources/views/pages/**, app/Filament/Resources/Pages/** | .ai/rules/resources-pages.md |

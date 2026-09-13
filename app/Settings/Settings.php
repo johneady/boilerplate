@@ -2,6 +2,8 @@
 
 namespace App\Settings;
 
+use App\Audit\AuditEvent;
+use App\Audit\AuditLogger;
 use App\Models\Setting;
 use Carbon\CarbonInterface;
 use Illuminate\Database\LostConnectionException;
@@ -283,7 +285,9 @@ class Settings
      */
     public function setMany(array $values): void
     {
-        DB::transaction(function () use ($values): void {
+        $changes = [];
+
+        DB::transaction(function () use ($values, &$changes): void {
             foreach ($values as $rawKey => $value) {
                 $key = SettingKey::tryFrom((string) $rawKey);
 
@@ -291,12 +295,27 @@ class Settings
                     continue;
                 }
 
+                $cast = $key->cast($value);
+
+                // Read before writing so the trail can say what a setting
+                // changed FROM. Cheap: the whole table is already cached on
+                // this instance, so this is an array lookup, not a query.
+                $previous = $this->get($key);
+
                 Setting::updateOrCreate(
                     ['key' => $key->value],
-                    ['value' => $key->cast($value)],
+                    ['value' => $cast],
                 );
+
+                if ($previous !== $cast) {
+                    $changes[$key->value] = $this->auditableSettingChange($key, $previous, $cast);
+                }
             }
         });
+
+        if ($changes !== []) {
+            app(AuditLogger::class)->record(AuditEvent::SettingsUpdated, ['settings' => $changes]);
+        }
 
         $this->flush();
     }
@@ -318,6 +337,27 @@ class Settings
         }
 
         return $values;
+    }
+
+    /**
+     * Describe one setting change for the audit trail.
+     *
+     * Secret-bearing settings record THAT they changed and nothing more. The
+     * mail password is the obvious one, and it is exactly the kind of value
+     * that ends up copied into a table every administrator can read and that
+     * outlives the change by a year of retention. The key name alone answers
+     * the question the trail is for -- who changed the mail credentials and
+     * when -- without becoming a place to read them.
+     *
+     * @return array{from: mixed, to: mixed}|array{redacted: true}
+     */
+    private function auditableSettingChange(SettingKey $key, mixed $previous, mixed $current): array
+    {
+        if ($key->isSecret()) {
+            return ['redacted' => true];
+        }
+
+        return ['from' => $previous, 'to' => $current];
     }
 
     /**

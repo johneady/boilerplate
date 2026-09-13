@@ -94,23 +94,11 @@ you have since changed.
    DB_CONNECTION=mariadb
    DB_PORT=3306
    RUN_SEEDERS=true
-
-   # Mail. Leave MAIL_MAILER=log to write mail to the log instead of sending.
-   # To send over SMTP, set MAIL_MAILER=smtp and fill in the four SMTP lines.
-   MAIL_MAILER=log
-   MAIL_FROM_ADDRESS=hello@example.com
-   MAIL_FROM_NAME=Boilerplate
-   MAIL_HOST=smtp.example.com
-   MAIL_PORT=587
-   MAIL_USERNAME=FILL_ME_IN
-   MAIL_PASSWORD=FILL_ME_IN
-   # smtps forces TLS on connect (port 465); smtp upgrades via STARTTLS
-   MAIL_SCHEME=smtp
    ```
 
-   These environment values stay in charge until a mailer is chosen from
-   **Admin → Settings → Email**, after which the saved settings take
-   precedence.
+   Mail is not configured here. Until a mailer is chosen from
+   **Admin → Settings → Email**, mail is written to the log instead of
+   being sent; the saved settings then take precedence.
 
    Set **Failure alert address** on that same settings tab to be emailed when
    a queued background job exhausts its retries. Leave it blank to send no

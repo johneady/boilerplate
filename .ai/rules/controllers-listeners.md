@@ -4,6 +4,7 @@ paths:
   - app/Listeners/RecordWorkerHeartbeat.php
   - config/health.php
   - docker-compose.dokploy.yml
+  - 'app/Listeners/**'
 ---
 
 # Controllers Listeners
@@ -20,3 +21,10 @@ The response body names the failing check but never why: the route is unauthenti
 `health` is in Page::RESERVED_SLUGS — routes/web.php ends in a page-serving fallback, so an unreserved slug would let a content page shadow the endpoint.
 
 Testing trap: a test that mocks Cache::put/get but NOT Cache::forget passes even with the write-back comparison deleted, because the unmocked forget() throws BadMethodCallException into the controller's catch block. Mock all three so the comparison is the only thing that can fail.
+
+## Listener discovery binds every handle* method — never also register them explicitly
+Laravel 13's listener discovery scans app/Listeners and binds EVERY method whose name starts with "handle" to the event it type-hints, not just a lone handle(). Adding an Event::listen() for those same methods in a service provider registers each one a SECOND time.
+
+Hit while building RecordAuthenticationAudit: every sign-in wrote two identical audit rows. It fails silently — the trail simply doubles, which reads as a bug in the application being audited rather than in the audit itself.
+
+Check with `php artisan event:list` after touching a listener; each method should appear once.

@@ -3,9 +3,11 @@
 namespace App\Providers;
 
 use App\Auth\Permission;
+use App\Models\AuditLog;
 use App\Models\ContactSubmission;
 use App\Models\Page;
 use App\Models\User;
+use App\Policies\AuditLogPolicy;
 use App\Policies\ContactSubmissionPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\UserPolicy;
@@ -18,7 +20,8 @@ class AuthServiceProvider extends ServiceProvider
      * Abilities the administrator bypass must NOT answer.
      *
      * These are the rules that deny an administrator on purpose -- deleting
-     * your own account, demoting yourself -- so a blanket `return true` for
+     * your own account, demoting yourself, deleting an audit entry -- so a
+     * blanket `return true` for
      * admins would silently undo them. Gate::before runs before every policy
      * and short-circuits on any non-null return, which makes it exactly the
      * wrong place to answer them: listing them here sends them on to the
@@ -35,6 +38,29 @@ class AuthServiceProvider extends ServiceProvider
     ];
 
     /**
+     * Abilities the bypass must not answer for an immutable record.
+     *
+     * Every way of writing to one. An audit entry may be read by anyone
+     * holding the permission and changed by nobody at all -- see
+     * App\Policies\AuditLogPolicy -- so the bypass has to stand down for the
+     * whole set rather than for deletion alone, which would leave an
+     * administrator able to edit an entry instead of removing it.
+     *
+     * `viewAny` and `view` are deliberately absent: those are the abilities
+     * administrators should keep passing through the bypass for.
+     *
+     * @var list<string>
+     */
+    private const array IMMUTABLE_RECORD_ABILITIES = [
+        'create',
+        'update',
+        'delete',
+        'forceDelete',
+        'restore',
+        'replicate',
+    ];
+
+    /**
      * The policy for each model.
      *
      * Registered explicitly rather than relying on Laravel's convention-based
@@ -47,6 +73,7 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     private const array POLICIES = [
+        AuditLog::class => AuditLogPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
         Page::class => PagePolicy::class,
         User::class => UserPolicy::class,
@@ -123,20 +150,50 @@ class AuthServiceProvider extends ServiceProvider
     /**
      * Whether this check is one the administrator bypass must not answer.
      *
-     * True only when a self-protected ability is being checked against the
-     * acting user's own account, which is the single case UserPolicy denies
-     * an administrator on purpose.
+     * True in two cases: a self-protected ability checked against the acting
+     * user's own account (UserPolicy's self-protection rules), and any of them
+     * checked against an immutable record such as an audit entry.
      *
      * @param  array<int, mixed>  $arguments
      */
     private function isSelfProtected(User $user, string $ability, array $arguments): bool
     {
+        $target = $arguments[0] ?? null;
+
+        // Checked before the ability list, and against a different list: an
+        // immutable record must stand the bypass down for WRITES of every
+        // kind, not only the three self-protected abilities.
+        if ($this->isImmutableRecord($target)) {
+            return in_array($ability, self::IMMUTABLE_RECORD_ABILITIES, true);
+        }
+
         if (! in_array($ability, self::SELF_PROTECTED_ABILITIES, true)) {
             return false;
         }
 
-        $target = $arguments[0] ?? null;
-
         return $target instanceof User && $user->is($target);
+    }
+
+    /**
+     * Whether the target is a record no one may delete, administrators included.
+     *
+     * Audit entries are the case: a trail an administrator can prune by hand
+     * records only what they are willing to admit to, while still reading as
+     * authoritative. AuditLogPolicy denies `delete` and `forceDelete` outright,
+     * but a policy is never consulted for an administrator unless the bypass
+     * stands down first -- which is what this does.
+     *
+     * Matched on the class rather than an instance check alone so the class
+     * name passed to `$user->can('delete', AuditLog::class)` is covered too:
+     * Filament asks that form of the question when deciding whether to render
+     * a bulk delete action.
+     */
+    private function isImmutableRecord(mixed $target): bool
+    {
+        if ($target instanceof AuditLog) {
+            return true;
+        }
+
+        return is_string($target) && is_a($target, AuditLog::class, true);
     }
 }

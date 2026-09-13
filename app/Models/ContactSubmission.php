@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Concerns\Auditable;
 use Carbon\CarbonImmutable;
 use Database\Factories\ContactSubmissionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -34,7 +35,33 @@ use Illuminate\Database\Eloquent\Model;
 class ContactSubmission extends Model
 {
     /** @use HasFactory<ContactSubmissionFactory> */
-    use HasFactory;
+    use Auditable, HasFactory;
+
+    /**
+     * The submitter's own details, kept out of the audit trail.
+     *
+     * These are not noise, they are somebody else's personal data, and they are
+     * the one case on this model where the trail must record less than it can.
+     * An audit entry outlives the row it describes and nobody -- administrators
+     * included -- may delete one, so copying the message body here would mean
+     * deleting a submission no longer erases the person who sent it: their name,
+     * address and words would survive in a table every administrator can read
+     * until retention expires. Exercising the existing delete permission would
+     * quietly stop doing what it says.
+     *
+     * What is left is what the trail is actually for: that submission #12 was
+     * marked handled, or deleted, by a named administrator at a given time.
+     *
+     * Declared here rather than in config('audit.never_record'), which is
+     * global: `name` and `email` are ordinary auditable columns on User, and
+     * blanking them everywhere would gut the trail that matters most.
+     *
+     * @return list<string>
+     */
+    protected function auditExclude(): array
+    {
+        return ['name', 'email', 'subject', 'message', 'ip_address', 'user_agent'];
+    }
 
     /**
      * Get the attributes that should be cast.
