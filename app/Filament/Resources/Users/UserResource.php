@@ -42,7 +42,7 @@ class UserResource extends Resource
                     ->required()
                     ->maxLength(255),
                 TextInput::make('email')
-                    ->label('Email address')
+                    ->label(__('users.fields.email'))
                     ->email()
                     ->required()
                     ->maxLength(255)
@@ -53,7 +53,7 @@ class UserResource extends Resource
                 // UserPolicy::updateRole() is the same rule where the Gate can
                 // see it, and saveUser() enforces it again server side.
                 Select::make('role')
-                    ->label('Role')
+                    ->label(__('users.fields.role'))
                     ->options(fn (): array => collect(Role::cases())
                         ->mapWithKeys(fn (Role $role): array => [$role->value => $role->label()])
                         ->all())
@@ -62,7 +62,7 @@ class UserResource extends Resource
                     ->required()
                     ->disabled(fn (?User $record): bool => static::isCurrentUser($record))
                     ->helperText(fn (?User $record, $state): string => static::isCurrentUser($record)
-                        ? 'You cannot change your own role.'
+                        ? __('users.own_role_locked')
                         : static::describeRole($state, $record)),
             ]);
     }
@@ -86,7 +86,7 @@ class UserResource extends Resource
                 // name, silently fail the existence check, and fall back to
                 // initials for every user who has an avatar.
                 ImageColumn::make('avatar')
-                    ->label('Avatar')
+                    ->label(__('users.fields.avatar'))
                     ->getStateUsing(fn (User $record): ?string => filled($url = $record->avatarUrl())
                         ? url($url)
                         : null)
@@ -96,18 +96,18 @@ class UserResource extends Resource
                     ->searchable()
                     ->sortable(),
                 TextColumn::make('email')
-                    ->label('Email address')
+                    ->label(__('users.fields.email'))
                     ->searchable()
                     ->sortable()
                     ->copyable(),
                 TextColumn::make('role')
-                    ->label('Role')
+                    ->label(__('users.fields.role'))
                     ->badge()
                     ->formatStateUsing(fn (Role $state): string => $state->label())
                     ->color(fn (Role $state): string => $state->color())
                     ->sortable(),
                 IconColumn::make('email_verified_at')
-                    ->label('Verified')
+                    ->label(__('users.fields.verified'))
                     ->boolean()
                     ->sortable(),
                 // Formatted through the settings service rather than
@@ -115,7 +115,7 @@ class UserResource extends Resource
                 // for an administrator, so it follows the display timezone,
                 // format and locale settings the rest of the site does.
                 TextColumn::make('created_at')
-                    ->label('Registered')
+                    ->label(__('users.fields.registered'))
                     ->formatStateUsing(fn ($state): string => app(Settings::class)->formatDateTime($state))
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
@@ -123,12 +123,12 @@ class UserResource extends Resource
             ->defaultSort('name')
             ->filters([
                 SelectFilter::make('role')
-                    ->label('Role')
+                    ->label(__('users.fields.role'))
                     ->options(fn (): array => collect(Role::cases())
                         ->mapWithKeys(fn (Role $role): array => [$role->value => $role->label()])
                         ->all()),
                 TernaryFilter::make('email_verified_at')
-                    ->label('Email verified')
+                    ->label(__('users.fields.email_verified'))
                     ->nullable(),
             ])
             ->recordActions([

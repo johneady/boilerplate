@@ -142,7 +142,7 @@ class ManageSettings extends Page
                     ->footer([
                         Actions::make([
                             Action::make('save')
-                                ->label('Save changes')
+                                ->label(__('settings.actions.save'))
                                 ->submit('save')
                                 ->keyBindings(['mod+s']),
                         ]),
@@ -157,7 +157,7 @@ class ManageSettings extends Page
 
         Notification::make()
             ->success()
-            ->title('Settings saved')
+            ->title(__('settings.actions.saved'))
             ->send();
     }
 
@@ -223,7 +223,7 @@ class ManageSettings extends Page
                 ->badgeColor('warning')
                 ->badgeTooltip(fn (): ?string => $this->settings()->effectiveMailer() === 'smtp'
                     ? null
-                    : 'Messages are sent through '.$this->mailerLabel().' rather than SMTP. Change it with the mailer button on this tab.');
+                    : $this->mailerTooltip());
         }
 
         if ($settingsTab === SettingsTab::Diagnostics) {
@@ -257,10 +257,10 @@ class ManageSettings extends Page
     protected function configureMailerAction(): Action
     {
         return Action::make('configureMailer')
-            ->label(fn (): string => 'Mailer: '.$this->mailerLabel())
+            ->label(fn (): string => __('settings.mailer.button', ['mailer' => $this->mailerLabel()]))
             ->icon(Heroicon::OutlinedServerStack)
             ->color(fn (): string => $this->settings()->effectiveMailer() === 'smtp' ? 'success' : 'gray')
-            ->modalHeading('Change mailer')
+            ->modalHeading(__('settings.mailer.heading'))
             ->modalDescription(SettingKey::MailMailer->helperText())
             ->form(array_map(
                 fn (SettingKey $key): Field => $this->formComponent($key),
@@ -275,8 +275,8 @@ class ManageSettings extends Page
                 if ($this->settings()->string(SettingKey::MailFromAddress) === '') {
                     Notification::make()
                         ->warning()
-                        ->title('Add a from address before changing the mailer')
-                        ->body('SMTP cannot be chosen until a from address is set, and this button is where the mailer is chosen. Set one on the Email tab, save, then come back.')
+                        ->title(__('settings.mailer.needs_from_address.title'))
+                        ->body(__('settings.mailer.needs_from_address.body'))
                         ->send();
 
                     $action->halt();
@@ -297,8 +297,8 @@ class ManageSettings extends Page
                     && $this->settings()->string(SettingKey::MailHost) === '') {
                     Notification::make()
                         ->warning()
-                        ->title('Mailer saved, sending through the log')
-                        ->body('SMTP was chosen without a host, so messages are written to the application log until one is set.')
+                        ->title(__('settings.mailer.saved_to_log.title'))
+                        ->body(__('settings.mailer.saved_to_log.body'))
                         ->send();
 
                     return;
@@ -306,7 +306,7 @@ class ManageSettings extends Page
 
                 Notification::make()
                     ->success()
-                    ->title('Mailer updated')
+                    ->title(__('settings.mailer.updated'))
                     ->send();
             });
     }
@@ -347,6 +347,20 @@ class ManageSettings extends Page
             'log' => 'Log',
             default => str($mailer)->ucfirst()->toString(),
         };
+    }
+
+    /**
+     * The Email tab badge's tooltip, naming the mailer actually in use.
+     *
+     * A method rather than __() inline in the closure because the translator
+     * returns string|array once replacements are passed -- the array arm is
+     * unreachable for a string key, but the badgeTooltip() closure declares
+     * ?string, so the cast belongs somewhere it is explained rather than
+     * repeated at each call site.
+     */
+    protected function mailerTooltip(): string
+    {
+        return (string) __('settings.mailer.tooltip', ['mailer' => $this->mailerLabel()]);
     }
 
     /**
@@ -451,7 +465,7 @@ class ManageSettings extends Page
             ->label(fn (): string => $logoIsStored() ? 'Replace logo' : 'Upload logo')
             ->icon(Heroicon::OutlinedPhoto)
             ->color(fn (): string => $logoIsStored() ? 'success' : 'gray')
-            ->modalHeading('Logo')
+            ->modalHeading(__('settings.logo.heading'))
             ->modalDescription(SettingKey::Logo->helperText())
             ->form([$this->formComponent(SettingKey::Logo)])
             ->action(function (array $data): void {
@@ -466,8 +480,8 @@ class ManageSettings extends Page
                 if (! static::isStagedUploadPath($sourcePath)) {
                     Notification::make()
                         ->danger()
-                        ->title('Upload rejected')
-                        ->body('Choose a logo file to upload.')
+                        ->title(__('settings.logo.rejected.title'))
+                        ->body(__('settings.logo.rejected.body'))
                         ->send();
 
                     return;
@@ -482,8 +496,8 @@ class ManageSettings extends Page
 
                 Notification::make()
                     ->success()
-                    ->title('Logo uploaded')
-                    ->body('It will appear across the site, in the browser tab and in link previews once processed.')
+                    ->title(__('settings.logo.uploaded.title'))
+                    ->body(__('settings.logo.uploaded.body'))
                     ->send();
             });
     }
@@ -516,12 +530,12 @@ class ManageSettings extends Page
     protected function removeLogoAction(): Action
     {
         return Action::make('removeLogo')
-            ->label('Remove logo')
+            ->label(__('settings.logo.remove'))
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
             ->visible(fn (): bool => $this->settings()->string(SettingKey::Logo) !== '')
             ->requiresConfirmation()
-            ->modalDescription('The bundled mark is shown across the site again until another logo is uploaded.')
+            ->modalDescription(__('settings.logo.remove_description'))
             ->action(function (): void {
                 Cache::put(
                     ProcessUploadedImage::settingRemovalKey(SettingKey::Logo),
@@ -542,7 +556,7 @@ class ManageSettings extends Page
 
                 Notification::make()
                     ->success()
-                    ->title('Logo removed')
+                    ->title(__('settings.logo.removed'))
                     ->send();
             });
     }
@@ -624,14 +638,14 @@ class ManageSettings extends Page
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default())
-                ->placeholder('smtp.example.com')
+                ->placeholder(__('settings.mailer.host_placeholder'))
                 ->maxLength(255)
                 ->visible($this->whenMailerIsSmtp()),
             SettingKey::MailPort => TextInput::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default())
-                ->placeholder('587')
+                ->placeholder(__('settings.mailer.port_placeholder'))
                 ->numeric()
                 ->minValue(1)
                 ->maxValue(65535)
@@ -836,13 +850,13 @@ class ManageSettings extends Page
     {
         return [
             Action::make('testEmail')
-                ->label('Send test email')
+                ->label(__('settings.test_email.label'))
                 ->icon(Heroicon::OutlinedPaperAirplane)
                 ->color('gray')
-                ->modalDescription('Sends a short message through the saved mail settings, so delivery can be confirmed end to end.')
+                ->modalDescription(__('settings.test_email.description'))
                 ->form([
                     TextInput::make('recipient')
-                        ->label('Deliver to')
+                        ->label(__('settings.test_email.recipient'))
                         ->email()
                         ->required()
                         ->default(function (): string {
@@ -876,8 +890,8 @@ class ManageSettings extends Page
             if (config('mail.default') === 'log') {
                 Notification::make()
                     ->warning()
-                    ->title('Test email written to the log')
-                    ->body('The mailer is set to log, so the message was written to the application log rather than delivered.')
+                    ->title(__('settings.test_email.logged.title'))
+                    ->body(__('settings.test_email.logged.body'))
                     ->send();
 
                 return;
@@ -885,7 +899,7 @@ class ManageSettings extends Page
 
             Notification::make()
                 ->success()
-                ->title('Test email sent')
+                ->title(__('settings.test_email.sent'))
                 ->body("Delivered to {$recipient}. Check the inbox, and the spam folder if it does not arrive.")
                 ->send();
         } catch (Throwable $exception) {
@@ -893,7 +907,7 @@ class ManageSettings extends Page
 
             Notification::make()
                 ->danger()
-                ->title('Test email failed')
+                ->title(__('settings.test_email.failed'))
                 ->body($exception->getMessage())
                 ->send();
         }
