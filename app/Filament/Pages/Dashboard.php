@@ -2,14 +2,17 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\BusinessOverview;
+use App\Filament\Widgets\RecentOrders;
+use App\Filament\Widgets\RevenueTrendChart;
+use App\Filament\Widgets\TopProducts;
+use App\Filament\Widgets\TrafficSourcesChart;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 /**
- * The panel's landing page, which presents an overview of the work John Eady does.
- *
- * The content mirrors the introduction modal on johneady.duckdns.org, rendered
- * inline here rather than as a popup because a dashboard is already the first
- * thing an admin sees -- there is nothing to interrupt.
+ * The panel's landing page: a business overview built from widgets, plus the
+ * introduction to John Eady's work shown in a modal that opens itself shortly
+ * after arrival and stays reachable from a strip above the widgets.
  */
 class Dashboard extends BaseDashboard
 {
@@ -17,14 +20,22 @@ class Dashboard extends BaseDashboard
 
     protected static ?string $title = 'Overview';
 
+    public function getColumns(): int|array
+    {
+        return 3;
+    }
+
     /**
-     * The panel registers no widgets, so the base dashboard's widget grid would
-     * only render an empty container above the content.
-     *
      * @return array<class-string>
      */
     public function getWidgets(): array
     {
-        return [];
+        return [
+            BusinessOverview::class,
+            RevenueTrendChart::class,
+            TrafficSourcesChart::class,
+            RecentOrders::class,
+            TopProducts::class,
+        ];
     }
 }
