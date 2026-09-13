@@ -2,11 +2,8 @@
 
 namespace App\Jobs;
 
-use App\Models\User;
-use App\Settings\SettingKey;
-use App\Settings\Settings;
+use App\Models\Media;
 use Illuminate\Contracts\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
@@ -22,9 +19,15 @@ use RuntimeException;
  * protection this job exists to provide.
  *
  * Conversions come from config/images.php rather than being hardcoded, so a
- * second consumer (a gallery, say) adds a key there instead of a job here. The
- * processed set is attached to whichever target the dispatch named: a user
- * (their avatar) or a settings row (the site icon).
+ * second consumer (a gallery, say) adds a key there instead of a job here.
+ *
+ * Every dispatch names an App\Models\Media row, written by
+ * App\Media\MediaManager before the job is queued. That row -- not a cache
+ * marker -- is what the cancel path acts on: a user who removes a file while
+ * this job is still queued deletes the row, and a job that cannot find its row
+ * discards the conversions it just wrote. The avatar and logo flows needed a
+ * cache marker only because they had no row to consult until processing
+ * finished.
  */
 class ProcessUploadedImage extends Job
 {
@@ -34,34 +37,14 @@ class ProcessUploadedImage extends Job
      * @param  string  $sourcePath  Path on the private disk holding the upload.
      * @param  string  $conversionSet  Key under config('images.conversions').
      * @param  string  $targetDirectory  Directory on the image disk to write into.
-     * @param  SettingKey|null  $settingKey  Setting to point at the processed set, instead of a user.
+     * @param  int  $mediaId  The App\Models\Media row this job fills in.
      */
     public function __construct(
         public string $sourcePath,
         public string $conversionSet,
         public string $targetDirectory,
-        public ?int $userId = null,
-        public ?int $dispatchedAt = null,
-        public ?SettingKey $settingKey = null,
-    ) {
-        $this->dispatchedAt ??= time();
-    }
-
-    /**
-     * The cache key holding the moment a user last removed their avatar.
-     */
-    public static function removalKey(int $userId): string
-    {
-        return "avatar-removed-at:{$userId}";
-    }
-
-    /**
-     * The cache key holding the moment a setting's image was last removed.
-     */
-    public static function settingRemovalKey(SettingKey $key): string
-    {
-        return "setting-removed-at:{$key->value}";
-    }
+        public int $mediaId,
+    ) {}
 
     /**
      * Execute the job.
@@ -123,9 +106,41 @@ class ProcessUploadedImage extends Job
         // has already been rolled back.
         $source->delete($this->sourcePath);
 
-        $this->settingKey !== null
-            ? $this->attachToSetting($written)
-            : $this->attachToUser($written);
+        $this->attachToMedia($written, $manager->decodeBinary($contents));
+    }
+
+    /**
+     * Record the written conversions on the media row that queued this job.
+     *
+     * The row already exists -- App\Media\MediaManager writes it before
+     * dispatching -- so this fills in only what processing produced. Until it
+     * runs, `conversions` is null and Media::url() returns null, which is what
+     * makes an upload still in flight render as a placeholder rather than as a
+     * link to files nothing has written.
+     *
+     * A row deleted while the job was queued is the cancel path: the user hit
+     * Remove, and the conversions written moments ago must go with it rather
+     * than being left on disk with nothing pointing at them. That replaces the
+     * cache-marker guard the avatar and logo flows needed, because here there
+     * IS a row to consult.
+     *
+     * @param  array<string, string>  $written
+     */
+    protected function attachToMedia(array $written, ImageInterface $probe): void
+    {
+        $media = Media::find($this->mediaId);
+
+        if ($media === null) {
+            Storage::disk($this->imageDisk())->deleteDirectory($this->targetDirectory);
+
+            return;
+        }
+
+        $media->forceFill([
+            'conversions' => $written,
+            'width' => $probe->width(),
+            'height' => $probe->height(),
+        ])->save();
     }
 
     /**
@@ -163,81 +178,6 @@ class ProcessUploadedImage extends Job
         $target->put($path, (string) $encoded);
 
         return $path;
-    }
-
-    /**
-     * Point the user at the freshly written conversions.
-     *
-     * @param  array<string, string>  $written
-     */
-    protected function attachToUser(array $written): void
-    {
-        if ($this->userId === null) {
-            return;
-        }
-
-        $user = User::find($this->userId);
-
-        if ($user === null) {
-            return;
-        }
-
-        // A user who hits Remove while this job is still queued means it: the
-        // conversions are written but must not be attached, or the avatar the
-        // user just deleted would reappear when the worker caught up.
-        $removedAt = Cache::get(self::removalKey($this->userId));
-
-        if ($removedAt !== null && $removedAt >= $this->dispatchedAt) {
-            Storage::disk($this->imageDisk())->deleteDirectory($this->targetDirectory);
-
-            return;
-        }
-
-        $previousDirectory = $user->avatar_path;
-
-        $user->forceFill(['avatar_path' => $this->targetDirectory])->save();
-
-        // Replacing an avatar leaves the previous set orphaned on disk.
-        if ($previousDirectory !== null && $previousDirectory !== $this->targetDirectory) {
-            Storage::disk($this->imageDisk())->deleteDirectory($previousDirectory);
-        }
-    }
-
-    /**
-     * Point the given setting at the freshly written conversions.
-     *
-     * @param  array<string, string>  $written
-     */
-    protected function attachToSetting(array $written): void
-    {
-        if ($this->settingKey === null) {
-            return;
-        }
-
-        $settingKey = $this->settingKey;
-
-        $settings = app(Settings::class);
-
-        // An administrator who hit Remove while this job was still queued
-        // means it, exactly as with an avatar: the conversions are written but
-        // must not be attached, or the icon they just deleted would reappear
-        // when the worker caught up.
-        $removedAt = Cache::get(self::settingRemovalKey($settingKey));
-
-        if ($removedAt !== null && $removedAt >= $this->dispatchedAt) {
-            Storage::disk($this->imageDisk())->deleteDirectory($this->targetDirectory);
-
-            return;
-        }
-
-        $previousDirectory = $settings->string($settingKey);
-
-        $settings->set($settingKey, $this->targetDirectory);
-
-        // Replacing the icon leaves the previous set orphaned on disk.
-        if ($previousDirectory !== '' && $previousDirectory !== $this->targetDirectory) {
-            Storage::disk($this->imageDisk())->deleteDirectory($previousDirectory);
-        }
     }
 
     /**

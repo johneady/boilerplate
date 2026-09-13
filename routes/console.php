@@ -87,6 +87,31 @@ Schedule::command('app:prune-audit-log')
     ->onOneServer()
     ->description('Prune audit log entries past their retention period');
 
+/*
+ * Hourly rather than daily: an abandoned upload holds real bytes on the disk,
+ * and the grace period in config('media.orphan_retention_hours') already
+ * decides how long one is kept -- running more often only makes collection
+ * prompt once that window has passed, it does not shorten it.
+ */
+/*
+ * Daily rather than hourly, and deliberately AFTER the orphan prune in this
+ * file: this one walks the disk and re-encodes, which is real work, while the
+ * files it finds are discovered rather than urgent. The grace period in
+ * config('media.orphan_retention_hours') already decides how long an
+ * unreferenced upload survives, so running more often would not shorten it.
+ */
+Schedule::command('app:adopt-page-body-images')
+    ->daily()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Adopt referenced page-body uploads into the media library, and collect the rest');
+
+Schedule::command('app:prune-orphaned-media')
+    ->hourly()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Delete media rows with no owning record, and their files');
+
 /**
  * Restart queue workers nightly.
  *

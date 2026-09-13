@@ -5,7 +5,10 @@ namespace App\Models;
 use App\Auth\Permission;
 use App\Auth\Role;
 use App\Concerns\Auditable;
+use App\Concerns\HasMedia;
 use App\Concerns\HasRoles;
+use App\Media\HoldsMedia;
+use App\Media\MediaCollection;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
@@ -18,7 +21,6 @@ use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
@@ -32,7 +34,6 @@ use RuntimeException;
  * @property string $name
  * @property string $email
  * @property CarbonImmutable|null $email_verified_at
- * @property string|null $avatar_path
  * @property Role $role
  * @property bool $is_admin Derived from $role; see App\Concerns\HasRoles.
  * @property string $password
@@ -45,7 +46,7 @@ use RuntimeException;
  */
 #[Fillable(['name', 'email', 'password'])]
 #[Hidden(['password', 'two_factor_secret', 'two_factor_recovery_codes', 'remember_token'])]
-class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerifyEmail, PasskeyUser
+class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedia, MustVerifyEmail, PasskeyUser
 {
     /**
      * Hue pairs for the initials-avatar gradient, light stop first.
@@ -74,10 +75,10 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     ];
 
     /** @use HasFactory<UserFactory> */
-    use Auditable, HasFactory, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
+    use Auditable, HasFactory, HasMedia, HasRoles, Notifiable, PasskeyAuthenticatable, TwoFactorAuthenticatable;
 
     /**
-     * Avatar URLs already resolved for this instance, keyed by path|conversion.
+     * Avatar URLs already resolved for this instance, keyed by conversion.
      *
      * @var array<string, string|null>
      */
@@ -223,6 +224,12 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
     /**
      * Get the URL of one of the user's avatar conversions.
      *
+     * A facade over the media collection rather than a column read. The avatar
+     * became an App\Models\Media row so it could carry who uploaded it and be
+     * deleted with its files, but every caller -- the sidebar, the user menu,
+     * Filament's HasAvatar contract -- still asks this one question, so the
+     * signature stayed put.
+     *
      * Null until App\Jobs\ProcessUploadedImage has written the conversions,
      * which is what lets the UI fall back to initials during the short window
      * between upload and processing -- the unprocessed original is never
@@ -230,35 +237,18 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, MustVerif
      */
     public function avatarUrl(string $conversion = 'thumb'): ?string
     {
-        if ($this->avatar_path === null) {
-            return null;
-        }
-
         // The sidebar and the user menu each render an avatar, so this is
-        // called several times per request. Without memoisation each call
-        // stats the disk again -- a network round-trip once IMAGE_DISK is
-        // pointed at a remote filesystem.
-        $cacheKey = $this->avatar_path.'|'.$conversion;
-
-        if (array_key_exists($cacheKey, $this->resolvedAvatarUrls)) {
-            return $this->resolvedAvatarUrls[$cacheKey];
+        // called several times per request. Memoised here because the lookup
+        // that costs a QUERY is finding the media row; Media::url() memoises
+        // the disk check on top of that for its own callers.
+        if (array_key_exists($conversion, $this->resolvedAvatarUrls)) {
+            return $this->resolvedAvatarUrls[$conversion];
         }
 
-        /** @var string $disk */
-        $disk = config('images.disk');
-
-        /** @var string $format */
-        $format = config('images.format');
-
-        $path = $this->avatar_path.'/'.$conversion.'.'.$format;
-
-        $storage = Storage::disk($disk);
-
-        // A conversion can be missing if the set was written by an older
-        // configuration; falling back to initials beats a broken image.
-        return $this->resolvedAvatarUrls[$cacheKey] = $storage->exists($path)
-            ? $storage->url($path)
-            : null;
+        return $this->resolvedAvatarUrls[$conversion] = $this->mediaUrl(
+            MediaCollection::Avatar,
+            $conversion,
+        );
     }
 
     /**

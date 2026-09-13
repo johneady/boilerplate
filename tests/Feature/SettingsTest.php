@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Media;
 use App\Models\Setting;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
@@ -222,18 +223,21 @@ test('the site icon url resolves only once the conversions exist', function () {
 
     expect($this->settings->logoUrl('favicon'))->toBeNull();
 
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    // A row whose processing job has not run yet has null conversions, so it
+    // resolves to null and the head falls back to the bundled favicon files
+    // rather than linking at a file that does not exist.
+    $media = Media::factory()->logo()->pending()->create(['path' => 'logo/abc']);
 
     // Resolution is memoised per instance (the head asks three times per
     // page), so stand in for the next request's fresh instance at each step.
     app()->forgetScopedInstances();
 
-    // A row pointing at a directory the processing job has not written yet
-    // resolves to null, so the head falls back to the bundled favicon files
-    // rather than linking at a file that does not exist.
     expect(app(Settings::class)->logoUrl('favicon'))->toBeNull();
 
+    // The worker finishes: the conversions land on the row and on disk.
     Storage::disk('public')->put('logo/abc/favicon.webp', 'x');
+
+    $media->forceFill(['conversions' => ['favicon' => 'logo/abc/favicon.webp']])->save();
 
     app()->forgetScopedInstances();
 

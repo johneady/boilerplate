@@ -110,6 +110,16 @@ enum SettingKey: string
 
     case AllowSearchIndexing = 'allow_search_indexing';
 
+    /*
+     * The logo's UPLOAD CONTROL, not its storage.
+     *
+     * Nothing writes a value against this key any more -- the logo is an
+     * ownerless App\Models\Media row in the Logo collection, read through
+     * Settings::logoMedia(). The case stays because the admin panel builds the
+     * Brand tab's file field and its placement from the enum, so removing it
+     * would take the upload button with it. Reading string(SettingKey::Logo)
+     * will always return the empty default; use Settings::logoUrl() instead.
+     */
     case Logo = 'logo';
 
     case AllowRegistration = 'allow_registration';

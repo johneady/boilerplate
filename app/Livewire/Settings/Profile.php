@@ -6,11 +6,9 @@ use App\Concerns\ImageValidationRules;
 use App\Concerns\ProfileValidationRules;
 use App\Concerns\RendersSettingsChrome;
 use App\Concerns\ResolvesAuthenticatedUser;
-use App\Jobs\ProcessUploadedImage;
+use App\Media\MediaCollection;
+use App\Media\MediaManager;
 use Flux\Flux;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -92,32 +90,23 @@ class Profile extends Component
     /**
      * Queue processing for a newly uploaded avatar.
      *
-     * The upload is moved to the private disk and handed to a job rather than
-     * processed inline: decoding a large image is slow enough to hold a web
-     * request, and the worker role exists for exactly this.
+     * The manager stages the upload on the private disk and hands it to a job
+     * rather than processing inline: decoding a large image is slow enough to
+     * hold a web request, and the worker role exists for exactly this. The
+     * media row is written immediately, so the avatar exists as a record
+     * before its conversions do.
      */
     public function updateAvatar(): void
     {
         $this->validate(['avatar' => $this->imageRules()]);
 
-        $user = $this->authenticatedUser();
-
         /** @var TemporaryUploadedFile $avatar */
         $avatar = $this->avatar;
 
-        // storeAs() on the private disk, NOT the public one: the unprocessed
-        // original must never be reachable over HTTP.
-        $sourcePath = $avatar->storeAs(
-            'uploads/pending',
-            Str::uuid()->toString(),
-            ['disk' => 'local'],
-        );
-
-        ProcessUploadedImage::dispatch(
-            sourcePath: (string) $sourcePath,
-            conversionSet: 'avatar',
-            targetDirectory: 'avatars/'.$user->id.'/'.Str::uuid()->toString(),
-            userId: $user->id,
+        app(MediaManager::class)->attach(
+            file: $avatar,
+            collection: MediaCollection::Avatar,
+            owner: $this->authenticatedUser(),
         );
 
         $this->reset('avatar');
@@ -127,31 +116,15 @@ class Profile extends Component
 
     /**
      * Remove the current avatar and its conversions.
+     *
+     * Deleting the row is also what cancels an upload still being processed:
+     * the job looks its row up when it finishes and discards the conversions
+     * when it is gone. That replaces the cache marker this flow used to need,
+     * back when nothing represented an avatar until processing had finished.
      */
     public function deleteAvatar(): void
     {
-        $user = $this->authenticatedUser();
-
-        $directory = $user->avatar_path;
-
-        // The marker is recorded even when there is nothing on disk yet. An
-        // upload queued moments ago has avatar_path still null -- returning
-        // early here would skip the marker in exactly the case it exists for,
-        // and the job would attach an avatar the user had already removed.
-        Cache::put(
-            ProcessUploadedImage::removalKey($user->id),
-            time(),
-            now()->addDay(),
-        );
-
-        if ($directory !== null) {
-            $user->forceFill(['avatar_path' => null])->save();
-
-            /** @var string $disk */
-            $disk = config('images.disk');
-
-            Storage::disk($disk)->deleteDirectory($directory);
-        }
+        $this->authenticatedUser()->clearMedia(MediaCollection::Avatar);
 
         Flux::toast(variant: 'success', text: __('Avatar removed.'));
     }

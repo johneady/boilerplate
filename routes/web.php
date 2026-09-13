@@ -5,6 +5,7 @@ use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\MailPreviewController;
+use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
@@ -31,6 +32,13 @@ Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 // cache and queue-worker heartbeat for an uptime monitor. Keeping them apart
 // is deliberate -- see config/health.php.
 Route::get('health', HealthController::class)->name('health');
+
+// Signed rather than merely authenticated: the signature bounds how long a
+// link survives being shared, and MediaController still consults the owning
+// record's policy on top of it. See App\Http\Controllers\MediaController.
+Route::get('media/{media}', [MediaController::class, 'show'])
+    ->middleware(['auth', 'signed'])
+    ->name('media.show');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

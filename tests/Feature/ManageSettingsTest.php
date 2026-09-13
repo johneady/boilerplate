@@ -4,6 +4,7 @@ use AchyutN\FilamentLogViewer\LogTable;
 use App\Filament\Pages\ManageSettings;
 use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
+use App\Media\StagedUpload;
 use App\Models\User;
 use App\Settings\DiagnosticResult;
 use App\Settings\DiagnosticSeverity;
@@ -716,9 +717,8 @@ test('the seo and brand tab previews the bundled mark when no logo is stored', f
 
 test('the seo and brand tab previews the uploaded logo once one is stored', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
 
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
 
     Livewire::test(ManageSettings::class)
         ->assertSee('Your logo')
@@ -733,7 +733,9 @@ test('the logo button offers an upload until a logo is stored', function () {
 });
 
 test('the logo button offers a replacement once a logo is stored', function () {
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    Storage::fake('public');
+
+    $this->storeLogo();
 
     Livewire::test(ManageSettings::class)
         ->assertSee('Replace logo')
@@ -752,7 +754,7 @@ test('submitting the logo modal stages the upload and queues the processing job'
     // The staged source must be on the private disk, never the public one --
     // the unprocessed original is not re-encoded yet.
     Queue::assertPushed(ProcessUploadedImage::class, fn (ProcessUploadedImage $job): bool => $job->conversionSet === 'logo'
-        && $job->settingKey === SettingKey::Logo
+        && $job->mediaId !== null
         && str_starts_with($job->sourcePath, 'uploads/pending/'));
 
     Notification::assertNotified('Logo uploaded');
@@ -779,7 +781,10 @@ test('the logo modal rejects a file type the processing job cannot decode', func
  * through this action.
  */
 test('only freshly staged uploads qualify as logo sources', function (string $path, bool $qualifies) {
-    expect(ManageSettings::isStagedUploadPath($path))->toBe($qualifies);
+    // The rule lives in the media layer, which is where MediaManager enforces
+    // it on every adoption -- this asserts the panel's upload obeys the same
+    // predicate rather than a copy of it.
+    expect(StagedUpload::isStagedPath($path))->toBe($qualifies);
 })->with([
     'a staged upload' => ['uploads/pending/abc123.png', true],
     'an avatar conversion' => ['avatars/1/abc/thumb.webp', false],
@@ -792,41 +797,39 @@ test('only freshly staged uploads qualify as logo sources', function (string $pa
 ]);
 
 /**
- * The form is filled from the whole settings table, which includes the keys
- * the modal edits. Saving the form afterwards must not write those stale
- * values back over what the modal persisted -- here the row moves to a new
- * logo between mount and save, and the stale value must not win.
+ * The logo is a media row rather than a settings value, so saving the settings
+ * form cannot carry a stale copy of it -- there is no logo key in the form
+ * state to write back. This pins that: a save between storing a logo and
+ * reading it leaves the stored one in place.
  */
-test('saving the form does not revert a logo the modal just stored', function () {
-    app(Settings::class)->set(SettingKey::Logo, 'logo/stale');
+test('saving the form does not disturb a logo the modal just stored', function () {
+    Storage::fake('public');
 
-    $page = Livewire::test(ManageSettings::class);
+    $logo = $this->storeLogo('logo/new');
 
-    // What the upload modal does between mounting and saving: persists the
-    // new logo directly, out-of-band from the form state the page booted with.
-    app(Settings::class)->set(SettingKey::Logo, 'logo/new');
-
-    $page->fillForm(['mail_from_address' => 'hello@cromulent.test'])
+    Livewire::test(ManageSettings::class)
+        ->fillForm(['mail_from_address' => 'hello@cromulent.test'])
         ->call('save')
         ->assertHasNoFormErrors();
 
-    expect(app(Settings::class)->string(SettingKey::Logo))->toBe('logo/new');
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->logoMedia()?->getKey())->toBe($logo->getKey());
 
     Notification::assertNotified('Settings saved');
 });
 
-test('removing the logo clears the setting and its files', function () {
+test('removing the logo deletes its row and its files', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('logo/abc/favicon.webp', 'stale');
 
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
 
     Livewire::test(ManageSettings::class)
         ->callAction('removeLogo');
 
     app()->forgetInstance(Settings::class);
 
-    expect(app(Settings::class)->string(SettingKey::Logo))->toBe('');
+    expect(app(Settings::class)->logoMedia())->toBeNull();
     Storage::disk('public')->assertMissing('logo/abc/favicon.webp');
 
     Notification::assertNotified('Logo removed');
@@ -840,9 +843,8 @@ test('removing the logo clears the setting and its files', function () {
  */
 test('the preview falls back to the bundled mark once the logo is removed', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
 
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
 
     Livewire::test(ManageSettings::class)
         ->assertSee('Your logo')

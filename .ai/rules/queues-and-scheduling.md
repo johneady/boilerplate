@@ -11,6 +11,7 @@ paths:
   - docker-compose.dokploy.yml
   - app/Jobs/ProcessUploadedImage.php
   - .env.production.example
+  - app/Console/Commands/AdoptPageBodyImages.php
 ---
 
 # Queues & scheduling
@@ -71,16 +72,16 @@ Compose's default variable file is the project-root `.env` — which in a Larave
 
 (Borrowed from ~/php/pet-adoption.)
 
-## Avatar removal cancels an in-flight processing job
-Deleting an avatar cannot un-queue a ProcessUploadedImage already dispatched, so Profile::deleteAvatar() stamps a cache marker (ProcessUploadedImage::removalKey($userId) => time()) and the job compares it against its own $dispatchedAt. If the removal is newer, the job deletes the conversions it just wrote and skips attaching — otherwise a Remove clicked seconds after an upload is silently undone when the worker catches up. Keep the $dispatchedAt constructor default (time()) if you add dispatch call sites.
+## Media-row deletion cancels an in-flight processing job
+Deleting a file cannot un-queue a ProcessUploadedImage already dispatched, so the job looks up its App\Models\Media row when it finishes: gone means Remove was clicked while it was queued, and the job deletes the conversions it just wrote rather than leaving them orphaned. Removing a file is therefore always `$media->delete()` (or `$model->clearMedia($collection)`), never clearing a column.
 
-deleteAvatar() records the marker even when avatar_path is already null. That is the whole point: during an in-flight first upload avatar_path IS null, so an early return there would skip the marker in exactly the case the guard exists for. A test asserts the job's result is discarded end-to-end, not merely that the marker was written.
+This replaced a cache-marker guard (`ProcessUploadedImage::removalKey()` / `settingRemovalKey()`, compared against the job's `$dispatchedAt`). Those existed only because nothing represented a file until processing had finished — there is now always a row to consult, so the guard no longer depends on CACHE_STORE being shared across processes, which was a real fragility. Do not reintroduce them.
 
-The marker lives in the cache, so it depends on CACHE_STORE being shared across processes. `database` (this project's default) and Redis both qualify; a per-process store such as `array` or `file` alongside a real worker would silently break the guard. If that ever changes, move the marker to a column.
-
-The job also deletes the staged source BEFORE pruning the previous avatar directory. Ordering matters: once the source is gone a retry early-returns, so pruning last means a retry can never destroy the old set after the new one was rolled back.
+The job still deletes the staged source BEFORE anything else. Ordering matters: once the source is gone a retry early-returns, so a retry can never destroy a set after the new one was rolled back.
 
 The `local` disk sets `throw => false`, so Storage::get() returns null (not an exception) on an unreadable file. The job null-checks before decodeBinary(); without it you get a TypeError outside the try/catch, bypassing the rollback.
+
+An abandoned upload is collected by `app:prune-orphaned-media` (hourly) instead — see .ai/rules/commands.md for why its retention window is a grace period rather than a delay.
 
 ## app:check-production audits loaded config, and names the safe environments
 `.env.production.example` is the production-shaped companion to `.env.example`, which is deliberately local-shaped (sqlite, APP_DEBUG=true, MAIL_MAILER=log) because that is what a fresh clone wants. Copying the local one to a server and editing what looks wrong is how an instance ends up with debug output on a public page or a mailer writing customer mail to a log file. Keep the two in sync when adding an env var, and keep the production file's defaults pointing the safe way.
@@ -103,3 +104,14 @@ app:prune-expired-storage stays scheduled after any switch. It exists because th
 The phpredis extension is already in the image (see .ai/rules/dockerfile.md), so switching a driver is an env change plus a running Redis, never an image rebuild.
 
 That holds INSIDE the container only. The extension is not installed on a developer's own PHP, so flipping a driver while running natively (`composer run dev`) fails with 'Class "Redis" not found' — verified. Trial Redis through the compose stack, or install a client locally first (`pecl install redis`, or predis with REDIS_CLIENT=predis). Deliberately not added to composer.json: the compose stack is the intended way to trial it and the dependency list stays clean.
+
+## The page-body adopter is the cleanup for a deliberate gap
+app:adopt-page-body-images (daily) exists because body images deliberately skip MediaManager — see .ai/rules/filament-resources-pages.md. It closes both costs after the fact: re-encodes a REFERENCED upload into the media library and rewrites every body URL pointing at it; deletes an UNREFERENCED one past the grace period.
+
+DIRECTORY must match PageResource's fileAttachmentsDirectory(). If they drift the scan walks an empty directory and every body upload goes uncollected forever — a test asserts they agree.
+
+Ordering is load-bearing: the original is deleted only AFTER the body rewrite commits, so a failure leaves the page pointing at a file that still exists rather than at a missing one. The rewrite matches several URL forms (root-relative, disk URL, absolute with host) because Filament pastes whichever host was current — matching only the tidy form would delete a file a live page still uses.
+
+--hours=0 here means "sweep everything unreferenced now" (strict >), which is the OPPOSITE of app:prune-orphaned-media where 0 disables pruning. Different meaning on purpose: there it sets retention policy, here it is a one-off sweep instruction.
+
+A file whose processing job has not finished is left in place and picked up next run, rather than rewriting a body to a URL nothing has written yet.

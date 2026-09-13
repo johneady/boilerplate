@@ -61,11 +61,7 @@ test('turning off indexing adds the noindex directive', function () {
 test('a stored logo replaces the default favicon links and previews', function () {
     Storage::fake('public');
 
-    foreach (['favicon', 'apple-touch', 'social'] as $conversion) {
-        Storage::disk('public')->put("logo/abc/{$conversion}.webp", 'x');
-    }
-
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
 
     $this->get('/')
         ->assertSee('<link rel="icon" href="/storage/logo/abc/favicon.webp" type="image/webp" sizes="any" />', false)
@@ -95,9 +91,7 @@ test('a missing conversion falls back to the default icons rather than a broken 
  */
 test('a stored logo becomes the brand mark on the public page', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
-
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
 
     $this->get('/')
         ->assertSee('src="/storage/logo/abc/mark.webp"', false)
@@ -107,9 +101,7 @@ test('a stored logo becomes the brand mark on the public page', function () {
 
 test('a stored logo becomes the brand mark on the auth pages', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
-
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
 
     // The split layout renders the mark twice: the backdrop lockup and the
     // narrow-viewport header above the form.
@@ -135,9 +127,7 @@ test('the bundled mark renders when no logo has been uploaded', function () {
  */
 test('the uploaded mark is decorative rather than a second copy of the business name', function () {
     Storage::fake('public');
-    Storage::disk('public')->put('logo/abc/mark.webp', 'x');
-
-    app(Settings::class)->set(SettingKey::Logo, 'logo/abc');
+    $this->storeLogo();
     app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
 
     $html = (string) $this->get('/')->assertSuccessful()->getContent();

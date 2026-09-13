@@ -72,11 +72,11 @@ class UserResource extends Resource
         return $table
             ->columns([
                 // State is resolved through User::avatarUrl() rather than from
-                // the avatar_path column directly: that column holds the
-                // conversion DIRECTORY, not a file, and the accessor is what
-                // appends the conversion name and configured format. It also
-                // returns null when the conversion is missing, which is what
-                // makes the initials fallback below correct rather than a
+                // the media row directly: the row's `path` holds the conversion
+                // DIRECTORY, not a file, and the accessor is what resolves the
+                // named conversion. It also returns null while processing is
+                // still in flight and when the conversion is missing, which is
+                // what makes the initials fallback below correct rather than a
                 // broken image.
                 //
                 // The state is passed through url() because ImageColumn treats

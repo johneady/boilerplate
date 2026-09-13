@@ -96,6 +96,30 @@ class PageResource extends Resource
                 MarkdownEditor::make('body')
                     ->label(__('pages.fields.body'))
                     ->helperText(__('pages.fields.body_help'))
+                    // Body images are uploaded here, in the editor, and
+                    // DELIBERATELY do not go through App\Media\MediaManager:
+                    // an author adding an image while writing is worth more
+                    // than the media library's bookkeeping for this one case.
+                    //
+                    // Know what that costs, because nothing else enforces it.
+                    // Filament stores these itself and only ever publicly (the
+                    // docs are explicit that temporary URLs are unsupported for
+                    // static content), so they are served EXACTLY AS UPLOADED:
+                    // no re-encoding, which means EXIF -- including GPS on a
+                    // phone photo -- survives into a public URL. No media row
+                    // describes them, so the orphan prune cannot see them and
+                    // a file stays on disk after the body stops referencing it.
+                    //
+                    // The three settings below are therefore the only controls
+                    // on this path, and each is load-bearing:
+                    //  - a directory, so the files are identifiable rather than
+                    //    loose at the public disk root
+                    //  - an accepted-type list that excludes SVG, which is a
+                    //    scriptable document served from our own origin
+                    //  - a size ceiling, since no validator elsewhere runs
+                    ->fileAttachmentsDirectory('page-body')
+                    ->fileAttachmentsAcceptedFileTypes(static::attachmentMimeTypes())
+                    ->fileAttachmentsMaxSize((int) config('images.max_kilobytes'))
                     ->columnSpanFull(),
                 Textarea::make('seo_description')
                     ->label(__('pages.fields.seo_description'))
@@ -131,7 +155,12 @@ class PageResource extends Resource
                 TextColumn::make('slug')
                     ->label(__('pages.fields.slug'))
                     ->searchable()
-                    ->copyable()
+                    // NOT copyable: copyable() intercepts the click on this
+                    // cell to copy the text, which swallows the row's own
+                    // recordAction and stops the edit modal opening -- the
+                    // whole row should behave the same way, and editing is what
+                    // clicking a page is for. The slug is visible to select by
+                    // hand, and the edit form has it as a field.
                     // Prefixed with a slash so the column reads as the path the
                     // page is served at rather than as a bare word.
                     ->formatStateUsing(fn (string $state): string => '/'.$state)
@@ -199,5 +228,26 @@ class PageResource extends Resource
         return [
             'index' => ManagePages::route('/'),
         ];
+    }
+
+    /**
+     * The mime types the body editor accepts for an attachment.
+     *
+     * Derived from config('images.accepted_extensions') rather than listed
+     * again, so the editor cannot drift from what the rest of the application
+     * accepts. SVG is absent from that list on purpose and must stay absent --
+     * it is a scriptable document served from this application's own origin.
+     *
+     * @return array<int, string>
+     */
+    protected static function attachmentMimeTypes(): array
+    {
+        /** @var array<int, string> $extensions */
+        $extensions = config('images.accepted_extensions');
+
+        return array_values(array_unique(array_map(
+            fn (string $extension): string => 'image/'.($extension === 'jpg' ? 'jpeg' : $extension),
+            $extensions,
+        )));
     }
 }

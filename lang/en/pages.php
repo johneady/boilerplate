@@ -42,6 +42,7 @@ return [
 
     'actions' => [
         'view' => 'View',
+        'upload_image' => 'Add image',
     ],
 
     'submissions' => [
@@ -64,6 +65,15 @@ return [
             'mark_handled' => 'Mark handled',
             'mark_unhandled' => 'Mark unhandled',
         ],
+    ],
+
+    'images' => [
+        'heading' => 'Add an image',
+        'description' => 'The image is re-encoded before it is stored, which removes camera metadata such as GPS coordinates. Copy its address from the media library to place it in the page body.',
+        'field' => 'Image',
+        'uploaded' => 'Image uploaded',
+        'uploaded_body' => 'It will finish processing shortly and appear in the media library.',
+        'rejected' => 'That upload could not be accepted.',
     ],
 
 ];

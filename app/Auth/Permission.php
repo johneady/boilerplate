@@ -44,6 +44,10 @@ enum Permission: string
 
     case ViewLogs = 'logs.view';
 
+    case ViewMedia = 'media.view';
+
+    case DeleteMedia = 'media.delete';
+
     case ViewAuditLog = 'audit-log.view';
 
     case AccessAdminPanel = 'admin-panel.access';
@@ -67,6 +71,8 @@ enum Permission: string
             self::DeleteContactSubmissions => 'Delete contact form submissions',
             self::ManageSettings => 'Manage application settings',
             self::ViewLogs => 'View application logs',
+            self::ViewMedia => 'View uploaded files',
+            self::DeleteMedia => 'Delete uploaded files',
             self::ViewAuditLog => 'View the audit log',
             self::AccessAdminPanel => 'Access the admin panel',
         };

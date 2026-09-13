@@ -299,9 +299,9 @@ test('an admin may still demote another admin', function () {
 test('the table shows an uploaded avatar', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => 'avatars/7/abc']);
+    $user = User::factory()->create();
 
-    Storage::disk('public')->put('avatars/7/abc/thumb.webp', 'processed');
+    $this->giveAvatar($user, directory: 'avatars/7/abc');
 
     // ImageColumn only passes state straight through when it is an absolute
     // URL; a root-relative one is treated as a path on its own disk, fails the
@@ -314,7 +314,7 @@ test('the table shows an uploaded avatar', function () {
 test('the table falls back to initials when a user has no avatar', function () {
     Storage::fake('public');
 
-    User::factory()->create(['name' => 'Ada Lovelace', 'avatar_path' => null]);
+    User::factory()->create(['name' => 'Ada Lovelace']);
 
     Livewire::test(ManageUsers::class)
         ->assertSee('data:image/svg+xml;base64,', escape: false);

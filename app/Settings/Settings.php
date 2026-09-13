@@ -4,13 +4,14 @@ namespace App\Settings;
 
 use App\Audit\AuditEvent;
 use App\Audit\AuditLogger;
+use App\Media\MediaCollection;
+use App\Models\Media;
 use App\Models\Setting;
 use Carbon\CarbonInterface;
 use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\SQLiteDatabaseDoesNotExistException;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Typed read/write access to the key/value settings store.
@@ -31,11 +32,20 @@ class Settings
     private ?array $cache = null;
 
     /**
-     * Logo URLs already resolved for this instance, keyed by path|conversion.
+     * Logo URLs already resolved for this instance, keyed by conversion.
      *
      * @var array<string, string|null>
      */
     private array $resolvedLogoUrls = [];
+
+    /**
+     * The resolved logo row, or false when it has not been looked up yet.
+     *
+     * False rather than null as the "not yet resolved" marker, because null is
+     * the legitimate answer for an installation with no logo -- and that answer
+     * must be cached too, or every render re-queries to learn it again.
+     */
+    private Media|false|null $resolvedLogoMedia = false;
 
     /**
      * Read a setting, falling back to the key's declared default.
@@ -91,42 +101,76 @@ class Settings
     /**
      * Get the URL of one of the uploaded logo's conversions.
      *
+     * Reads the ownerless Logo media collection. The logo belongs to the
+     * installation rather than to any record, so its rows carry no owner --
+     * which is also why this cannot go through App\Concerns\HasMedia, whose
+     * every method starts from a model.
+     *
      * Null until App\Jobs\ProcessUploadedImage has written the conversions,
      * and when no logo has been uploaded at all -- which is what lets the page
      * head fall back to the bundled favicon files, and the brand mark to the
      * bundled x-app-logo-icon SVG, rather than link a file that does not
-     * exist. Like User::avatarUrl(), resolution is memoised because the head
-     * alone renders it three times per page.
+     * exist. Resolution is memoised because the head alone renders it three
+     * times per page.
      */
     public function logoUrl(string $conversion): ?string
     {
-        $directory = $this->string(SettingKey::Logo);
-
-        if ($directory === '') {
-            return null;
+        if (array_key_exists($conversion, $this->resolvedLogoUrls)) {
+            return $this->resolvedLogoUrls[$conversion];
         }
 
-        $cacheKey = $directory.'|'.$conversion;
+        return $this->resolvedLogoUrls[$conversion] = $this->logoMedia()?->url($conversion);
+    }
 
-        if (array_key_exists($cacheKey, $this->resolvedLogoUrls)) {
-            return $this->resolvedLogoUrls[$cacheKey];
+    /**
+     * The current logo row, if one has been uploaded.
+     *
+     * Memoised separately from the URLs: the head asks for three conversions
+     * of the same logo, and without this that is three queries for one row.
+     */
+    public function logoMedia(): ?Media
+    {
+        if ($this->resolvedLogoMedia !== false) {
+            return $this->resolvedLogoMedia;
         }
 
-        /** @var string $disk */
-        $disk = config('images.disk');
+        try {
+            return $this->resolvedLogoMedia = Media::query()
+                ->inCollection(MediaCollection::Logo)
+                ->whereNull('model_id')
+                ->whereNull('model_type')
+                ->latest('id')
+                ->first();
+        } catch (QueryException $e) {
+            if (! $this->isConnectionFailure($e)) {
+                throw $e;
+            }
 
-        /** @var string $format */
-        $format = config('images.format');
+            // The same contract the settings table itself has: an unreachable
+            // database must not stop an error page rendering. The head asks for
+            // the logo on EVERY page, the 500 page included, so throwing here
+            // would mean a database outage produced no error page at all --
+            // only a second, uglier failure. Falling back to the bundled mark
+            // is the whole point of logoUrl() returning null.
+            report($e);
 
-        $path = $directory.'/'.$conversion.'.'.$format;
+            return $this->resolvedLogoMedia = null;
+        }
+    }
 
-        $storage = Storage::disk($disk);
-
-        // A conversion can be missing if the set was written by an older
-        // configuration; the bundled default beats a broken image link.
-        return $this->resolvedLogoUrls[$cacheKey] = $storage->exists($path)
-            ? $storage->url($path)
-            : null;
+    /**
+     * Discard the memoised logo, so the next read goes back to the database.
+     *
+     * Required because the upload and remove actions persist out-of-band and
+     * then RE-RENDER in the same request: without this the page redraws from
+     * the row memoised before the change, and an administrator is shown the
+     * logo they just deleted. Settings is bound scoped, so the instance --
+     * and its memo -- outlives the action that changed the underlying row.
+     */
+    public function forgetLogo(): void
+    {
+        $this->resolvedLogoMedia = false;
+        $this->resolvedLogoUrls = [];
     }
 
     /**

@@ -3,8 +3,10 @@
 namespace App\Filament\Pages;
 
 use App\Concerns\ImageValidationRules;
-use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
+use App\Media\MediaCollection;
+use App\Media\MediaManager;
+use App\Media\StagedUpload;
 use App\Models\User;
 use App\Settings\DiagnosticResult;
 use App\Settings\DiagnosticSeverity;
@@ -36,10 +38,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Throwable;
 use UnitEnum;
 
@@ -327,7 +326,7 @@ class ManageSettings extends Page
         // frozen into viewData would still describe the logo just replaced.
         return View::make('filament.settings.logo-preview')
             ->viewData(fn (): array => [
-                'hasUploadedLogo' => $this->settings()->string(SettingKey::Logo) !== '',
+                'hasUploadedLogo' => $this->settings()->logoMedia() !== null,
             ]);
     }
 
@@ -459,7 +458,7 @@ class ManageSettings extends Page
      */
     protected function uploadLogoAction(): Action
     {
-        $logoIsStored = fn (): bool => $this->settings()->string(SettingKey::Logo) !== '';
+        $logoIsStored = fn (): bool => $this->settings()->logoMedia() !== null;
 
         return Action::make('uploadLogo')
             ->label(fn (): string => $logoIsStored() ? 'Replace logo' : 'Upload logo')
@@ -477,7 +476,7 @@ class ManageSettings extends Page
                 // Only paths inside the staging directory are ever handed to
                 // the job, so nothing else on the private disk can be read,
                 // republished or deleted through this action.
-                if (! static::isStagedUploadPath($sourcePath)) {
+                if (! StagedUpload::isStagedPath($sourcePath)) {
                     Notification::make()
                         ->danger()
                         ->title(__('settings.logo.rejected.title'))
@@ -487,12 +486,12 @@ class ManageSettings extends Page
                     return;
                 }
 
-                ProcessUploadedImage::dispatch(
-                    sourcePath: $sourcePath,
-                    conversionSet: 'logo',
-                    targetDirectory: 'logo/'.Str::uuid()->toString(),
-                    settingKey: SettingKey::Logo,
+                app(MediaManager::class)->attachStagedImage(
+                    stagedPath: $sourcePath,
+                    collection: MediaCollection::Logo,
                 );
+
+                $this->settings()->forgetLogo();
 
                 Notification::make()
                     ->success()
@@ -503,29 +502,13 @@ class ManageSettings extends Page
     }
 
     /**
-     * Whether a dehydrated FileUpload path may be handed to the job.
-     *
-     * Exactly "uploads/pending/<name>": a prefix match alone would admit
-     * "uploads/pending/../../elsewhere", since the filesystem resolves the
-     * dot segments after the prefix is checked. One bare filename -- no
-     * further separators, no dot-prefixed segment -- is also exactly what
-     * Filament stores there, a hashed name directly inside the directory.
-     *
-     * A pure predicate rather than an inline check so the rule is pinned by
-     * a test of its own, independent of whichever layer rejects a forged
-     * string first.
-     */
-    public static function isStagedUploadPath(string $path): bool
-    {
-        return (bool) preg_match('#^uploads/pending/[^/.\\\\][^/\\\\]*$#', $path);
-    }
-
-    /**
      * The button that removes the uploaded logo, restoring the bundled mark.
      *
-     * A marker is recorded first, so a replacement still queued for processing
-     * is discarded by the job rather than resurrecting the logo being removed
-     * -- the same guard the avatar's Remove button relies on.
+     * Deleting the row is also what cancels a replacement still being
+     * processed: the job looks its row up when it finishes and discards the
+     * conversions when it is gone. That replaces the cache marker this action
+     * used to record, from when nothing represented the logo until processing
+     * had written it.
      */
     protected function removeLogoAction(): Action
     {
@@ -533,26 +516,15 @@ class ManageSettings extends Page
             ->label(__('settings.logo.remove'))
             ->icon(Heroicon::OutlinedTrash)
             ->color('danger')
-            ->visible(fn (): bool => $this->settings()->string(SettingKey::Logo) !== '')
+            ->visible(fn (): bool => $this->settings()->logoMedia() !== null)
             ->requiresConfirmation()
             ->modalDescription(__('settings.logo.remove_description'))
             ->action(function (): void {
-                Cache::put(
-                    ProcessUploadedImage::settingRemovalKey(SettingKey::Logo),
-                    time(),
-                    now()->addDay(),
-                );
+                $this->settings()->logoMedia()?->delete();
 
-                $directory = $this->settings()->string(SettingKey::Logo);
-
-                if ($directory !== '') {
-                    $this->settings()->set(SettingKey::Logo, '');
-
-                    /** @var string $disk */
-                    $disk = config('images.disk');
-
-                    Storage::disk($disk)->deleteDirectory($directory);
-                }
+                // The page re-renders in this same request, and Settings
+                // memoises the row it just deleted.
+                $this->settings()->forgetLogo();
 
                 Notification::make()
                     ->success()

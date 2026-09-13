@@ -32,3 +32,10 @@ The shutdown hook in tests/Pest.php returns early when `Pest\Plugins\Parallel::i
 Under --parallel there is only ONE run-server: ServerManager::playwright() starts it in the parent and persists host/port, and each worker (`Parallel::isWorker()`, i.e. PARATEST=1) reconnects via AlreadyStartedPlaywrightServer. That class's empty stop() is therefore CORRECT and deliberate — the shared server is not a worker's to stop — not the oversight it might look like. A worker exits as soon as its queue drains, so an unguarded hook kills the shared server while sibling workers are still driving it.
 
 Only the parent may reap the leak, and it runs the hook after all workers have finished. Verified both ways: guard removed -> 0/7 pass; guard present -> 7/7 pass and 0 orphans, in both --parallel and serial runs.
+
+## Media test helpers live on TestCase
+`$this->giveAvatar($user)` and `$this->storeLogo()` create the media row AND write its conversion files to the faked disk — both are needed, since Media::url() returns null for a row whose files are absent (that is the in-flight state, not a stored image). `giveAvatar($user, conversions: ['full'])` writes a subset, for the missing-conversion fallback.
+
+MediaFactory: `->logo()` sets conversions, so `->pending()` must come AFTER it (`Media::factory()->logo()->pending()`) or the logo state puts them back.
+
+UploadedFile::fake()->createWithContent() with an image extension makes Laravel try to decode it, throwing ImageDecoderException before validation runs. To test that a bad upload is REJECTED, offer a real file of the wrong type (a .pdf to an image collection) rather than a fake payload named .jpg.

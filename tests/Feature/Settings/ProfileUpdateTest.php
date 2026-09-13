@@ -2,6 +2,7 @@
 
 use App\Jobs\ProcessUploadedImage;
 use App\Livewire\Settings\Profile;
+use App\Models\Media;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
@@ -17,7 +18,7 @@ test('profile page is displayed', function () {
 test('the settings page avatar falls back to the gradient with no avatar', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => null]);
+    $user = User::factory()->create();
 
     $html = $this->actingAs($user)
         ->get('/settings/profile')
@@ -37,11 +38,10 @@ test('the settings page avatar falls back to the gradient with no avatar', funct
 test('the settings page avatar shows the processed image without the gradient', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+    $user = User::factory()->create();
 
     // The shell menus resolve the thumb conversion, the preview the full one.
-    Storage::disk('public')->put('avatars/1/abc/thumb.webp', 'processed');
-    Storage::disk('public')->put('avatars/1/abc/full.webp', 'processed');
+    $this->giveAvatar($user);
 
     $html = $this->actingAs($user)
         ->get('/settings/profile')
@@ -203,9 +203,9 @@ test('an oversized upload is rejected', function () {
 test('a user can remove their avatar', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+    $user = User::factory()->create();
 
-    Storage::disk('public')->put('avatars/1/abc/thumb.webp', 'processed');
+    $this->giveAvatar($user);
 
     $this->actingAs($user);
 
@@ -213,34 +213,45 @@ test('a user can remove their avatar', function () {
         ->call('deleteAvatar')
         ->assertHasNoErrors();
 
-    expect($user->refresh()->avatar_path)->toBeNull();
+    expect($user->refresh()->avatarUrl())->toBeNull();
     Storage::disk('public')->assertMissing('avatars/1/abc/thumb.webp');
 });
 
 test('the avatar falls back to initials until processing has finished', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => null]);
+    $user = User::factory()->create();
 
-    // The window between upload and the worker finishing: no conversion exists
-    // yet, so nothing should be offered as a src.
+    // The window between upload and the worker finishing: the row exists but
+    // its conversions are still null, so nothing should be offered as a src.
+    Media::factory()->pending()->create([
+        'model_type' => $user->getMorphClass(),
+        'model_id' => $user->getKey(),
+    ]);
+
     expect($user->avatarUrl())->toBeNull();
 });
 
 test('the avatar falls back to initials when a conversion is missing', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+    $user = User::factory()->create();
 
-    expect($user->avatarUrl())->toBeNull();
+    // Processing wrote `full` but not `thumb` -- a set written by an older
+    // configuration. Asking for the missing one must fall back rather than
+    // link a file that was never written.
+    $this->giveAvatar($user, conversions: ['full']);
+
+    expect($user->avatarUrl('thumb'))->toBeNull()
+        ->and($user->avatarUrl('full'))->toContain('avatars/1/abc/full.webp');
 });
 
 test('the avatar url resolves once conversions exist', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+    $user = User::factory()->create();
 
-    Storage::disk('public')->put('avatars/1/abc/thumb.webp', 'processed');
+    $this->giveAvatar($user);
 
     expect($user->avatarUrl())->toContain('avatars/1/abc/thumb.webp');
 });
@@ -249,7 +260,7 @@ test('removing an avatar cancels an upload still on the queue', function () {
     Storage::fake('local');
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => null]);
+    $user = User::factory()->create();
 
     $this->actingAs($user);
 
@@ -276,6 +287,6 @@ test('removing an avatar cancels an upload still on the queue', function () {
 
     // The deleted avatar must not come back, and the conversions the job wrote
     // must not be left orphaned on disk.
-    expect($user->refresh()->avatar_path)->toBeNull();
+    expect($user->refresh()->avatarUrl())->toBeNull();
     expect(Storage::disk('public')->allFiles())->toBeEmpty();
 });

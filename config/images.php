@@ -96,6 +96,15 @@ return [
             'social' => ['width' => 512, 'height' => 512, 'fit' => 'cover'],
         ],
 
+        // Images placed on a content page. "scale" rather than "cover": a
+        // page image is whatever shape the author chose, and cropping one to
+        // a fixed rectangle would cut the subject out of it. Two sizes so a
+        // body image does not ship a 1600px file into a narrow column.
+        'page-image' => [
+            'thumb' => ['width' => 400, 'height' => 400, 'fit' => 'scale'],
+            'wide' => ['width' => 1600, 'height' => 1600, 'fit' => 'scale'],
+        ],
+
     ],
 
     /*

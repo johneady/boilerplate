@@ -130,9 +130,9 @@ test('the dashboard user menu is blue themed', function () {
 test('every user menu shows the uploaded avatar', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => 'avatars/1/abc']);
+    $user = User::factory()->create();
 
-    Storage::disk('public')->put('avatars/1/abc/thumb.webp', 'processed');
+    $this->giveAvatar($user);
 
     $html = $this->actingAs($user)->get(route('dashboard'))->getContent();
 
@@ -156,7 +156,7 @@ test('every user menu shows the uploaded avatar', function () {
 test('every user menu falls back to initials with no avatar', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['name' => 'Ada Lovelace', 'avatar_path' => null]);
+    $user = User::factory()->create(['name' => 'Ada Lovelace']);
 
     $html = $this->actingAs($user)->get(route('dashboard'))->getContent();
 
@@ -182,7 +182,7 @@ function gradientAvatarCount(string $html, string $gradientStyle): int
 test('every user menu falls back to the gradient with no avatar', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => null]);
+    $user = User::factory()->create();
 
     $html = $this->actingAs($user)->get(route('dashboard'))->getContent();
 
@@ -200,7 +200,7 @@ test('every user menu falls back to the gradient with no avatar', function () {
 test('the gradient fallback is stable for a user and varies between users', function () {
     Storage::fake('public');
 
-    $user = User::factory()->create(['avatar_path' => null]);
+    $user = User::factory()->create();
 
     $first = $this->actingAs($user)->get(route('dashboard'))->getContent();
     $second = $this->actingAs($user)->get(route('dashboard'))->getContent();

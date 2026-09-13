@@ -5,10 +5,12 @@ namespace App\Providers;
 use App\Auth\Permission;
 use App\Models\AuditLog;
 use App\Models\ContactSubmission;
+use App\Models\Media;
 use App\Models\Page;
 use App\Models\User;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ContactSubmissionPolicy;
+use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -61,6 +63,28 @@ class AuthServiceProvider extends ServiceProvider
     ];
 
     /**
+     * Abilities the bypass must not answer for a record written only by code.
+     *
+     * Narrower than IMMUTABLE_RECORD_ABILITIES, and deliberately so: a media
+     * row may be DELETED by an administrator -- that is how a file is removed,
+     * and Media::delete() takes the bytes with it -- but it may never be
+     * created or edited through the panel.
+     *
+     * Creating one means uploading, which goes through App\Media\MediaManager
+     * so the bytes are validated, staged privately and re-encoded. A create
+     * form would be a second way in that skipped all of it. Editing one cannot
+     * move the bytes it describes, so it could only ever make the row disagree
+     * with the file on disk.
+     *
+     * @var list<string>
+     */
+    private const array CODE_WRITTEN_RECORD_ABILITIES = [
+        'create',
+        'update',
+        'replicate',
+    ];
+
+    /**
      * The policy for each model.
      *
      * Registered explicitly rather than relying on Laravel's convention-based
@@ -75,6 +99,7 @@ class AuthServiceProvider extends ServiceProvider
     private const array POLICIES = [
         AuditLog::class => AuditLogPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
+        Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
         User::class => UserPolicy::class,
     ];
@@ -167,11 +192,32 @@ class AuthServiceProvider extends ServiceProvider
             return in_array($ability, self::IMMUTABLE_RECORD_ABILITIES, true);
         }
 
+        if ($this->isCodeWrittenRecord($target)) {
+            return in_array($ability, self::CODE_WRITTEN_RECORD_ABILITIES, true);
+        }
+
         if (! in_array($ability, self::SELF_PROTECTED_ABILITIES, true)) {
             return false;
         }
 
         return $target instanceof User && $user->is($target);
+    }
+
+    /**
+     * Whether the target is a record only code may create or edit.
+     *
+     * Media is the case. Matched on the class as well as an instance so the
+     * class-form check Filament makes when deciding whether to render a "New"
+     * button (`can('create', Media::class)`) is covered too -- that form passes
+     * no model at all.
+     */
+    private function isCodeWrittenRecord(mixed $target): bool
+    {
+        if ($target instanceof Media) {
+            return true;
+        }
+
+        return is_string($target) && is_a($target, Media::class, true);
     }
 
     /**

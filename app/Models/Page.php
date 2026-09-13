@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Concerns\HasMedia;
+use App\Media\HoldsMedia;
 use Carbon\CarbonImmutable;
 use Database\Factories\PageFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -34,10 +36,10 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $updated_at
  */
 #[Fillable(['slug', 'title', 'body', 'seo_description', 'is_published', 'show_in_footer', 'sort_order'])]
-class Page extends Model
+class Page extends Model implements HoldsMedia
 {
     /** @use HasFactory<PageFactory> */
-    use Auditable, HasFactory;
+    use Auditable, HasFactory, HasMedia;
 
     /**
      * Slugs a page may not claim, because a real route already answers on them.
@@ -66,6 +68,7 @@ class Page extends Model
         'livewire',
         'login',
         'logout',
+        'media',
         'register',
         'reset-password',
         'robots.txt',
