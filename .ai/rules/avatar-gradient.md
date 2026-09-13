@@ -2,12 +2,13 @@
 paths:
   - app/Models/User.php
   - app/Filament/Resources/Users/UserResource.php
+  - app/Filament/AvatarProviders/InitialsAvatarProvider.php
 ---
 
 # Avatar Gradient
 
-## The initials gradient lives in TWO render paths and must not drift
-User::avatarGradient() is the single source of the fallback avatar's colour: the Flux sites render it as an inline style via avatarGradientStyle(), and the Filament users table embeds the same two hex stops in a data-URI SVG <linearGradient> (UserResource::initialsAvatarUrl()). A user who is teal in the sidebar and orange in the admin table is a bug -- tests/Feature/UserResourceTest.php pins the two paths together; keep changing them through the model, never by editing one side's markup.
+## The initials gradient lives in THREE render paths and must not drift
+User::avatarGradient() is the single source of the fallback avatar's colour: the Flux sites render it as an inline style via avatarGradientStyle(), and the data-URI SVG <linearGradient> comes from ONE builder, User::initialsAvatarUrl(), which both the Filament users table (through the UserResource::initialsAvatarUrl() facade) and the panel's user-menu fallback (App\Filament\AvatarProviders\InitialsAvatarProvider, registered via ->defaultAvatarProvider()) render. A user who is teal in the sidebar and orange in the admin table is a bug -- tests/Feature/UserResourceTest.php pins the paths together; keep changing them through the model, never by editing one side's markup. Filament's stock UiAvatars fallback must not come back either: it fetches initials from ui-avatars.com, leaking the user's name to a third party.
 
 The palette const on User is APPEND-ONLY: entries are picked by crc32(key) % count, so inserting or reordering entries recolours existing users. Seed is the immutable primary key (name only for unsaved models), so renaming a user must not change their colour.
 

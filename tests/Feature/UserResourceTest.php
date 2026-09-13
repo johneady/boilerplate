@@ -342,6 +342,25 @@ test('the fallback avatar embeds the same gradient as the Flux sites', function 
     expect($svg)->toContain('id="grad-'.$user->getKey().'"');
 });
 
+test('the panel user menu falls back to the same gradient initials avatar', function () {
+    $user = User::factory()->create();
+
+    // What Filament renders beside the user's name when no photo has been
+    // uploaded. It must be the table's avatar verbatim -- Filament's default
+    // fallback is a flat near-black circle fetched from ui-avatars.com, which
+    // is both unlike every other avatar in the application and a leak of the
+    // user's name to a third party.
+    expect(Filament\Facades\Filament::getUserAvatarUrl($user))
+        ->toBe($user->initialsAvatarUrl())
+        ->toStartWith('data:image/svg+xml;base64,')
+        ->not->toContain('ui-avatars.com');
+
+    // And on the rendered page, where the user menu shows it.
+    $this->get('/admin')
+        ->assertSuccessful()
+        ->assertSee('data:image/svg+xml;base64,', escape: false);
+});
+
 test('initials in the fallback avatar are escaped', function () {
     // Initials come from the user-supplied name, so a name beginning with "<"
     // would otherwise break out of the SVG <text> element.

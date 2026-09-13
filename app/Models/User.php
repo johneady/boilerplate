@@ -190,6 +190,51 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     }
 
     /**
+     * A data-URI SVG of the initials on this user's gradient, for render
+     * paths that need an image rather than an inline style: the Filament
+     * users table and the panel's avatar provider.
+     *
+     * Generated inline rather than fetched from a third-party initials
+     * service: Filament's own fallback asks ui-avatars.com, which would leak
+     * the signed-in user's name to that service on every panel page view.
+     *
+     * This is the single markup builder for every data-URI render path, the
+     * same way avatarGradientStyle() is for the inline-style ones, so the
+     * paths cannot drift apart.
+     */
+    public function initialsAvatarUrl(): string
+    {
+        // Initials derive from the user-supplied name, so they reach this SVG
+        // as untrusted text: a name beginning with "<" yields initials that
+        // would otherwise break out of the <text> element. Escaped rather
+        // than stripped so legitimate names such as "A&B" still render.
+        $initials = e(Str::of($this->initials())->trim()->upper()->value());
+
+        $gradient = $this->avatarGradient();
+
+        // Unique per user: several of these render on one table page, and a
+        // collision would matter again if the SVG is ever inlined.
+        $gradientId = 'grad-'.$this->getKey();
+
+        $svg = <<<SVG
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+                <defs>
+                    <linearGradient id="{$gradientId}" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="{$gradient['from']}"/>
+                        <stop offset="1" stop-color="{$gradient['to']}"/>
+                    </linearGradient>
+                </defs>
+                <rect width="64" height="64" fill="url(#{$gradientId})"/>
+                <text x="50%" y="50%" fill="#ffffff"
+                      font-family="system-ui, sans-serif" font-size="26" font-weight="500"
+                      text-anchor="middle" dominant-baseline="central">{$initials}</text>
+            </svg>
+            SVG;
+
+        return 'data:image/svg+xml;base64,'.base64_encode($svg);
+    }
+
+    /**
      * Get the two factor authentication QR code URL.
      *
      * Overridden to label the authenticator entry with the BusinessName

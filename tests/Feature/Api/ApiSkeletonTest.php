@@ -84,7 +84,11 @@ test('the user resource publishes the avatar url when asked', function () {
 
     $payload = UserResource::make($user)->withAvatarUrl()->response()->getData(true)['data'];
 
-    expect($payload)->toHaveKey('avatar_url');
+    // Null rather than the gradient initials data URI: the panel's fallback
+    // avatar is a Filament concern, and baking it in here would ship a
+    // base64 blob per user to API consumers that render their own initials.
+    expect($payload)->toHaveKey('avatar_url')
+        ->and($payload['avatar_url'])->toBeNull();
 });
 
 /**

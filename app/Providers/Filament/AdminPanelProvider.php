@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use AchyutN\FilamentLogViewer\FilamentLogViewer;
 use App\Auth\Permission;
+use App\Filament\AvatarProviders\InitialsAvatarProvider;
 use App\Filament\Clusters\Account\Pages\Profile;
 use App\Filament\Pages\Dashboard;
 use App\Http\Middleware\FilamentAuthenticate;
@@ -57,6 +58,11 @@ class AdminPanelProvider extends PanelProvider
             // composers binding $businessName and $logoMarkUrl run at render
             // time -- the same property the brandName closure above preserves.
             ->brandLogo(fn (): Htmlable => view('filament.brand-logo'))
+            // The user-menu fallback when no photo is uploaded: the gradient
+            // initials avatar, not Filament's default flat circle -- which is
+            // fetched from ui-avatars.com and so leaks the user's name to a
+            // third party on every panel page view.
+            ->defaultAvatarProvider(InitialsAvatarProvider::class)
             // No resource is worth a topbar search field on this panel yet.
             ->globalSearch(false)
             // amber and zinc back the role badges (App\Auth\Role::color()).
