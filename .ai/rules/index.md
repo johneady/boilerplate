@@ -10,9 +10,9 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Notifications/** | .ai/rules/app-notifications.md |
 | resources/views/layouts/app/** | .ai/rules/app.md |
 | app/Models/User.php, app/Providers/AppServiceProvider.php, app/Livewire/Settings/Security.php, routes/settings.php | .ai/rules/auth-gates.md |
-| app/Models/User.php, app/Filament/Resources/Users/UserResource.php | .ai/rules/avatar-gradient.md |
+| app/Models/User.php, app/Filament/Resources/Users/UserResource.php, app/Filament/AvatarProviders/InitialsAvatarProvider.php | .ai/rules/avatar-gradient.md |
 | tests/Browser/**, tests/Pest.php | .ai/rules/browser.md |
-| tests/** | .ai/rules/tests.md |
+| package.json, package-lock.json, .github/dependabot.yml | .ai/rules/build-tooling.md |
 | app/Jobs/ProcessUploadedImage.php, app/Console/Commands/PruneOrphanedMedia.php | .ai/rules/commands.md |
 | resources/views/layouts/public.blade.php, resources/views/components/business-footer.blade.php, app/Providers/AppServiceProvider.php | .ai/rules/components-providers.md |
 | resources/views/components/app-logo-icon.blade.php, resources/views/components/app-logo.blade.php | .ai/rules/components-views-components.md |
@@ -46,6 +46,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Models/Page.php, resources/views/pages/**, app/Filament/Resources/Pages/** | .ai/rules/resources-pages.md |
 | database/seeders/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
+| tests/** | .ai/rules/tests.md |
 | resources/views/layouts/app/**, resources/views/components/desktop-user-menu.blade.php | .ai/rules/views-components.md |
 | resources/views/filament/** | .ai/rules/views-filament.md |
 | resources/views/** | .ai/rules/views.md |
