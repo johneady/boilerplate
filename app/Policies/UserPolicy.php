@@ -49,8 +49,12 @@ class UserPolicy extends BasePolicy
      * request and, on a single-administrator instance, leave nobody able to
      * reach the panel at all. Account closure belongs in the user's own
      * settings, not here.
+     *
+     * The model is nullable because the Gate may call this with no model at
+     * all (a class-form check); there is no self to protect in that case, so
+     * only the permission decides.
      */
-    public function delete(User $user, mixed $model): bool
+    public function delete(User $user, mixed $model = null): bool
     {
         if ($model instanceof User && $user->is($model)) {
             return false;
@@ -66,10 +70,13 @@ class UserPolicy extends BasePolicy
      * demoting yourself is the move that locks an instance out of its own
      * admin panel. The panel disables the role field for the current user, and
      * this is the same rule where the Gate can see it.
+     *
+     * Nullable for the same class-form reason as delete() above; a check with
+     * no target account is a permission question alone.
      */
-    public function updateRole(User $user, User $model): bool
+    public function updateRole(User $user, ?User $model = null): bool
     {
-        if ($user->is($model)) {
+        if ($model !== null && $user->is($model)) {
             return false;
         }
 

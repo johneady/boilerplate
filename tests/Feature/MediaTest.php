@@ -121,10 +121,10 @@ test('a multiple collection accumulates and keeps its order', function () {
 test('an upload that fails validation is rejected before anything is stored', function () {
     $user = User::factory()->create();
 
-    // A PDF offered to an image collection. `mimes` checks the file's
-    // CONTENTS, so the collection's allow-list is what rejects it.
+    // A PDF offered to an image collection: the name says image, the
+    // contents do not, and contents are what the mimes rule reads.
     expect(fn () => app(MediaManager::class)->attach(
-        file: UploadedFile::fake()->create('payload.pdf', 8, 'application/pdf'),
+        file: UploadedFile::fake()->create('document.pdf', 100, 'application/pdf'),
         collection: MediaCollection::Avatar,
         owner: $user,
     ))->toThrow(ValidationException::class);
@@ -132,6 +132,26 @@ test('an upload that fails validation is rejected before anything is stored', fu
     // Nothing may reach the disk, and no row may claim it did.
     expect(Storage::disk('local')->allFiles())->toBeEmpty()
         ->and(Media::query()->count())->toBe(0);
+});
+
+test('adopting a staged file validates it like an upload', function () {
+    Queue::fake();
+
+    // The staged path shape is the only thing a caller checks; the manager is
+    // documented as the one place that decides what may be stored, so a file
+    // already sitting on the private disk must pass the same rules. The
+    // page-body adopter hands it bytes whose only earlier validation was the
+    // editor's upload-time check.
+    Storage::disk('local')->put('uploads/pending/abc123', 'certainly not an image');
+
+    expect(fn () => app(MediaManager::class)->attachStagedImage(
+        stagedPath: 'uploads/pending/abc123',
+        collection: MediaCollection::PageImage,
+    ))->toThrow(ValidationException::class);
+
+    expect(Media::query()->count())->toBe(0);
+
+    Queue::assertNotPushed(ProcessUploadedImage::class);
 });
 
 test('an svg is refused even though it is an image', function () {

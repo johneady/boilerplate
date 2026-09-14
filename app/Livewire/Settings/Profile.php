@@ -9,6 +9,8 @@ use App\Concerns\ResolvesAuthenticatedUser;
 use App\Media\MediaCollection;
 use App\Media\MediaManager;
 use Flux\Flux;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -59,6 +61,15 @@ class Profile extends Component
     }
 
     /**
+     * How many verification emails one account may request per minute.
+     *
+     * Matches the throttle Fortify puts on its own resend route, which this
+     * action otherwise bypasses: an unverified user scripting the link would
+     * otherwise send unlimited mail from their own account.
+     */
+    private const int MAX_RESENDS_PER_MINUTE = 6;
+
+    /**
      * Send an email verification notification to the current user.
      */
     public function resendVerificationNotification(): void
@@ -71,9 +82,38 @@ class Profile extends Component
             return;
         }
 
+        $this->ensureResendIsNotRateLimited($user->id);
+
+        RateLimiter::increment($this->resendLimitKey($user->id), 60);
+
         $user->sendEmailVerificationNotification();
 
         Flux::toast(text: __('A new verification link has been sent to your email address.'));
+    }
+
+    /**
+     * Refuse a resend once the account has requested too many.
+     *
+     * Keyed on the account rather than the session: the flood this bounds is
+     * self-targeted, and a script does not keep cookies.
+     */
+    private function ensureResendIsNotRateLimited(int $userId): void
+    {
+        if (! RateLimiter::tooManyAttempts($this->resendLimitKey($userId), self::MAX_RESENDS_PER_MINUTE)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            'email' => __('You have requested several verification emails recently. Please try again later.'),
+        ]);
+    }
+
+    /**
+     * The rate limiter key for this account's verification resends.
+     */
+    private function resendLimitKey(int $userId): string
+    {
+        return 'verification-resend:'.$userId;
     }
 
     /**

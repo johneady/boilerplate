@@ -40,6 +40,9 @@ test('the housekeeping tasks every project needs are scheduled', function (strin
     'queue:prune-failed',
     'queue:prune-batches',
     'app:prune-expired-storage',
+    'app:prune-audit-log',
+    'app:adopt-page-body-images',
+    'app:prune-orphaned-media',
     'queue:restart',
 ]);
 
@@ -58,6 +61,10 @@ test('recurring maintenance tasks cannot overlap or double-run', function (strin
     'queue:prune-failed',
     'queue:prune-batches',
     'app:prune-expired-storage',
+    'app:prune-audit-log',
+    'app:adopt-page-body-images',
+    'app:prune-orphaned-media',
+    'queue:restart',
 ]);
 
 /**

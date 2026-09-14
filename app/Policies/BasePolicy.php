@@ -39,8 +39,13 @@ abstract class BasePolicy
 
     /**
      * Determine whether the user may view this resource.
+     *
+     * The model parameter is nullable because the Gate calls policy methods
+     * with NO model when an ability is checked against the class
+     * (can('view', Page::class)) -- requiring the argument would turn that
+     * check into an ArgumentCountError instead of a decision.
      */
-    public function view(User $user, mixed $model): bool
+    public function view(User $user, mixed $model = null): bool
     {
         return $this->allows($user, 'view');
     }
@@ -56,7 +61,7 @@ abstract class BasePolicy
     /**
      * Determine whether the user may update this resource.
      */
-    public function update(User $user, mixed $model): bool
+    public function update(User $user, mixed $model = null): bool
     {
         return $this->allows($user, 'update');
     }
@@ -64,7 +69,7 @@ abstract class BasePolicy
     /**
      * Determine whether the user may delete this resource.
      */
-    public function delete(User $user, mixed $model): bool
+    public function delete(User $user, mixed $model = null): bool
     {
         return $this->allows($user, 'delete');
     }
@@ -72,7 +77,7 @@ abstract class BasePolicy
     /**
      * Determine whether the user may restore this soft-deleted resource.
      */
-    public function restore(User $user, mixed $model): bool
+    public function restore(User $user, mixed $model = null): bool
     {
         return $this->allows($user, 'restore');
     }
@@ -80,7 +85,7 @@ abstract class BasePolicy
     /**
      * Determine whether the user may irreversibly delete this resource.
      */
-    public function forceDelete(User $user, mixed $model): bool
+    public function forceDelete(User $user, mixed $model = null): bool
     {
         return $this->allows($user, 'forceDelete');
     }

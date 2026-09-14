@@ -37,8 +37,15 @@ trait ResolvesLoginRedirect
     protected function defaultRedirect(?Authenticatable $user): string
     {
         if ($this->isAdmin($user)) {
-            return Filament::getPanel('admin')->getUrl()
-                ?? route('dashboard', absolute: false);
+            // getPanels()['admin'] rather than getPanel('admin'): the latter
+            // THROWS for an unregistered id instead of returning null, so a
+            // renamed or removed panel would turn every admin login into a
+            // 500. Looking the id up in the registry keeps the dashboard
+            // fallback below genuinely reachable; getUrl() is itself
+            // nullable when the panel has no base path to build from.
+            $panel = Filament::getPanels()['admin'] ?? null;
+
+            return $panel?->getUrl() ?? route('dashboard', absolute: false);
         }
 
         return Fortify::redirects('login');

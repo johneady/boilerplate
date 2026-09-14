@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Auth\Permission;
 use App\Concerns\ImageValidationRules;
 use App\Mail\TestEmail;
 use App\Media\MediaCollection;
@@ -82,6 +83,21 @@ class ManageSettings extends Page
     protected static string|UnitEnum|null $navigationGroup = 'System';
 
     protected static ?int $navigationSort = 90;
+
+    /**
+     * Whether the current user may reach this page.
+     *
+     * Filament's default allows EVERY authenticated panel user, and panel
+     * access alone is not authorisation to edit SMTP credentials, the
+     * registration toggle or the mail password -- Permission::ManageSettings
+     * exists for exactly this check. The log viewer plugin authorizes itself
+     * the same way (see AdminPanelProvider); every model-backed resource gets
+     * the equivalent from its policy.
+     */
+    public static function canAccess(): bool
+    {
+        return auth()->user()?->hasPermission(Permission::ManageSettings) ?? false;
+    }
 
     /**
      * The settings edited through the mailer button's modal rather than the

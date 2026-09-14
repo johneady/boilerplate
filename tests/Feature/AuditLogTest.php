@@ -36,13 +36,23 @@ test('updating an audited model records only what changed', function () {
         ->and($entry->old_values)->toHaveKey('title', 'Privacy')
         // The body did not change, so it must not appear: an entry listing
         // every attribute makes the one that changed impossible to find.
-        ->and($entry->new_values)->not->toHaveKey('body');
+        ->and($entry->new_values)->not->toHaveKey('body')
+        // The timestamp moves with every save, so listing it makes every
+        // entry look like a change even when nothing else moved.
+        ->and($entry->new_values)->not->toHaveKey('updated_at');
 });
 
 test('a save that changes nothing records no entry', function () {
     $page = Page::factory()->create();
 
     AuditLog::query()->delete();
+
+    // Into a later second, so the touch genuinely moves updated_at: a touch
+    // in the same second as the create changes nothing and proves nothing,
+    // which is how the noise path stayed hidden. Only the timestamp moves,
+    // and it alone is not a change worth an entry in a table nothing may
+    // delete from.
+    $this->travel(5)->minutes();
 
     $page->touch();
     $page->update(['title' => $page->title]);

@@ -56,8 +56,12 @@ test('a referenced upload is re-encoded, tracked, and its body rewritten', funct
 
     $media = Media::query()->inCollection(MediaCollection::PageImage)->first();
 
+    // The row is deliberately OWNERLESS: what owns a body image is the body
+    // text naming it, not a record -- attaching it to the page would delete
+    // the files with that page while other bodies still render them.
     expect($media)->not->toBeNull()
-        ->and($media->model_id)->toBe($page->id);
+        ->and($media->model_id)->toBeNull()
+        ->and($media->model_type)->toBeNull();
 
     $body = (string) $page->refresh()->body;
 
@@ -136,6 +140,49 @@ test('a body written against an absolute host url is still rewritten', function 
     expect((string) $page->refresh()->body)->not->toContain($path);
 });
 
+test('a body written against a different host is still rewritten', function () {
+    // A prod-shaped disk URL: Storage::fake() defaults to a RELATIVE /storage
+    // root, which makes the replacement relative too and hides exactly the
+    // corruption this test exists to catch -- an absolute foreign host left
+    // prefixed to an absolute replacement URL when the bare /storage/ form is
+    // replaced before the host-prefixed one.
+    Storage::fake('public', ['url' => 'https://app.example.com/storage']);
+
+    $path = bodyUpload();
+
+    // APP_URL changes, or a body saved from another environment, leave URLs
+    // carrying a host the current config will never produce.
+    $page = Page::factory()->create([
+        'body' => "![x](https://staging.example.test/storage/{$path})",
+    ]);
+
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    $media = Media::query()->inCollection(MediaCollection::PageImage)->first();
+
+    // The whole old URL is replaced by the whole new one -- not a splice of
+    // the two -- and the original is gone.
+    expect((string) $page->refresh()->body)
+        ->toBe('![x]('.(string) $media->url('wide').')')
+        ->and(Storage::disk('public')->assertMissing($path));
+});
+
+test('the original is kept when a body still names it in an unmatched form', function () {
+    $path = bodyUpload();
+
+    // A body may name the stored path without any /storage/ prefix -- plain
+    // prose quoting the path counts as a reference. Deleting the original
+    // would break that page, so the file stays and the run reports it.
+    $page = Page::factory()->create([
+        'body' => "![x](/storage/{$path}) and see also {$path} on disk",
+    ]);
+
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    expect((string) $page->refresh()->body)->toContain($path)
+        ->and(Storage::disk('public')->exists($path))->toBeTrue();
+});
+
 test('two pages sharing one upload are both rewritten', function () {
     $path = bodyUpload();
 
@@ -147,6 +194,38 @@ test('two pages sharing one upload are both rewritten', function () {
     // Rewriting only the first would delete the file out from under the second.
     expect((string) $first->refresh()->body)->not->toContain($path)
         ->and((string) $second->refresh()->body)->not->toContain($path);
+});
+
+test('deleting one page sharing an upload leaves the other its image', function () {
+    $path = bodyUpload();
+
+    $first = Page::factory()->create(['body' => "![a](/storage/{$path})"]);
+    $second = Page::factory()->create(['body' => "![b](/storage/{$path})"]);
+
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    $media = Media::query()->inCollection(MediaCollection::PageImage)->first();
+
+    // The row is ownerless precisely so this cascade cannot happen: attached
+    // to the first page, deleting that page would take the conversions with
+    // it and break the second page.
+    $first->delete();
+
+    expect((string) $second->refresh()->body)->toContain((string) $media->refresh()->url('wide'))
+        ->and(Storage::disk('public')->exists($media->path('wide')))->toBeTrue();
+});
+
+test('a non-numeric hours option is refused rather than treated as a sweep', function () {
+    $path = bodyUpload();
+
+    // (int) 'soon' is 0, and here 0 means "collect everything unreferenced
+    // now" -- the opposite of app:prune-orphaned-media, where 0 disables. A
+    // typo must fail loudly rather than sweep.
+    $this->artisan('app:adopt-page-body-images', ['--hours' => 'soon'])
+        ->expectsOutputToContain('whole number')
+        ->assertFailed();
+
+    expect(Storage::disk('public')->exists($path))->toBeTrue();
 });
 
 test('it does nothing when the directory is empty', function () {
@@ -241,4 +320,28 @@ test('an adopted file whose pages no longer reference it is left to the row', fu
     // is now an ordinary unowned-media case for app:prune-orphaned-media.
     expect(Media::query()->count())->toBe(1)
         ->and(Storage::disk('local')->files(StagedUpload::DIRECTORY))->toHaveCount(1);
+});
+
+test('the orphan prune collects an adopted row once no body names it', function () {
+    $path = bodyUpload();
+
+    $page = Page::factory()->create(['body' => "![x](/storage/{$path})"]);
+
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    $media = Media::query()->inCollection(MediaCollection::PageImage)->first();
+
+    Storage::disk('public')->assertMissing($path);
+
+    // The author removes the image from the body after the rewrite.
+    $page->forceFill(['body' => 'no images here'])->save();
+
+    // Past the retention window the row is ordinary unowned media: nothing
+    // owns it and no body names it.
+    $media->forceFill(['created_at' => now()->subDays(2)])->save();
+
+    $this->artisan('app:prune-orphaned-media')->assertSuccessful();
+
+    expect(Media::query()->count())->toBe(0)
+        ->and(Storage::disk('public')->assertMissing($media->path));
 });

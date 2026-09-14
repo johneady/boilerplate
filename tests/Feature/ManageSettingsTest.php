@@ -73,6 +73,19 @@ test('non-admins may not reach the settings page', function () {
         ->assertForbidden();
 });
 
+test('the page requires the settings permission, not just panel access', function () {
+    // Filament's default canAccess() allows every authenticated panel user,
+    // and panel access alone is not authorisation to edit SMTP credentials
+    // and the mail password. Today only admins carry the panel permission, so
+    // this pins the gate for the day a third role gains the panel without
+    // gaining settings.manage.
+    expect(ManageSettings::canAccess())->toBeTrue();
+
+    $this->actingAs(User::factory()->create());
+
+    expect(ManageSettings::canAccess())->toBeFalse();
+});
+
 test('guests are sent to the login page rather than a missing panel login', function () {
     auth()->logout();
 

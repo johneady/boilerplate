@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\File;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
@@ -132,6 +133,18 @@ class MediaManager
         if ($conversionSet === null) {
             throw new RuntimeException('Only image collections may adopt a staged upload.');
         }
+
+        // Validated here for the same reason attach() validates: the manager
+        // is the one place that decides what may be stored, and a staged file
+        // is not exempt -- the adopter hands it bytes that already sat on the
+        // public disk, whose only earlier validation was the editor's own
+        // upload-time check. A File rather than an UploadedFile because there
+        // is no upload left by this point; the mimes and max rules read the
+        // contents and size either way.
+        Validator::make(
+            ['file' => new File($source->path($stagedPath))],
+            ['file' => $this->rulesFor($collection)],
+        )->validate();
 
         $existing = $collection->isSingle()
             ? $this->existingQuery($collection, $owner)->get()->all()

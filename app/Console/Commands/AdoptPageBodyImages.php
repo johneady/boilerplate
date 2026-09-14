@@ -72,6 +72,18 @@ class AdoptPageBodyImages extends Command
      */
     public function handle(): int
     {
+        $hours = $this->option('hours');
+
+        // A typo here must not fall through to (int) and become 0: zero is
+        // the "collect everything unreferenced now" sweep instruction, the
+        // OPPOSITE of app:prune-orphaned-media where zero disables -- so the
+        // same slip is harmless there and destructive here.
+        if ($hours !== null && $hours !== '' && ! ctype_digit((string) $hours)) {
+            $this->error('The --hours option must be a whole number of hours.');
+
+            return self::FAILURE;
+        }
+
         $disk = $this->imageDisk();
 
         $files = Storage::disk($disk)->files(self::DIRECTORY);
@@ -185,7 +197,7 @@ class AdoptPageBodyImages extends Command
     protected function adopt(string $path, array $pages, string $disk): bool
     {
         try {
-            $media = $this->processInto($path, $pages[0], $disk);
+            $media = $this->processInto($path, $disk);
         } catch (Throwable $e) {
             $this->error("  failed to process {$path}: {$e->getMessage()}");
 
@@ -238,7 +250,16 @@ class AdoptPageBodyImages extends Command
             }
         });
 
-        // Only once no body names it any more.
+        // Re-checked rather than assumed: a body naming the file in a form
+        // none of the candidates matched still counts as a reference, and
+        // deleting the original would break a live page. Leaving the file
+        // costs one more run; deleting it wrongly costs the image.
+        if ($this->pagesReferencing($path) !== []) {
+            $this->line('  a body still names the original; leaving it in place');
+
+            return false;
+        }
+
         Storage::disk($disk)->delete($path);
 
         return true;
@@ -271,8 +292,15 @@ class AdoptPageBodyImages extends Command
      * Staged rather than adopted in place because the manager's whole contract
      * is that the bytes it publishes are ones the processing job produced --
      * handing it a path on the public disk would publish the original.
+     *
+     * The row is deliberately OWNERLESS. What "owns" a body image is the body
+     * text naming it, not a record: several pages may share one file, and a
+     * row attached to one of them would go -- files and all -- when that page
+     * was deleted, breaking every other page that still rendered it. The
+     * orphan prune learns to spare rows a body still names, and collects one
+     * once no body does.
      */
-    protected function processInto(string $path, Page $page, string $disk): Media
+    protected function processInto(string $path, string $disk): Media
     {
         $contents = Storage::disk($disk)->get($path);
 
@@ -287,7 +315,6 @@ class AdoptPageBodyImages extends Command
         $media = app(MediaManager::class)->attachStagedImage(
             stagedPath: $staged,
             collection: MediaCollection::PageImage,
-            owner: $page,
         );
 
         // The manager names the row after the staged file, which is a uuid.
@@ -301,21 +328,28 @@ class AdoptPageBodyImages extends Command
     /**
      * Swap every URL form of a stored path for its replacement.
      *
-     * A body may name the same file as "/storage/x.png", as a full URL with the
-     * host that was current when it was pasted, or with the disk's configured
-     * URL. All three have been seen in this application, so all three are
-     * rewritten rather than assuming the tidy one.
+     * A body may name the same file as "/storage/x.png", or as a full URL with
+     * whatever host was current when it was pasted -- not only TODAY'S host,
+     * which is why the host-prefixed forms are matched by pattern rather than
+     * enumerated: matching only the current config's URLs leaves a page
+     * pointing at a file this command then deletes.
      */
     protected function rewriteBody(string $body, string $path, string $replacement): string
     {
-        $candidates = array_unique([
-            Storage::disk($this->imageDisk())->url($path),
-            '/storage/'.$path,
-            url('/storage/'.$path),
-            config('app.url').'/storage/'.$path,
-        ]);
+        // Most specific first: an absolute URL CONTAINS the bare /storage/
+        // form, so replacing that first would leave the old host prefixed to
+        // the replacement ("https://old.example" + an absolute new URL). The
+        // host-prefixed pattern has to run before the forms it contains, and
+        // it matches ANY host -- including protocol-relative -- because a
+        // body may carry whatever host was current when it was pasted.
+        $pattern = '~(?:https?:)?//[^/\s"\')]+/storage/'.preg_quote($path, '~').'~';
 
-        foreach ($candidates as $candidate) {
+        $body = (string) preg_replace($pattern, $replacement, $body);
+
+        // Then the disk's own URL, which is whatever it is configured as --
+        // not necessarily the /storage/ prefix the default public disk uses --
+        // and finally the bare root-relative form.
+        foreach (array_unique([Storage::disk($this->imageDisk())->url($path), '/storage/'.$path]) as $candidate) {
             $body = str_replace($candidate, $replacement, $body);
         }
 

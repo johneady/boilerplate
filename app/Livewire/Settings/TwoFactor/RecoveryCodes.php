@@ -54,7 +54,7 @@ class RecoveryCodes extends Component
             if (is_array($decoded)) {
                 $this->recoveryCodes = array_values($decoded);
             } else {
-                $this->addError('recoveryCodes', 'Failed to load recovery codes');
+                $this->addError('recoveryCodes', __('Failed to load recovery codes'));
 
                 $this->recoveryCodes = [];
             }

@@ -210,14 +210,19 @@ class ProductionDiagnostics
             ? (array) ($channel['channels'] ?? [])
             : [$default];
 
-        return array_values(array_filter(array_map(
-            function ($name) use ($channels): ?string {
+        return array_values(array_map(
+            function ($name) use ($channels): string {
                 $level = $channels[(string) $name]['level'] ?? null;
 
-                return is_string($level) ? $level : null;
+                // The framework resolves a missing level to debug itself
+                // (ParsesLogConfiguration::level()), so a channel without one
+                // is actively logging at debug. Dropping it here made this
+                // check pass for exactly the unconfigured case it exists to
+                // catch.
+                return is_string($level) ? $level : 'debug';
             },
             $names,
-        )));
+        ));
     }
 
     /**

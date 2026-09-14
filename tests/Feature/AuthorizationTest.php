@@ -2,6 +2,8 @@
 
 use App\Auth\Permission;
 use App\Auth\Role;
+use App\Models\Media;
+use App\Models\Page;
 use App\Models\Setting;
 use App\Models\User;
 
@@ -124,6 +126,23 @@ test('abilities with no mapped permission deny rather than allow', function () {
 
     expect($plain->can('restore', $other))->toBeFalse()
         ->and($plain->can('forceDelete', $other))->toBeFalse();
+});
+
+test('class-form checks answer rather than throw', function () {
+    // The Gate calls policy methods with NO model when an ability is checked
+    // against the class (can('delete', Page::class)) -- the form Filament uses
+    // for bulk actions. A method requiring the argument turns that check into
+    // an ArgumentCountError, i.e. a 500 instead of a decision.
+    $plain = User::factory()->create();
+
+    foreach (['view', 'update', 'delete', 'restore', 'forceDelete'] as $ability) {
+        expect($plain->can($ability, Page::class))->toBeBool()
+            ->and($plain->can($ability, User::class))->toBeBool()
+            ->and($plain->can($ability, Media::class))->toBeBool();
+    }
+
+    // The custom ability takes the same class form without fataling.
+    expect($plain->can('updateRole', User::class))->toBeBool();
 });
 
 test('panel access is decided by permission, not by a boolean column', function () {

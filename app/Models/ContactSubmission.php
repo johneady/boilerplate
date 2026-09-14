@@ -60,7 +60,9 @@ class ContactSubmission extends Model
      */
     protected function auditExclude(): array
     {
-        return ['name', 'email', 'subject', 'message', 'ip_address', 'user_agent'];
+        // updated_at rides along as noise on the handled-toggle updates this
+        // model exists to record.
+        return ['name', 'email', 'subject', 'message', 'ip_address', 'user_agent', 'updated_at'];
     }
 
     /**

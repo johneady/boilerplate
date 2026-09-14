@@ -150,6 +150,26 @@ test('it leaves no partial conversion set behind when encoding fails', function 
     expect($media->refresh()->conversions)->toBeNull();
 });
 
+test('a job that exhausts its attempts cleans up the staged source', function () {
+    $media = pendingMedia('avatars/1/dead');
+
+    Storage::disk('local')->put('uploads/pending/source.jpg', 'this is not an image');
+    Storage::disk('public')->put('avatars/1/dead/thumb.webp', 'left by a killed attempt');
+
+    $job = new ProcessUploadedImage('uploads/pending/source.jpg', 'avatar', 'avatars/1/dead', $media->id);
+
+    expect(fn () => $job->handle())->toThrow(DecoderException::class);
+
+    $job->failed(null);
+
+    // No retry is coming, nothing else reads the staging directory, and the
+    // target directory holds only this row's files -- so both are garbage the
+    // moment the attempts run out. Without this hook an undecodable upload
+    // stays in uploads/pending forever.
+    Storage::disk('local')->assertMissing('uploads/pending/source.jpg');
+    Storage::disk('public')->assertMissing('avatars/1/dead/thumb.webp');
+});
+
 /*
  * The cancel path. A removal cannot un-queue a job already dispatched, so the
  * job asks whether its row still exists when it finishes -- deleting the row is

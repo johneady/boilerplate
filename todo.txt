@@ -1,3 +1,13 @@
+make the user edit modal include the user avatar.
+
+remove the create&create another in the add user modal. remove it from the page create modal as well.
+
+make this shorter "When off, the page is reachable only by people who can edit it.".
+
+make this shorter "Whether the public site's footer links to this page.".
+
+
+
 
 
 

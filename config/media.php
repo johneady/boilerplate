@@ -10,11 +10,15 @@ return [
     | How long (in hours) a media row with no owning record is kept before
     | app:prune-orphaned-media collects it and deletes its files.
     |
-    | This is a GRACE PERIOD, not a cleanup delay. A row is written before its
-    | owner exists, which is what lets a create form hold an uploaded file
+    | This is a GRACE PERIOD, not a cleanup delay. A row is written before
+    | its owner exists, which is what lets a create form hold an uploaded file
     | before the record is saved -- so an unattached row is indistinguishable
     | from one whose form is still open in somebody's browser. Too short a
     | window deletes the upload out from under a user who is still typing.
+    |
+    | Keep this ABOVE 24: an adopted page-body image is ownerless until the
+    | daily app:adopt-page-body-images run rewrites the bodies pointing at it,
+    | and a shorter window lets the prune delete the adoption mid-flight.
     |
     | Set to 0 to disable pruning entirely.
     |

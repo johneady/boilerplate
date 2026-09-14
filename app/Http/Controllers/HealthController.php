@@ -88,7 +88,12 @@ class HealthController extends Controller
      */
     private function checkCache(): array
     {
-        $key = 'health:cache-probe';
+        // The key is random as well as the value: a FIXED key shared by two
+        // concurrent checks can interleave as put(A) -> put(B) -> get(A), and
+        // the first then reads the second's value and reports a healthy store
+        // as failing. Per-request keys cannot collide, and the TTL below
+        // bounds cleanup if anything ever skips the forget().
+        $key = 'health:cache-probe:'.Str::random(16);
         $value = Str::random(16);
 
         try {

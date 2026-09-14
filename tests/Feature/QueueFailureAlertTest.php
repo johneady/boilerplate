@@ -78,6 +78,32 @@ test('the alert names the job, queue and error so the log need not be opened', f
     );
 });
 
+test('a backtick in the error cannot inject markup into the alert', function () {
+    Notification::fake();
+    $this->settings->set(SettingKey::OpsAlertEmail, 'ops@cromulent.test');
+
+    // An error message can embed user-influenced input. A code span is
+    // delimited by a backtick RUN, so a single-backtick wrapper lets the
+    // remainder be parsed as Markdown -- turning the operator's alert into a
+    // phishing surface. The delimiter must out-long any run inside the value,
+    // and a newline must not be allowed to end the table row mid-span either.
+    $hostile = "a`b [urgent](https://evil.example) c`d\nand a second line [too](https://evil.example)";
+
+    failJob(error: $hostile);
+
+    Notification::assertSentOnDemand(
+        QueueJobFailed::class,
+        function (QueueJobFailed $notification): bool {
+            $html = (string) $notification->toMail(new AnonymousNotifiable)->render();
+
+            return str_contains($html, 'href="https://evil.example"') === false
+                && str_contains($html, 'href="https://evil.example') === false
+                // The message still reaches the operator, literally.
+                && str_contains($html, '[urgent](https://evil.example)');
+        },
+    );
+});
+
 test('a second failure of the same job within the window sends no further alert', function () {
     Notification::fake();
     $this->settings->set(SettingKey::OpsAlertEmail, 'ops@cromulent.test');

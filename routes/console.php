@@ -93,6 +93,12 @@ Schedule::command('app:prune-audit-log')
  * decides how long one is kept -- running more often only makes collection
  * prompt once that window has passed, it does not shorten it.
  */
+Schedule::command('app:prune-orphaned-media')
+    ->hourly()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Delete media rows with no owning record, and their files');
+
 /*
  * Daily rather than hourly, and deliberately AFTER the orphan prune in this
  * file: this one walks the disk and re-encodes, which is real work, while the
@@ -106,12 +112,6 @@ Schedule::command('app:adopt-page-body-images')
     ->onOneServer()
     ->description('Adopt referenced page-body uploads into the media library, and collect the rest');
 
-Schedule::command('app:prune-orphaned-media')
-    ->hourly()
-    ->withoutOverlapping(60)
-    ->onOneServer()
-    ->description('Delete media rows with no owning record, and their files');
-
 /**
  * Restart queue workers nightly.
  *
@@ -121,5 +121,6 @@ Schedule::command('app:prune-orphaned-media')
  */
 Schedule::command('queue:restart')
     ->dailyAt('03:00')
+    ->withoutOverlapping(60)
     ->onOneServer()
     ->description('Gracefully recycle queue workers');

@@ -110,6 +110,21 @@ class Page extends Model implements HoldsMedia
     }
 
     /**
+     * Attributes kept out of the audit trail beyond the global denylist.
+     *
+     * updated_at is noise rather than a change: it moves on every save, so an
+     * entry would list it alongside whatever actually changed -- and a
+     * cross-second touch() would record it as the ONLY change, a contentless
+     * entry in a table nothing may delete from.
+     *
+     * @return list<string>
+     */
+    protected function auditExclude(): array
+    {
+        return ['updated_at'];
+    }
+
+    /**
      * The attribute that identifies a page in a URL.
      *
      * Load-bearing for link generation, not just for binding. The public route
@@ -193,8 +208,10 @@ class Page extends Model implements HoldsMedia
      * The cache key holding this page's rendered body.
      *
      * Keyed on the timestamp as well as the id so any save produces a new key.
-     * A page with no updated_at (one built but never stored, as the Filament
-     * preview does) falls back to a value that cannot collide with a saved row.
+     * A page with no updated_at (one built but never stored) falls back to a
+     * value that cannot collide with a saved row -- note every UNSAVED
+     * instance shares that one key, so a caller rendering previews of several
+     * unsaved pages must not cache through this path.
      */
     private function bodyCacheKey(): string
     {

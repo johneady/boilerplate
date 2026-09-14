@@ -113,6 +113,23 @@ enum MediaCollection: string
     }
 
     /**
+     * Whether rows in this collection belong to the installation, not a record.
+     *
+     * An ownerless-by-design row is PERMANENTLY ownerless: it is not a form
+     * upload waiting for its record to be saved, and app:prune-orphaned-media
+     * must never collect it no matter how old it is. Everything else may pass
+     * through an ownerless window (a create form holding a file before the
+     * record exists), which the prune's grace period exists for.
+     */
+    public function isOwnerlessByDesign(): bool
+    {
+        return match ($this) {
+            self::Logo => true,
+            self::Avatar, self::PageImage, self::Attachment => false,
+        };
+    }
+
+    /**
      * The disk files in this collection are written to.
      */
     public function disk(): string

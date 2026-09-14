@@ -273,6 +273,16 @@ test('the log level of a non-stack default channel is read directly', function (
     expect(diagnosticFor('Log level')->passed)->toBeFalse();
 });
 
+test('a channel with no level counts as debug, not as absent', function () {
+    healthyProductionConfig();
+    // The framework resolves a missing level to debug itself, so a level-less
+    // channel IS logging at debug. Dropping it from the check made this
+    // diagnostic pass for exactly the unconfigured case it exists to catch.
+    config()->set('logging.channels.daily', ['driver' => 'daily']);
+
+    expect(diagnosticFor('Log level')->passed)->toBeFalse();
+});
+
 test('failures are ordered with errors before warnings', function () {
     healthyProductionConfig();
     config()->set('mail.default', 'log');

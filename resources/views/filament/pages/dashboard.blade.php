@@ -8,9 +8,12 @@
             }
         "
     >
+        {{-- Business overview widgets --}}
+        {{ $this->content }}
+
         {{-- Reopen strip: the introduction lives in a modal, so this stays on the page
          as the way back in. --}}
-        <section class="mb-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-blue-200 bg-blue-50/80 px-5 py-4 ring-1 ring-blue-600/10 dark:border-blue-900/60 dark:bg-blue-950/30 dark:ring-blue-400/10">
+        <section class="mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-2xl border border-blue-200 bg-blue-50/80 px-5 py-4 ring-1 ring-blue-600/10 dark:border-blue-900/60 dark:bg-blue-950/30 dark:ring-blue-400/10">
             <div class="flex min-w-0 items-center gap-4">
                 <img
                     src="{{ asset('images/dashboard/john-eady.jpeg') }}"
@@ -26,7 +29,7 @@
                             icon="heroicon-s-information-circle"
                             class="size-4.5 shrink-0 text-blue-700 dark:text-blue-400"
                         />
-                        The widgets below are generic examples
+                        The widgets above are generic examples
                     </h2>
                     <p class="mt-0.5 text-xs font-semibold text-blue-800/80 dark:text-blue-200/80">
                         In the finished product they are replaced with widgets built around your real business data.
@@ -44,11 +47,8 @@
             </x-filament::button>
         </section>
 
-        {{-- Business overview widgets --}}
-        {{ $this->content }}
-
         {{-- Introduction modal, carried over from the one on johneady.duckdns.org. --}}
-        <x-filament::modal id="work-overview" width="3xl" sticky-footer>
+        <x-filament::modal id="work-overview" width="4xl" sticky-footer>
             {{-- Hero, mirroring the introduction modal's header. --}}
             <section class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-300 via-blue-200 to-indigo-300 px-5 py-6 sm:px-6 dark:from-blue-900/70 dark:via-slate-900/80 dark:to-slate-900">
                 <div class="pointer-events-none absolute inset-0 opacity-30" aria-hidden="true">
@@ -95,7 +95,7 @@
                             John Eady
                         </h3>
                         <p class="mt-1 text-base font-medium text-blue-700 dark:text-sky-300">
-                            You run your business. I build the website, get it online, and keep it working.
+                            I build your website, get it online, and keep it running.
                         </p>
                         <p class="mt-1.5 text-xs font-medium tracking-wider text-slate-500 uppercase dark:text-slate-400">
                             Laravel &middot; Livewire &middot; Filament &middot; PHP

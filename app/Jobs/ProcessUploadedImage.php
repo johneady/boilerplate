@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Storage;
 use Intervention\Image\ImageManager;
 use Intervention\Image\Interfaces\ImageInterface;
 use RuntimeException;
+use Throwable;
 
 /**
  * Decode a user-supplied image and write the configured conversions.
@@ -90,7 +91,7 @@ class ProcessUploadedImage extends Job
 
                 $written[$name] = $this->writeConversion($image, $name, $conversion, $target);
             }
-        } catch (\Throwable $exception) {
+        } catch (Throwable $exception) {
             // A partially written set would leave the model pointing at sizes
             // that do not all exist. Roll back before the base class retries.
             foreach ($written as $path) {
@@ -106,7 +107,33 @@ class ProcessUploadedImage extends Job
         // has already been rolled back.
         $source->delete($this->sourcePath);
 
-        $this->attachToMedia($written, $manager->decodeBinary($contents));
+        // Oriented before its geometry is recorded, because orient() swaps
+        // the axes of a phone photo: the conversions are written oriented, so
+        // an un-oriented probe would file width and height the wrong way
+        // round against the bytes the row describes.
+        $probe = $manager->decodeBinary($contents);
+        $probe->orient();
+
+        $this->attachToMedia($written, $probe);
+    }
+
+    /**
+     * Clean up after a job that exhausted its attempts.
+     *
+     * The staged original and anything a killed attempt left half-written are
+     * garbage by then: no retry is coming, nothing else reads them, and the
+     * staging directory has no other collector. The media row is left alone
+     * -- it is either collected by the orphan prune (an abandoned form) or
+     * replaced by the user re-uploading (an avatar whose row shows the
+     * placeholder until then).
+     */
+    public function failed(?Throwable $exception): void
+    {
+        parent::failed($exception);
+
+        Storage::disk('local')->delete($this->sourcePath);
+
+        Storage::disk($this->imageDisk())->deleteDirectory($this->targetDirectory);
     }
 
     /**

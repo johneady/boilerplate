@@ -275,3 +275,22 @@ test('html in a submitted message is escaped in the notification', function () {
         ->not->toContain('<script>')
         ->toContain('&lt;script&gt;');
 });
+
+test('markdown in a submitted message renders as text, not as a link', function () {
+    $submission = ContactSubmission::factory()->make([
+        'message' => 'See [our offer](https://evil.example) and *terms*',
+    ]);
+
+    $mail = (new ContactSubmissionReceived($submission))->toMail(new stdClass);
+
+    $html = (string) $mail->render();
+
+    // The mail template parses Markdown after this notification's own
+    // escaping, so HTML-escaping alone leaves [text](url) free to render as a
+    // clickable anchor -- an attacker-controlled link inside a notification
+    // the business has every reason to trust.
+    expect($html)
+        ->not->toContain('href="https://evil.example"')
+        ->not->toContain('<em>terms</em>')
+        ->toContain('[our offer](https://evil.example)');
+});

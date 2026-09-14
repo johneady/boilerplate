@@ -36,14 +36,23 @@ class ContactSubmissionReceived extends BaseNotification
         $message = $this->mailMessage(__('New contact form message'))
             ->greeting(__('New contact form message'))
             ->replyTo($this->submission->email, $this->submission->name)
-            ->line(__('Somebody sent this through the contact form on :business.', ['business' => $businessName]))
-            ->line(__('From: :name (:email)', [
-                'name' => $this->submission->name,
-                'email' => $this->submission->email,
-            ]));
+            ->line(__('Somebody sent this through the contact form on :business.', ['business' => $businessName]));
+
+        // Name, address and subject are the visitor's own strings, and the
+        // mail template parses every line as Markdown after escaping its
+        // HTML -- so a name of "[invoice](https://evil.example)" would render
+        // as a clickable link inside a notification the business trusts, the
+        // same attack as the quoted message below. Markdown-escaped here;
+        // the template still applies the HTML escaping for a plain string.
+        $message->line(__('From: :name (:email)', [
+            'name' => $this->escapeMarkdownTokens($this->submission->name),
+            'email' => $this->escapeMarkdownTokens($this->submission->email),
+        ]));
 
         if (filled($subject)) {
-            $message->line(__('Subject: :subject', ['subject' => $subject]));
+            $message->line(__('Subject: :subject', [
+                'subject' => $this->escapeMarkdownTokens($subject),
+            ]));
         }
 
         // Wrapped in HtmlString so the line survives as several lines. A plain
@@ -78,9 +87,43 @@ class ContactSubmissionReceived extends BaseNotification
         $lines = preg_split('/\R/', trim($this->submission->message)) ?: [];
 
         return implode("\n", array_map(
-            fn (string $line): string => rtrim('> '.e($line)),
+            fn (string $line): string => rtrim('> '.$this->escapeMarkdown($line)),
             $lines,
         ));
+    }
+
+    /**
+     * Escape a line for both HTML and the Markdown parser.
+     *
+     * e() covers the HTML the mail template would otherwise escape anyway;
+     * backslash-escaping the Markdown-significant characters covers what it
+     * does not -- `[text](url)` and `*emphasis*` are not HTML, so without this
+     * a visitor's message renders as a clickable link inside a notification
+     * the business has every reason to trust.
+     */
+    private function escapeMarkdown(string $line): string
+    {
+        return e($this->escapeMarkdownTokens($line));
+    }
+
+    /**
+     * Backslash-escape the characters the Markdown parser would act on.
+     *
+     * The backslash itself first, or the escapes below would double the ones
+     * already in the visitor's text. Block markers (`#`, `-`, `+`) are
+     * included so a line cannot open a heading or a list inside the quote.
+     * A backslash escape renders as the bare character, so nothing legitimate
+     * is distorted.
+     */
+    private function escapeMarkdownTokens(string $value): string
+    {
+        $escaped = str_replace('\\', '\\\\', $value);
+
+        foreach (['`', '*', '_', '~', '[', ']', '!', '#', '-', '+'] as $character) {
+            $escaped = str_replace($character, '\\'.$character, $escaped);
+        }
+
+        return $escaped;
     }
 
     /**

@@ -4,7 +4,9 @@ use App\Jobs\ProcessUploadedImage;
 use App\Livewire\Settings\Profile;
 use App\Models\Media;
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
@@ -289,4 +291,28 @@ test('removing an avatar cancels an upload still on the queue', function () {
     // must not be left orphaned on disk.
     expect($user->refresh()->avatarUrl())->toBeNull();
     expect(Storage::disk('public')->allFiles())->toBeEmpty();
+});
+
+test('verification resends are throttled like the route they replace', function () {
+    Notification::fake();
+
+    // Fortify throttles its own resend route (6 per minute); the profile
+    // banner's Livewire action must not be the unthrottled way around it --
+    // an unverified user scripting the link would otherwise send unlimited
+    // mail from their own account.
+    $user = User::factory()->unverified()->create();
+
+    Livewire::actingAs($user);
+
+    for ($attempt = 0; $attempt < 6; $attempt++) {
+        Livewire::test(Profile::class)
+            ->call('resendVerificationNotification')
+            ->assertHasNoErrors();
+    }
+
+    Livewire::test(Profile::class)
+        ->call('resendVerificationNotification')
+        ->assertHasErrors(['email']);
+
+    Notification::assertSentTimes(VerifyEmail::class, 6);
 });

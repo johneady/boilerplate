@@ -3,10 +3,6 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\BusinessOverview;
-use App\Filament\Widgets\RecentOrders;
-use App\Filament\Widgets\RevenueTrendChart;
-use App\Filament\Widgets\TopProducts;
-use App\Filament\Widgets\TrafficSourcesChart;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 /**
@@ -32,10 +28,6 @@ class Dashboard extends BaseDashboard
     {
         return [
             BusinessOverview::class,
-            RevenueTrendChart::class,
-            TrafficSourcesChart::class,
-            RecentOrders::class,
-            TopProducts::class,
         ];
     }
 }

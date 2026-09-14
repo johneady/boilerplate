@@ -61,7 +61,7 @@ class QueueJobFailed extends BaseNotification
     /**
      * The failure's specifics as a Markdown table.
      *
-     * Values are wrapped in backticks so a class name or an error message
+     * Values are wrapped in code spans so a class name or an error message
      * containing Markdown punctuation renders literally, and any pipe is
      * escaped so it cannot break out of its cell.
      */
@@ -80,7 +80,7 @@ class QueueJobFailed extends BaseNotification
         ];
 
         foreach ($rows as $label => $value) {
-            $lines[] = sprintf('| %s | `%s` |', $label, str_replace('|', '\|', $value));
+            $lines[] = sprintf('| %s | %s |', $label, $this->codeSpan($value));
         }
 
         // Wrapped exactly as the framework's x-mail::table component does: the
@@ -88,6 +88,39 @@ class QueueJobFailed extends BaseNotification
         // Markdown table renders with no class at all, so without this div the
         // rows inherit none of the borders, spacing or wrapping below.
         return '<div class="table">'."\n\n".implode("\n", $lines)."\n\n".'</div>';
+    }
+
+    /**
+     * A value wrapped in a code span no backtick inside it can close.
+     *
+     * A code span ends at the next backtick RUN of the same length as the one
+     * that opened it, so wrapping in single backticks lets an error message
+     * containing one hand everything after it to the Markdown parser -- an
+     * attacker-influenced exception message becomes a clickable link in the
+     * operator's alert. The delimiter is one backtick longer than the longest
+     * run inside the value, and the spaces either side stop a value that
+     * starts or ends with a backtick from touching the delimiters.
+     *
+     * Newlines are collapsed first: a table row is one line in GFM, so a
+     * newline would end the row mid-span and hand the rest of the message to
+     * the parser as a fresh row. Code spans render newlines as spaces anyway,
+     * so nothing is lost.
+     */
+    private function codeSpan(string $value): string
+    {
+        $value = (string) preg_replace('/\R+/u', ' ', $value);
+
+        $longestRun = 0;
+
+        if (preg_match_all('/`+/', $value, $runs) > 0) {
+            foreach ($runs[0] as $run) {
+                $longestRun = max($longestRun, strlen($run));
+            }
+        }
+
+        $delimiter = str_repeat('`', $longestRun + 1);
+
+        return sprintf('%s %s %s', $delimiter, str_replace('|', '\|', $value), $delimiter);
     }
 
     /**

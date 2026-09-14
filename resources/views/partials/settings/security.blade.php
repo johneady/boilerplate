@@ -52,7 +52,7 @@
                             <flux:button variant="danger" wire:click="disable"> {{ __('Disable 2FA') }} </flux:button>
                         </div>
 
-                        <livewire:settings.two-factor.recovery-codes :$requiresConfirmation />
+                        <livewire:settings.two-factor.recovery-codes />
                     </div>
                 @else
                     <div class="space-y-4">
