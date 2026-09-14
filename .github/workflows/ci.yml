@@ -17,7 +17,7 @@ jobs:
     name: Pint & PHPStan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -40,7 +40,7 @@ jobs:
     name: Pest
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Tia diffs the branch against its baseline, so it needs history
           # rather than the default depth-1 checkout to resolve origin/main.
@@ -90,7 +90,7 @@ jobs:
     # this one downloads a browser and drives a real page, which is both slower
     # and likelier to fail for reasons unrelated to the change under test.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
@@ -169,7 +169,7 @@ jobs:
           --health-retries=10
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
