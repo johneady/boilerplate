@@ -13,6 +13,7 @@ use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -38,6 +39,25 @@ class UserResource extends Resource
     {
         return $schema
             ->components([
+                // Read-only, and only while editing: creation has no record to
+                // show one for, and an admin does not upload another person's
+                // photo -- every avatar write goes through MediaManager on the
+                // owner's own profile page.
+                //
+                // The state is passed through url() for the same reason the
+                // table column does it: avatarUrl() returns a root-relative
+                // "/storage/..." string, which ImageEntry would otherwise treat
+                // as a path on its own disk, fail the existence check on, and
+                // render as the initials fallback for every user who has one.
+                ImageEntry::make('avatar')
+                    ->label(__('users.fields.avatar'))
+                    ->hiddenOn('create')
+                    ->getStateUsing(fn (User $record): ?string => filled($url = $record->avatarUrl('full'))
+                        ? url($url)
+                        : null)
+                    ->circular()
+                    ->imageSize(96)
+                    ->defaultImageUrl(fn (User $record): string => static::initialsAvatarUrl($record)),
                 TextInput::make('name')
                     ->required()
                     ->maxLength(255),

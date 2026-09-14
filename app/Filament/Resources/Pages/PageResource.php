@@ -11,6 +11,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -134,13 +135,18 @@ class PageResource extends Resource
                     ->label(__('pages.fields.show_in_footer'))
                     ->helperText(__('pages.fields.show_in_footer_help'))
                     ->default(true),
-                TextInput::make('sort_order')
-                    ->label(__('pages.fields.sort_order'))
-                    ->helperText(__('pages.fields.sort_order_help'))
-                    ->numeric()
-                    ->default(0)
-                    ->minValue(0)
-                    ->maxValue(9999),
+                // Footer order is dragged rather than typed, so this carries
+                // the value instead of a visible field -- and it must not be
+                // left to the column default.
+                //
+                // That default is 0, which sorts BEFORE every existing page:
+                // without this, a page created with "Link in footer" on would
+                // silently become the FIRST link in the public footer, and a
+                // second one would land on 0 as well and collide with it. New
+                // rows belong at the end, where somebody can then drag them.
+                Hidden::make('sort_order')
+                    ->default(fn (): int => ((int) Page::max('sort_order')) + 1)
+                    ->dehydrated(fn (string $operation): bool => $operation === 'create'),
             ]);
     }
 
@@ -186,6 +192,37 @@ class PageResource extends Resource
                     ->sortable(),
             ])
             ->defaultSort('sort_order')
+            // Footer order is set by dragging rows here rather than by typing a
+            // number into the edit form, which is why that field is gone.
+            //
+            // Dragging rewrites sort_order as a dense 1..n sequence over the
+            // rows on screen, so the "pages sharing a number" case the old
+            // numeric field allowed stops arising for anything reordered this
+            // way. Page::inFooter() still breaks a tie on title, because the
+            // seeded rows keep the numbers they have until somebody drags them.
+            //
+            // A page created since gets max+1 from the hidden field in the
+            // form above rather than the column's own default of 0, which
+            // would have put every new page FIRST in the public footer and
+            // collided every new page with the last one.
+            //
+            // The condition is why reordering is refused while a search or
+            // filter is active, and it is not cosmetic. reorderTable() rewrites
+            // ONLY the keys it is handed -- the rows matching the current
+            // filter -- to 1..n, with no regard for the rows it cannot see. So
+            // filtering to the two drafts of A(1) B(2) C(3) D(4) and dragging
+            // them leaves A=1 D=1 B=2 C=2: colliding numbers across the whole
+            // table, and a public footer silently ordered by title instead of
+            // by the drag. Dense renumbering is only safe over the full set.
+            //
+            // authorizeReorder() is not decoration either: reorderTable() is a
+            // public Livewire method that writes straight to the column, and
+            // Filament leaves it AUTHORIZED BY DEFAULT -- it consults no policy
+            // of its own. Without this line, any account that can reach this
+            // table could reorder it, including one holding only ViewPages.
+            ->reorderable('sort_order', condition: fn (Table $table): bool => ! $table->hasSearch()
+                && ! $table->isFiltered())
+            ->authorizeReorder(fn (): bool => auth()->user()?->can('update', Page::class) ?? false)
             // Clicking a row opens the edit modal, which is what somebody
             // scanning this table wants to do next.
             //

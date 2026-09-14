@@ -9,6 +9,7 @@ use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Infolists\Components\ImageEntry;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\Hash;
@@ -20,6 +21,36 @@ beforeEach(function () {
     $this->admin = User::factory()->admin()->create();
     $this->actingAs($this->admin);
 });
+
+/**
+ * The avatar entry from the edit form, resolved against one user.
+ *
+ * The entry derives its state from the record rather than from form data, so
+ * there is nothing in mountedActions[0]['data'] to assert on, and Filament
+ * does not render the modal body until it is opened in the browser. Building
+ * the schema is what actually exercises the closures under test.
+ */
+function avatarEntry(User $user): ImageEntry
+{
+    $schema = UserResource::form(new Schema(Livewire::test(ManageUsers::class)->instance()))
+        ->operation('edit')
+        ->record($user);
+
+    $entry = collect($schema->getFlatComponents())
+        ->first(fn ($component): bool => $component instanceof ImageEntry);
+
+    expect($entry)->toBeInstanceOf(ImageEntry::class);
+
+    return $entry;
+}
+
+/**
+ * The URL the avatar entry resolves to for one user.
+ */
+function avatarEntryState(User $user): ?string
+{
+    return avatarEntry($user)->getState();
+}
 
 test('the panel navigation links to the users table', function () {
     $this->get('/admin/users')->assertSuccessful();
@@ -309,6 +340,53 @@ test('the table shows an uploaded avatar', function () {
     // actually has an avatar.
     Livewire::test(ManageUsers::class)
         ->assertSee('avatars/7/abc/thumb.webp', escape: false);
+});
+
+test('the edit modal shows the user\'s avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+
+    $this->giveAvatar($user, directory: 'avatars/9/def');
+
+    // 'full' rather than the table's 'thumb': the modal renders it large.
+    // Asserted as an ABSOLUTE url, because ImageEntry has the same trap
+    // ImageColumn does -- it only passes state through when it is a valid URL,
+    // so a root-relative "/storage/..." one would be looked up as a path on
+    // its own disk and silently fall back to initials.
+    expect(avatarEntryState($user))
+        ->toBe(url('/storage/avatars/9/def/full.webp'));
+});
+
+test('the edit modal falls back to the initials avatar', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['name' => 'Ada Lovelace']);
+
+    $entry = avatarEntry($user);
+
+    // No avatar means no state at all, which is what makes the default below
+    // the thing that renders rather than a broken image.
+    expect($entry->getState())->toBeNull()
+        ->and($entry->getDefaultImageUrl())->toBe($user->initialsAvatarUrl());
+});
+
+test('the create modal has no avatar, having no record to show one for', function () {
+    $fields = array_keys(
+        UserResource::form(new Schema(Livewire::test(ManageUsers::class)->instance()))
+            ->operation('create')
+            ->getFlatComponents()
+    );
+
+    expect($fields)->not->toContain('avatar');
+});
+
+test('the create modal does not offer to create another', function () {
+    $action = Livewire::test(ManageUsers::class)
+        ->instance()
+        ->getAction('create');
+
+    expect($action->canCreateAnother())->toBeFalse();
 });
 
 test('the table falls back to initials when a user has no avatar', function () {
