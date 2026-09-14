@@ -55,6 +55,28 @@ updates:
     # would still raise a PR for it on its own.
     ignore:
       - dependency-name: playwright
+      # vite-plus is held back deliberately, and must be bumped by hand
+      # together with the `vite` alias. Vite+ does not run on upstream Vite:
+      # package.json aliases `vite` to npm:@voidzero-dev/vite-plus-core@X, and
+      # vite-plus pins that alias to its OWN exact version, with a third copy
+      # in `overrides` so transitive dependents resolve the same package.
+      #
+      # Dependabot bumps vite-plus but cannot see that the aliased `vite` key
+      # and the override are the same package under another name, so it moves
+      # one of the three and leaves the rest, and `vp build` aborts with
+      # "Expected @voidzero-dev/vite-plus-core@<new>, but found <old>".
+      #
+      # This is an `ignore` rather than a group `exclude-patterns` for the same
+      # reason as playwright above: excluding it would only stop it being
+      # BUNDLED, and Dependabot would still raise the PR on its own.
+      #
+      # To bump: set vite-plus, dependencies.vite and overrides.vite to the same
+      # new version, confirm `npm view vite-plus@<v> dependencies` still bundles
+      # the pinned vitest, then `npm install && npm run build`.
+      - dependency-name: vite-plus
+      # The aliased vite key -- npm:@voidzero-dev/vite-plus-core, not upstream
+      # Vite. Ignored for the same reason: it only moves with vite-plus.
+      - dependency-name: vite
 
   - package-ecosystem: github-actions
     directory: /
