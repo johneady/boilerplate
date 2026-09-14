@@ -36,8 +36,12 @@ return [
         'show_in_footer' => 'Link in footer',
         'show_in_footer_help' => 'Link to this page from the site footer.',
         'sort_order' => 'Footer order',
-        'sort_order_help' => 'Lower numbers appear first. Pages sharing a number are ordered by title.',
         'updated' => 'Last updated',
+    ],
+
+    'reorder_note' => [
+        'heading' => 'Footer order is set by dragging',
+        'description' => 'Use the reorder button above, then drag rows into the order you want. That order is the order the links appear in the public site\'s footer, left to right. Only pages that are published and set to link in the footer appear there. Clear any search or filter first — reordering is only available when every page is in view.',
     ],
 
     'actions' => [
