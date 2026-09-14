@@ -15,6 +15,7 @@ class ManageUsers extends ManageRecords
     {
         return [
             CreateAction::make()
+                ->createAnother(false)
                 ->using(fn (array $data): User => UserResource::saveUser(new User, $data)),
         ];
     }

@@ -18,6 +18,15 @@ test('an administrator can reach the pages screen', function () {
         ->assertSuccessful();
 });
 
+test('the create modal does not offer to create another', function () {
+    $action = Livewire::actingAs($this->admin)
+        ->test(ManagePages::class)
+        ->instance()
+        ->getAction('create');
+
+    expect($action->canCreateAnother())->toBeFalse();
+});
+
 test('an ordinary user cannot reach the pages screen', function () {
     $this->actingAs(User::factory()->create())
         ->get('/admin/pages')
