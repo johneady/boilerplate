@@ -261,9 +261,16 @@ jobs:
         #
         # --parallel works here because Laravel's TestDatabases concern gives
         # each worker its own schema (testing_test_1, testing_test_2, ...) and
-        # migrates it, rather than the workers sharing `testing`. Capped at 4
-        # processes deliberately: every worker holds connections to ONE service
-        # container, and the default (a process per core) is a heavier load on
-        # it than the sqlite job's per-worker :memory: files, which cost the
-        # server nothing.
+        # migrates it, rather than the workers sharing `testing`.
+        #
+        # Capped at 4 to match the runner's core count: a standard ubuntu-latest
+        # runner is 4 CPU, and Pest's default is already one process per core,
+        # so this pins the value rather than inheriting it from whatever the
+        # runner reports. Measured against a real mysql:8.4 container on 4 CPUs
+        # (935 tests): 2 procs ~52s, 4 ~38s, 6 ~36s, 8 ~37s -- past 4 the gain
+        # is inside the ~4s run-to-run variance, so raising it buys nothing.
+        #
+        # Note the constraint is CPU, NOT database connections: max_connections
+        # is 151 and the whole run peaked at 10 concurrent connections. Do not
+        # lower this on the theory that the service container is saturated.
         run: vendor/bin/pest --ci --parallel --processes=4 --testsuite=Unit,Feature
