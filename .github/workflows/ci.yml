@@ -30,6 +30,29 @@ jobs:
       - name: Install Composer dependencies
         uses: ramsey/composer-install@v4
 
+      # The Dockerfile's node: base and the node-version pins in this file are
+      # independent -- nothing else fails when they drift apart, which is
+      # exactly how they drifted before (CI unpinned while the Dockerfile moved
+      # to a non-LTS line). Assert they agree so the drift is a red build
+      # rather than a silent difference between CI and the deployed image.
+      - name: Check Node pins agree
+        run: |
+          dockerfile_node="$(grep -oP '^FROM node:\K[0-9]+' Dockerfile | sort -u)"
+          workflow_nodes="$(grep -oP "node-version: '\K[0-9]+" .github/workflows/ci.yml | sort -u)"
+
+          if [ -z "$dockerfile_node" ] || [ -z "$workflow_nodes" ]; then
+            echo "::error::Could not find a Node pin in Dockerfile and/or ci.yml."
+            exit 1
+          fi
+
+          all="$(printf '%s\n%s\n' "$dockerfile_node" "$workflow_nodes" | sort -u)"
+          if [ "$(printf '%s\n' "$all" | wc -l)" -ne 1 ]; then
+            echo "::error::Node pins disagree. Dockerfile=[$(echo $dockerfile_node)] ci.yml=[$(echo $workflow_nodes)]"
+            exit 1
+          fi
+
+          echo "Node pin consistent: $all"
+
       - name: Check code style
         run: vendor/bin/pint --test --parallel
 
@@ -64,6 +87,16 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
+      # Vite+ requires a modern Node (vite-plus declares
+      # ^20.19.0 || ^22.18.0 || >=24.11.0). Pinning to the current LTS keeps CI,
+      # the Dockerfile and local development on one version rather than
+      # inheriting whatever the runner image happens to ship.
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
       - name: Install npm dependencies
         run: npm ci
 
@@ -74,7 +107,7 @@ jobs:
         # Pest's environment defaults to LOCAL and only becomes CI when --ci is
         # passed, which makes it run the full suite instead of trusting Tia's
         # cached dependency graph. `artisan test` does not forward the flag, so
-        # Pest is invoked directly. See README "Tia in CI".
+        # Pest is invoked directly.
         #
         # Browser tests are excluded here and run in their own job: they need a
         # Playwright browser download this job has no reason to pay for, and
@@ -107,6 +140,12 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
 
       - name: Install npm dependencies
         run: npm ci
@@ -188,6 +227,12 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
+
+      - name: Set up Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
 
       - name: Install npm dependencies
         run: npm ci
