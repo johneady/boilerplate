@@ -83,10 +83,27 @@ updates:
     schedule:
       interval: monthly
 
-  # Pinned base images in the Dockerfile (php:8.5-*, node:22-*) go stale
+  # Pinned base images in the Dockerfile (php:8.5-*, node:24-*) go stale
   # silently otherwise -- nothing else in the repo reports a new patch release
   # of the runtime the deployed image is built on.
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: monthly
+    ignore:
+      # Node is pinned to the current LTS line (24, "Krypton") deliberately.
+      # Dependabot would otherwise offer node:26 -- an even-numbered but
+      # NOT-yet-LTS line ("lts": false across all 26.x) -- and walk the
+      # Dockerfile off LTS silently.
+      #
+      # Only MAJORS are ignored: node:24.x patch and security updates still
+      # arrive normally, which is what this docker block exists for. The php:*
+      # images are untouched by this and keep updating.
+      #
+      # Move the major by hand, when the next line actually enters LTS, and
+      # change it together with the Node pin in .github/workflows/ci.yml --
+      # the Dockerfile and CI must always name the same version, and nothing
+      # fails if they drift apart, which is how they drifted in the first place.
+      - dependency-name: node
+        update-types:
+          - version-update:semver-major
