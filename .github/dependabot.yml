@@ -55,6 +55,15 @@ updates:
     # would still raise a PR for it on its own.
     ignore:
       - dependency-name: playwright
+      # Platform-specific optional binaries, pulled in transitively by rollup,
+      # lightningcss and esbuild. Nothing depends on them directly -- they are
+      # in the lockfile only because this machine is linux-x64, and npm picks a
+      # different one per platform. Bumping them in isolation is pure noise: the
+      # version that matters is the parent package's, which the build-tooling
+      # group already tracks.
+      - dependency-name: '@rollup/rollup-*'
+      - dependency-name: 'lightningcss-*'
+      - dependency-name: '@esbuild/*'
       # vite-plus is held back deliberately, and must be bumped by hand
       # together with the `vite` alias. Vite+ does not run on upstream Vite:
       # package.json aliases `vite` to npm:@voidzero-dev/vite-plus-core@X, and
