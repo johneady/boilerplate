@@ -16,6 +16,7 @@ jobs:
   static-analysis:
     name: Pint & PHPStan
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
 
@@ -62,6 +63,7 @@ jobs:
   tests:
     name: Pest (sqlite)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
@@ -118,6 +120,7 @@ jobs:
   browser:
     name: Pest (browser)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     # Separate from the Pest job above so the fast feedback loop stays fast:
     # this one downloads a browser and drives a real page, which is both slower
@@ -152,9 +155,34 @@ jobs:
 
       # The plugin drives Playwright from node_modules and refuses to run
       # against a browser build that does not match the installed version, so
-      # this must come from the same lockfile npm ci just installed.
+      # the browser must match the playwright npm package npm ci just installed.
+      # That is why the cache key is the resolved version rather than the
+      # lockfile hash: an unrelated lockfile change must not invalidate a
+      # still-correct browser, and a playwright bump must invalidate it.
+      - name: Resolve Playwright version
+        id: playwright
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+
+      # Chromium is a ~275MB (compressed) download that changes only when the
+      # playwright package does, so it is the single most worthwhile thing to
+      # cache in this workflow -- a cold install measured ~54s locally.
+      - name: Cache Playwright browser
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      # On a cache hit the binaries are already restored and only the OS-level
+      # shared libraries are missing, so the multi-hundred-megabyte browser
+      # download is skipped and just the apt packages are installed.
       - name: Install Playwright browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Build assets
         run: npm run build
@@ -175,6 +203,7 @@ jobs:
   database:
     name: Pest (${{ matrix.database }})
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
     # The sqlite job above is the fast feedback loop; this one is the honest
     # one. Production runs MySQL or MariaDB (the Dockerfile installs
