@@ -140,6 +140,44 @@ nothing to set and nothing to forget:
 > non-production instance therefore offers **passwordless** login to both
 > accounts — deploy anything real as `APP_ENV=production` (the default).
 
+### Porting this setup to another project
+
+This directory is copied between projects, and `RUN_SEEDERS` defaults to `true`
+throughout it. **That default is safe here and is not safe everywhere.** It
+holds only because this project's `DatabaseSeeder` does one narrow thing: it
+tops up two fixed demo accounts, skips them once they exist, and never resets a
+password that has since changed. Re-running it is a no-op.
+
+Before reusing these files, open the target project's `DatabaseSeeder` and ask
+what a second run does. A seeder that builds demo content through model
+factories — customers, orders, locations, whatever the domain is — is **not**
+idempotent: every boot adds another set. Pointed at a production database on a
+redeploy, it quietly fills a real tenant's tables with fabricated records.
+
+Where that is the case, invert the default. Set `RUN_SEEDERS=false` in the
+entrypoint and in the Dokploy compose file, leave it on in the local compose
+file where demo data is the point, and create the first admin with the one
+seeder that *is* idempotent:
+
+```bash
+docker compose exec app php artisan db:seed --class=AdminUserSeeder --force
+```
+
+The sibling gym-manager project is the worked example: its seeder builds an
+entire demo gym, so it ships this same `docker/` directory with the default
+flipped and the reasoning recorded in its entrypoint.
+
+Two other things to re-check when porting, both of which have bitten:
+
+- **PHP extensions.** The Dockerfile installs what *this* lock file needs. A
+  project pulling `laravel/cashier` also needs `bcmath` (via `moneyphp/money`),
+  and `composer install` fails outright in the vendor stage without it. Read the
+  target's `composer.lock` for `ext-*` constraints rather than assuming.
+- **Credentials wording.** The demo-account table above names accounts specific
+  to this project, and the warning that they are public refers to *this*
+  boilerplate. Both are wrong the moment they are copied — rewrite them for the
+  target, or delete them.
+
 ### Gotchas
 
 - **`required variable DOCKER_LOCAL_STACK is missing a value`**: you left off
