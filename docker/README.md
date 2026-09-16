@@ -1,7 +1,8 @@
 # Docker & Dokploy deployment
 
-The app ships as a single image built from a three-stage `Dockerfile` (composer
-vendor → vite-plus assets → runtime), backed by a managed MariaDB. That one
+The app ships as a single image built from a four-stage `Dockerfile` (a shared
+`php-base` carrying the extension set → composer vendor → vite-plus assets →
+runtime), backed by a managed MariaDB. That one
 image runs three **roles**, selected per container by `CONTAINER_ROLE`:
 
 | Role | `CONTAINER_ROLE` | Runs | Scale to |
@@ -61,11 +62,31 @@ you have since changed.
 
 ## Deploy on Dokploy
 
+The image is **built by GitHub Actions and pulled from GHCR** — Dokploy never
+builds it. See [`.ai/rules/dockerfile.md`](../.ai/rules/dockerfile.md) for why
+(short version: a ~6 minute extension compile on the box that is also serving
+production is an OOM waiting to happen).
+
 1. Create a MariaDB deployment in Dokploy; note the internal host, database,
    user and password.
 2. Create a Compose application from this repo, compose path
    `docker-compose.dokploy.yml`.
-3. Set the application's environment. Paste the whole block below into
+3. **Add a GHCR registry credential.** The package is private by default, so
+   without this the deploy fails at `docker pull` with `denied` before any
+   container starts — which looks like a broken compose file rather than a
+   missing login.
+
+   Create a GitHub personal access token with the **`read:packages`** scope,
+   then add it in Dokploy under **Settings → Registry** (or the application's
+   own registry setting):
+
+   | Field | Value |
+   | --- | --- |
+   | Registry URL | `ghcr.io` |
+   | Username | your GitHub username |
+   | Password | the `read:packages` token |
+
+4. Set the application's environment. Paste the whole block below into
    Dokploy's environment editor (bulk mode), then replace every `FILL_ME_IN` —
    each one is a single double-click to select.
 
@@ -74,6 +95,14 @@ you have since changed.
    APP_KEY=base64:4Y8Dl6aeVTwEdWQ+M9NK+l5+3k4QmtUQSPZDav73V+s=
    # e.g. https://app.example.com
    APP_URL=FILL_ME_IN
+
+   # The GHCR image this stack pulls -- it is never built on the server.
+   # Lowercase owner/repo, e.g. johneady/boilerplate (GHCR rejects uppercase).
+   GHCR_REPOSITORY=FILL_ME_IN
+   # Which build to run. Copy this from the Docker workflow's job summary
+   # after it finishes -- see "Deploying a new build" below. `latest` works
+   # for a first deploy but should not be left here.
+   IMAGE_TAG=latest
 
    # Must match the server you provisioned: mariadb or mysql. Not sqlite --
    # the image ships only pdo_mysql, and queue/cache/sessions all live here.
@@ -114,11 +143,44 @@ you have since changed.
    There is no admin account to configure: the seeder creates a fixed demo
    admin, covered below.
 
-4. Deploy. The entrypoint waits for the database, migrates, seeds the demo
+5. Deploy. The entrypoint waits for the database, migrates, seeds the demo
    accounts, caches config/routes, publishes Filament's assets, and starts the
    web, worker and scheduler roles.
 
-5. **Change the admin password.** The seeded credentials are public (below).
+6. **Change the admin password.** The seeded credentials are public (below).
+
+### Deploying a new build
+
+Merging to `main` **builds and publishes** an image. It does not deploy —
+nothing reaches production without you choosing it. The loop is:
+
+1. Merge to `main` (or push to it directly). The **Docker** workflow runs.
+2. Wait for it to go green: **Actions → Docker → the run**. If it fails, no new
+   image was published and the running instance is untouched.
+3. Open that run's summary page. The last step prints the tag to deploy:
+
+   ```dotenv
+   IMAGE_TAG=sha-<the full commit sha>
+   ```
+
+4. In Dokploy, set `IMAGE_TAG` to that value in the application's environment,
+   save, and hit **Redeploy**.
+
+The entrypoint runs migrations and re-seeds on boot, so a schema change needs
+nothing extra. Watch the `app` container's logs for the migration output.
+
+**Why paste a sha instead of just using `latest`.** `latest` is published too,
+and it is tempting to set `IMAGE_TAG=latest` once and only ever click Redeploy.
+The problem is `pull_policy: always`: *any* container restart re-pulls the tag —
+an OOM, a host reboot, a Docker daemon restart, none of which you initiated. On
+a moving tag that silently rolls the container forward onto whatever `latest`
+points at by then, so the container that comes back is not the one that went
+down, and nothing records that it changed. A sha tag restarts as the same bytes
+every time.
+
+It also gives you a rollback: set `IMAGE_TAG` to the previous sha and redeploy.
+`latest` cannot express "the one before". Past tags are listed under the repo's
+**Packages** page on GitHub.
 
 ### The seeded demo accounts
 
