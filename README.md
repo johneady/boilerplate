@@ -165,8 +165,9 @@ are never overwritten by a redeploy.
 
 ### Deployment
 
-The app ships as a single image built from a three-stage
-[`Dockerfile`](Dockerfile) — composer vendor, then assets, then runtime — which
+The app ships as a single image built from a four-stage
+[`Dockerfile`](Dockerfile) — a shared `php-base` carrying the extension set,
+then composer vendor, then assets, then runtime — which
 runs three roles selected by `CONTAINER_ROLE`: the web tier (nginx + php-fpm),
 a queue worker (`queue:work`), and the scheduler (`schedule:work`). See
 [`docker/README.md`](docker/README.md) for the full walkthrough.

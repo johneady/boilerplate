@@ -12,12 +12,33 @@
 #   - no database service    — Dokploy manages MariaDB
 #   - no published ports     — Traefik reaches the app on the internal network
 #   - no literal secrets     — every setting comes from Dokploy's environment
+#   - pulls, never builds    — the image comes from GHCR, built by CI; see the
+#                              comment on x-app-base below for why
 
 x-app-base: &app-base
-  build:
-    context: .
-    target: runtime
-  image: boilerplate:dokploy
+  # PULLED, not built. There is deliberately no `build:` key here: compiling
+  # the PHP extensions is ~6 minutes of cc, and doing that on the deploy host
+  # makes every deploy compete with production for RAM on a box that is already
+  # running the app. That is an OOM waiting to happen, and BuildKit reports an
+  # OOM as the build process dying rather than as a step failing, so it reads
+  # like a broken Dockerfile instead of an exhausted host.
+  #
+  # .github/workflows/docker.yml builds and pushes this image on every push to
+  # main. The bytes CI built and tested are the bytes that run here.
+  #
+  # IMAGE_TAG must name a tag that workflow published. Prefer an immutable one
+  # -- `sha-<full-commit-sha>`, or a `v*` release tag -- over `latest`: `latest`
+  # moves under you, so a container restart can quietly pull a different build
+  # than the one you deployed, and nothing records which. Set it in the Dokploy
+  # environment; it defaults to latest only so a first deploy works.
+  #
+  # The package is private by default, so Dokploy needs a GHCR registry
+  # credential (a PAT with read:packages) to pull it. Without one the deploy
+  # fails on `docker pull` with "denied", before any container starts.
+  image: ghcr.io/${GHCR_REPOSITORY:?set GHCR_REPOSITORY in Dokploy (owner/repo, lowercase)}:${IMAGE_TAG:-latest}
+  # Always re-pull on deploy: with a moving tag, Docker would otherwise keep
+  # using the copy already on disk and "redeploy" would change nothing.
+  pull_policy: always
   restart: unless-stopped
 
   environment: &app-env

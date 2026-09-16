@@ -23,7 +23,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Http/Controllers/MediaController.php, app/Settings/Settings.php | .ai/rules/controllers-settings.md |
 | app/Models/Media.php, app/Filament/Resources/Media/**, app/Http/Controllers/MediaController.php | .ai/rules/controllers.md |
 | app/Auth/DevLoginAccounts.php, app/Http/Controllers/DevLoginController.php, app/Providers/AppServiceProvider.php, config/dev-login.php, docker-compose.dokploy.yml, routes/web.php | .ai/rules/dev-login.md |
-| Dockerfile | .ai/rules/dockerfile.md |
+| Dockerfile, .github/workflows/docker.yml, docker-compose.dokploy.yml | .ai/rules/dockerfile.md |
 | resources/views/errors/**, resources/views/components/errors/** | .ai/rules/errors.md |
 | app/Settings/Settings.php, tests/Feature/SettingsTest.php, tests/Feature/ErrorPagesTest.php | .ai/rules/feature.md |
 | app/Settings/SettingKey.php, app/Filament/Pages/ManageSettings.php, config/images.php | .ai/rules/filament-pages.md |
