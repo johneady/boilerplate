@@ -3,20 +3,58 @@
 # ---------------------------------------------------------------------------
 # Application container image.
 #
-# Debian bookworm throughout, deliberately NOT Alpine: the JS toolchain pins
-# glibc (gnu) builds of esbuild/rolldown optional deps, which do not run on
-# musl. composer.json allows php ^8.3 and the lock was solved against the
-# local PHP 8.5, so the base images are 8.5.
+# ALPINE (musl) throughout. This image was on Debian bookworm until the size
+# became the problem: 757MB on disk, 229MB per deploy pull. It is now 272MB /
+# 83MB. Almost all of that came from the base, not from anything we ship.
+#
+# Why the Debian base was so much bigger, since it is not obvious:
+#
+#   1. php:8.5-fpm-bookworm installs the C toolchain (gcc, g++, cpp, binutils,
+#      libc6-dev -- ~190MB) PERMANENTLY, in one 316MB layer, deliberately, so
+#      that `docker-php-ext-install` and `pecl install` keep working against
+#      the image later. php:8.5-fpm-alpine installs the same toolchain into a
+#      throwaway `.build-deps` virtual package and `apk del`s it in the SAME
+#      RUN, so the compiler never reaches a persisted layer.
+#
+#   2. On Debian you CANNOT get those 190MB back by removing the packages.
+#      A delete in a child layer cannot shrink a parent layer -- it only writes
+#      whiteout entries, so the bytes still ship AND the delete costs ~1.3MB
+#      more. Measured, not assumed. The only Debian escape is flattening the
+#      whole stage onto scratch, which throws away layer sharing and every bit
+#      of image metadata (see the STOPSIGNAL note below for why that bites).
+#      On Alpine the problem simply never exists.
+#
+#   3. musl + busybox instead of glibc + GNU coreutils, and no perl (29MB) or
+#      python3 (14MB) in the base at all. Nothing here used either.
+#
+# The JS toolchain no longer blocks this. The previous note here said the
+# esbuild/rolldown optional deps were glibc-only; that is stale. vite-plus,
+# @tailwindcss/oxide, lightningcss, oxlint and oxfmt all publish -musl builds
+# and all of them are already resolved in package-lock.json. Verified the real
+# check, not the manifest: `npm run build` on node:24-alpine produces assets
+# whose md5sums are IDENTICAL to the Debian build, file for file.
+#
+# What musl actually costs, so the next person can weigh it honestly:
+#   - Different allocator and much smaller default thread stacks than glibc.
+#     Nothing in this stack tripped on it, but this is the classic source of
+#     "fine on Debian, segfaults in production" for PHP extensions. Exposure is
+#     low while this stays pure PHP plus the standard extensions below; it goes
+#     up the moment an exotic PECL extension is added.
+#   - ICU 78.1 here vs 72.1 on bookworm. Currency, date, collation and
+#     transliteration output was diffed across both and is identical, but an
+#     ICU major CAN change collation ordering -- worth re-checking if user-
+#     facing lists are ever sorted through Collator.
+#   - Alpine and Debian disagree on where nginx and supervisor keep their
+#     config. Both bit during this migration and both are fixed in the runtime
+#     stage below; read those comments before touching either.
 #
 # Extensions are COMPILED from the official php: images rather than installed
-# from Debian/sury packages. Compiling is slow (~6 min of cc), which is why
-# this image is built in CI and pulled by the deploy target -- see
+# from distro packages. Compiling is slow (~6 min of cc), which is why this
+# image is built in CI and pulled by the deploy target -- see
 # .github/workflows/docker.yml. Building on the deploy host instead makes
 # every deploy compete with production for RAM, and the compile is where a
 # 2-core box runs out of it. The trade is deliberate: the official images can
-# be pinned by digest (below) and give bit-identical rebuilds forever, while
-# sury keeps only the latest 8.5.x patch and would rewrite the FPM/nginx
-# layout (socket vs TCP, per-SAPI conf.d, php-fpm8.5 binary name) on top.
+# be pinned by digest (below) and give bit-identical rebuilds forever.
 #
 # Base images are pinned by DIGEST, not just tag. A floating tag moving under
 # you silently re-runs the whole extension compile (cache miss) and changes
@@ -34,26 +72,33 @@
 # zip (everything else the lock names is bundled or a suggestion); runtime
 # adds pdo_mysql, gd and redis on top for reasons documented in that stage.
 #
-# php:8.5-fpm-bookworm @ PHP 8.5.10
-FROM php:8.5-fpm-bookworm@sha256:8e780a6e59508f418c7729681468322a2ce7d7cfe4266025054f41bbe85e3928 AS php-base
+# php:8.5-fpm-alpine @ PHP 8.5.10
+FROM php:8.5-fpm-alpine@sha256:630c234abe38c0e9e4726ff59d5af6fc8f573e35939b143580129f2405ea8a74 AS php-base
 
-# DEBIAN_FRONTEND is set per-RUN rather than as an ENV: as an ENV it leaks into
-# the final image and into every `docker exec`, where an interactive apt then
-# silently skips prompts it should have asked.
-RUN DEBIAN_FRONTEND=noninteractive apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        libzip-dev libicu-dev libxml2-dev \
-    && docker-php-ext-install intl \
-    && docker-php-ext-install zip \
-    && rm -rf /var/lib/apt/lists/*
+# .build-deps is the whole reason this image is small: $PHPIZE_DEPS (the base's
+# own name for autoconf/gcc/g++/make/pkgconf/re2c) plus the -dev headers go in
+# as a VIRTUAL package and come out again in the same RUN, so the compiler is
+# never written to a persisted layer. Deleting them in a later RUN would not
+# work -- see point 2 in the header.
+#
+# scanelf walks the .so files that were just built and asks which shared
+# libraries they actually link against, so those get re-added as real runtime
+# deps (so:libicuuc.so.78 and friends) before the toolchain is removed. Without
+# that pass `apk del .build-deps` takes icu-dev's libraries with it and intl
+# fails to load -- which the assertion in the runtime stage would catch, but
+# only after a 6-minute build.
+RUN set -eux; \
+    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS icu-dev libzip-dev libxml2-dev; \
+    docker-php-ext-install intl zip; \
+    runDeps="$(scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
+        | tr ',' '\n' | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }')"; \
+    apk add --no-cache $runDeps; \
+    apk del --no-network .build-deps
 
 # --- Stage 1: PHP dependencies ---------------------------------------------
 FROM php-base AS vendor
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        git unzip \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache git unzip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
@@ -75,9 +120,11 @@ RUN --mount=type=cache,target=/tmp/composer-cache \
         --optimize-autoloader
 
 # --- Stage 2: frontend assets ----------------------------------------------
-# node:24-bookworm-slim @ Node v24.21.0. Pinned to the current LTS line; see
-# the dependabot ignore for why the major does not move automatically.
-FROM node:24-bookworm-slim@sha256:2fe369e969550cde8e867afc3fe370b260140cab4a23d467074295b42163d553 AS assets
+# node:24-alpine @ Node v24.21.0. Pinned to the current LTS line; see the
+# dependabot ignore for why the major does not move automatically. musl is safe
+# here: every native optional dep in package-lock.json ships a -musl build, and
+# the emitted assets are md5-identical to the Debian build.
+FROM node:24-alpine@sha256:50c8e8ca1d27439048670df5883f32d57cf81cff6233222c893fd0d9884cbd81 AS assets
 
 WORKDIR /app
 
@@ -111,6 +158,31 @@ RUN npm run build
 # --- Stage 3: runtime -------------------------------------------------------
 FROM php-base AS runtime
 
+# bash is not in the Alpine base (busybox ash only). The entrypoint is
+# #!/usr/bin/env bash; it uses no bash-only syntax today, but installing bash
+# (~1MB) keeps that script portable between this image and a developer shell
+# rather than making every future edit watch its step around ash.
+RUN apk add --no-cache nginx supervisor curl bash
+
+# Alpine and Debian put supervisor's config in DIFFERENT places, and the
+# difference is silent until the container crash-loops:
+#   Alpine: /etc/supervisord.conf          + [include] /etc/supervisor.d/*.ini
+#   Debian: /etc/supervisor/supervisord.conf + [include] /etc/supervisor/conf.d/*.conf
+# The entrypoint, the CMD in this file and the three role files all speak the
+# Debian layout, so rebuild that layout here instead of forking them. Hit for
+# real during the Alpine migration: supervisord exited with "could not find
+# config file /etc/supervisor/supervisord.conf" on every restart.
+#
+# The trailing grep is the guard: if an Alpine supervisor update ever changes
+# that [include] line, the sed silently matches nothing and every role would
+# start with NO programs -- a container that boots, looks healthy to Docker for
+# 40s, and runs nothing. Fail the build instead.
+RUN set -eux; \
+    mkdir -p /etc/supervisor/conf.d; \
+    sed -e 's#^files = /etc/supervisor.d/\*\.ini#files = /etc/supervisor/conf.d/*.conf#' \
+        /etc/supervisord.conf > /etc/supervisor/supervisord.conf; \
+    grep -q '^files = /etc/supervisor/conf.d/\*\.conf$' /etc/supervisor/supervisord.conf
+
 # intl and zip come from php-base. Everything here is runtime-only:
 #
 #   pdo_mysql  -- the managed MariaDB. No pdo_sqlite: the container always runs
@@ -134,22 +206,25 @@ FROM php-base AS runtime
 #                 PHP Redis extension is installed" -- at which point the
 #                 person flipping it is already in production wondering why.
 #
-#                 ~2MB in the image and nothing loads it while the drivers stay
-#                 on database, so the cost of carrying it is close to zero.
+# Alpine dev-package names differ from Debian's: libjpeg-turbo-dev (not
+# libjpeg-dev), freetype-dev (not libfreetype6-dev). Same .build-deps +
+# scanelf dance as php-base -- see that stage for why the scanelf pass exists.
 #
-# ca-certificates is NOT installed here: php:8.5-fpm-bookworm already ships it
-# (verified), unlike debian:*-slim, where outbound HTTPS from PHP fails without
-# it. Check before adding it if this image is ever rebased on a slim variant.
-RUN DEBIAN_FRONTEND=noninteractive apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
-        nginx supervisor curl \
-        libjpeg-dev libpng-dev libwebp-dev libfreetype6-dev \
-    && docker-php-ext-install pdo_mysql \
-    && docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype \
-    && docker-php-ext-install gd \
-    && pecl install redis \
-    && docker-php-ext-enable redis \
-    && rm -rf /var/lib/apt/lists/*
+# ca-certificates is NOT installed here: the php:8.5-fpm-alpine base already
+# ships it (verified), so outbound HTTPS from PHP works out of the box.
+RUN set -eux; \
+    apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
+        libjpeg-turbo-dev libpng-dev libwebp-dev freetype-dev; \
+    docker-php-ext-install pdo_mysql; \
+    docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype; \
+    docker-php-ext-install gd; \
+    pecl install redis; \
+    docker-php-ext-enable redis; \
+    rm -rf /tmp/pear ~/.pearrc; \
+    runDeps="$(scanelf --needed --nobanner --format '%n#p' --recursive /usr/local/lib/php/extensions \
+        | tr ',' '\n' | sort -u | awk 'system("[ -e /usr/local/lib/" $1 " ]") == 0 { next } { print "so:" $1 }')"; \
+    apk add --no-cache $runDeps; \
+    apk del --no-network .build-deps
 
 # The CLI opcache file_cache directory. PHP treats a missing or unwritable
 # opcache.file_cache as a startup FATAL rather than a warning, which would
@@ -158,7 +233,7 @@ RUN mkdir -p /tmp/opcache && chown www-data:www-data /tmp/opcache
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
 COPY docker/php/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
-COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
 # Role program sets live OUTSIDE conf.d/ deliberately. The distro
 # supervisord.conf ends with `[include] files = /etc/supervisor/conf.d/*.conf`,
 # so anything dropped in there is loaded by EVERY container -- a worker would
@@ -167,6 +242,19 @@ COPY docker/nginx/default.conf /etc/nginx/sites-available/default
 COPY docker/entrypoint/supervisord.conf /etc/supervisor/roles/app.conf
 COPY docker/entrypoint/supervisord.worker.conf /etc/supervisor/roles/worker.conf
 COPY docker/entrypoint/supervisord.scheduler.conf /etc/supervisor/roles/scheduler.conf
+
+# Alpine's nginx includes /etc/nginx/http.d/*.conf and has NO sites-available /
+# sites-enabled pair; Debian has the sites-* pair and includes that. The vhost
+# above is therefore copied into http.d/, not sites-available/.
+#
+# This one is worse than the supervisor trap because it does not crash. Alpine
+# ships its own default server on :80 in http.d/default.conf; copying the app
+# vhost to sites-available/ left it never included, so the stock default
+# answered every request and the container served 404s while looking perfectly
+# healthy to supervisor. Overwriting http.d/default.conf (same filename) is
+# what removes it. `nginx -t` here turns a future layout change into a failed
+# build rather than a 404 in production.
+RUN nginx -t
 
 # Fail the BUILD on a missing extension rather than production.
 #

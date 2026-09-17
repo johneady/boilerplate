@@ -1,22 +1,12 @@
-Here is a proposal structure designed to bypass Upwork's plain-text limitations while grabbing attention immediately in the first two sentences (which is all the client sees in their preview list).
+Hi there, I created a real prototype for you at xxxxxx.powerphpscripts.com
 
----
-
-Hi [Client Name],
-
-I built a working demo that solves [Client's Exact Words From the Job Post, e.g., "the slow inventory sync"] — you can test it here: [Insert Link to Prototype]
-
-A quick overview of what I built into the demo to address your main requirements:
-
-- [Feature 1]: Solves your requirement for [Specific Need] by [Brief Explanation].
-- [Feature 2]: Ensures high performance when handling [Specific Problem, e.g., large data loads, smooth UX, fast API responses].
-- [Feature 3]: Built with clean, scalable architecture to make future features easy to add.
+You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
 
 WHY THIS DEMO MATTERS FOR YOUR PROJECT
 
 Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
 
-1. I understand your project goals and requirements.
+1. I am showcasing my techncials skills.
 2. I have the technical stack and execution speed ready to start delivering immediately.
 
 RELEVANT TRACK RECORD

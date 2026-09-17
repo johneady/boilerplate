@@ -43,10 +43,15 @@ database/database.sqlite
 # Local dev artifacts: the named storage volume inherits image content on
 # first boot, so a dev laravel.log would ship into every deployment.
 storage/logs/*.log
-storage/framework/views/*.php
+storage/framework/views
 storage/framework/cache/data/*
 storage/framework/sessions/*
 storage/framework/cache/*.php
+# Pest's parallel runner compiles Blade into storage/framework/views/test_N/
+# SUBDIRECTORIES, which `views/*.php` does not match -- 22MB of compiled views
+# from local test runs shipped in the image before this was widened to the
+# whole directory. The runtime `mkdir -p` in the Dockerfile recreates it.
+storage/framework/testing
 
 # Dev tooling and artifacts.
 tests

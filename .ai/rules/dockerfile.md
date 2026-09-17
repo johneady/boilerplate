@@ -27,11 +27,36 @@ Dokploy needs two things set: `GHCR_REPOSITORY` (owner/repo, lowercase — GHCR 
 
 **If CI cannot publish** (exhausted Actions minutes, a broken runner), the fallback is `./docker/publish-image.sh`, which builds the runtime target locally and pushes the same `sha-<full-sha>` tag to the same registry. It is a stand-in for the workflow, not a new deploy path: Dokploy still pulls an immutable tag it did not build, and `IMAGE_TAG` means what it always meant. The rule that survives is **the deploy host does not build the image** — adding a `build:` key to `docker-compose.dokploy.yml` is the wrong fix for this, always. Note that the script must create a `docker-container` buildx builder: Docker's default `docker` driver cannot export a build cache and fails the build outright.
 
-## Official php: images, compiled extensions — not Debian/sury
-Rejected deliberately after evaluation. sury would be ~10s instead of ~6min per build, but building in CI already removes that cost from deploys, and the switch would buy: a repo that keeps only the latest 8.5.x patch (no pinning an old release), plus the entire Debian layout — FPM on a unix socket vs this stack's `fastcgi_pass 127.0.0.1:9000`, separate `/etc/php/8.5/{fpm,cli}/conf.d` so an ini copied to one SAPI silently misses the other, a `php-fpm8.5` binary name that breaks `command=php-fpm` in supervisord, and an FPM master that logs to a file instead of stderr. Every one of those is a silent failure. Do not switch without a concrete reason.
+## Official php: images, compiled extensions — not distro packages
+Rejected deliberately after evaluation. sury/distro packages would be ~10s instead of ~6min per build, but building in CI already removes that cost from deploys, and the switch would buy a repo that keeps only the latest 8.5.x patch (no pinning an old release) plus a rewritten FPM layout — FPM on a unix socket vs this stack's `fastcgi_pass 127.0.0.1:9000`, per-SAPI conf.d so an ini copied to one SAPI silently misses the other, a `php-fpm8.5` binary name that breaks `command=php-fpm` in supervisord, and an FPM master that logs to a file instead of stderr. Every one of those is a silent failure. Do not switch without a concrete reason.
+
+## The base is Alpine (musl), and that is what makes the image small
+272MB on disk / 83MB per pull, down from 757MB / 229MB on bookworm. The saving is almost entirely the base, not anything the app ships, and the reason is worth knowing before anyone proposes going back:
+
+**`php:8.5-fpm-bookworm` keeps the C toolchain permanently** (gcc, g++, cpp, binutils, libc6-dev — ~190MB) in a single 316MB layer, deliberately, so `docker-php-ext-install` and `pecl install` keep working against the image later. `php:8.5-fpm-alpine` puts the same toolchain in a `.build-deps` virtual package and `apk del`s it in the same RUN.
+
+**You cannot claw those 190MB back on Debian by deleting the packages.** A delete in a child layer cannot shrink a parent layer — it writes whiteout entries, so the bytes still ship *and* the delete costs ~1.3MB more. Measured during the migration, not assumed. The only Debian escape is flattening the stage onto `scratch`, which discards layer sharing and every piece of image metadata (`PATH`, `PHP_INI_DIR`, `STOPSIGNAL`…), each of which then has to be re-declared by hand. Alpine avoids the whole problem.
+
+The rest is musl + busybox instead of glibc + GNU coreutils, and no perl (29MB) or python3 (14MB) in the base at all.
+
+**The old "Alpine breaks the JS build" note is dead.** It claimed the esbuild/rolldown optional deps were glibc-only. `vite-plus`, `@tailwindcss/oxide`, `lightningcss`, `oxlint` and `oxfmt` all publish `-musl` builds and all are already resolved in `package-lock.json`. Verified the real thing rather than the manifest: `npm run build` on `node:24-alpine` emits assets whose md5sums are identical to the Debian build, file for file.
+
+### What musl costs
+- Different allocator and much smaller default thread stacks. Nothing here tripped on it, but this is the classic source of "fine on Debian, segfaults in production" for PHP extensions. Exposure is low while this stays pure PHP plus the standard extensions; it rises the moment an exotic PECL extension is added.
+- ICU 78.1 vs bookworm's 72.1. Currency, date, collation and transliteration output was diffed across both and is identical — but an ICU major *can* change collation ordering. Re-check if user-facing lists are ever sorted through `Collator`.
+- `bash` is installed explicitly (~1MB): the base has busybox `ash` only, and `entrypoint.sh` is `#!/usr/bin/env bash`.
+
+## Alpine and Debian disagree on nginx and supervisor paths — both traps are guarded
+Both of these bit during the migration. Neither is hypothetical, and neither announces itself.
+
+**supervisor.** Alpine uses `/etc/supervisord.conf` with `[include] files = /etc/supervisor.d/*.ini`; Debian uses `/etc/supervisor/supervisord.conf` with `conf.d/*.conf`. The entrypoint, the `CMD` and all three role files speak the Debian layout, so the Dockerfile *recreates* that layout with a `sed` rather than forking them. The `grep -q` after the sed is load-bearing: if an Alpine update changes that `[include]` line the sed matches nothing, and every role would then start with **no programs** — a container that boots, stays healthy to Docker, and runs nothing. Fail the build instead.
+
+**nginx.** Alpine includes `/etc/nginx/http.d/*.conf` and has no `sites-available`/`sites-enabled` pair, so the vhost is copied to `http.d/default.conf` — the same filename as Alpine's stock default server, which is what removes it. Copying it to `sites-available/` instead leaves it never included, and Alpine's default server answers on :80: **the container serves 404s while looking perfectly healthy to supervisor.** `RUN nginx -t` is the guard that turns a future layout change into a failed build.
+
+Both apt-era cleanups were replaced by the `.build-deps` + `scanelf` dance. The `scanelf` pass re-adds, as real runtime deps, the shared libraries the freshly built `.so` files link against (`so:libicuuc.so.78` and friends) *before* `apk del .build-deps` runs. Without it the del takes icu's libraries with it and intl fails to load.
 
 ## Base images are pinned by DIGEST
-`php:8.5-fpm-bookworm@sha256:...` and `node:24-bookworm-slim@sha256:...`, not bare tags. A floating tag republished upstream silently invalidates the cache and re-runs the whole extension compile, and changes the runtime out from under a rebuild of an old commit. Dependabot's `docker` ecosystem bumps these monthly (`.github/dependabot.yml`).
+`php:8.5-fpm-alpine@sha256:...` and `node:24-alpine@sha256:...`, not bare tags. A floating tag republished upstream silently invalidates the cache and re-runs the whole extension compile, and changes the runtime out from under a rebuild of an old commit. Dependabot's `docker` ecosystem bumps these monthly (`.github/dependabot.yml`).
 
 When bumping a digest, update the `@ PHP x.y.z` / `@ Node vX` comment above the `FROM` too — it is the only place the human-readable version is recorded.
 
@@ -53,15 +78,12 @@ Do not verify this by hand any more; the build does it. If you do need a manual 
 `vendor` and `runtime` both derive from `php-base` (intl, zip), so the shared set is written once. This is load-bearing for composer, not tidiness: the vendor stage's `composer install` validates composer.lock's platform requirements against the extensions in **its own** image, so if that set drifts below production's, the lock is being validated against something production does not run. `composer check-platform-reqs --no-dev` confirms intl and zip are the only hard non-bundled requirements; runtime adds pdo_mysql, gd and redis on top.
 
 ## Runtime-only extension notes
-- **pdo_mysql, not pdo_sqlite.** Both compose files set `DB_CONNECTION: mariadb`; sqlite is a local-development default only. If you ever do need pdo_sqlite, `docker-php-ext-install pdo_sqlite` fails at configure time ("Package 'sqlite3' ... not found") unless `libsqlite3-dev` is on the same apt line — the base ships no sqlite headers. Check any other `pdo_*` driver the same way; pdo_mysql happens not to need one.
-- **gd needs `docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype`** before install (and libjpeg-dev, libpng-dev, libwebp-dev, libfreetype6-dev on the apt line). intervention/image decodes user uploads through it.
+- **pdo_mysql, not pdo_sqlite.** Both compose files set `DB_CONNECTION: mariadb`; sqlite is a local-development default only. If you ever do need pdo_sqlite, `docker-php-ext-install pdo_sqlite` fails at configure time ("Package 'sqlite3' ... not found") unless `sqlite-dev` is added to `.build-deps` — the base ships no sqlite headers. Check any other `pdo_*` driver the same way; pdo_mysql happens not to need one.
+- **gd needs `docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype`** before install (and `libjpeg-turbo-dev libpng-dev libwebp-dev freetype-dev` in `.build-deps` — note Alpine's names differ from Debian's `libjpeg-dev` / `libfreetype6-dev`). intervention/image decodes user uploads through it.
 - **redis comes from PECL** (`pecl install redis && docker-php-ext-enable redis`) — `docker-php-ext-install` only knows bundled extensions. It is installed although every driver defaults to `database`, so moving to Redis is an env flip and a redeploy, not an image rebuild. ~2MB, and nothing loads it while the drivers stay on database.
 
 ## ca-certificates is already present — do not add it
-`php:8.5-fpm-bookworm` ships ca-certificates (verified). The "slim images have no CA bundle, so outbound HTTPS from PHP fails" trap is real but applies to `debian:*-slim`, which this image is not based on. Only revisit if the base is ever rebased onto a slim variant.
-
-## `DEBIAN_FRONTEND=noninteractive` is set per-RUN, never as ENV
-As an `ENV` it persists into the final image and into every `docker exec`, where a later interactive apt then silently skips prompts it should have asked.
+`php:8.5-fpm-alpine` ships ca-certificates (verified), so outbound HTTPS from PHP works out of the box. The "minimal images have no CA bundle" trap is real but does not apply to this base.
 
 ## Comments between `\` continuations are fine
 The `#` lines sitting between `\` continuations in the RUN blocks are stripped by Docker before the shell sees them (verified with a probe build). Do not "fix" them by moving them out.
