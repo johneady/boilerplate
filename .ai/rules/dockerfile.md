@@ -25,6 +25,8 @@ Dokploy needs two things set: `GHCR_REPOSITORY` (owner/repo, lowercase — GHCR 
 
 `docker-compose.yml` (the local stack) still builds from source — that is the verification path, and it is why the Dockerfile must keep working when built locally.
 
+**If CI cannot publish** (exhausted Actions minutes, a broken runner), the fallback is `./docker/publish-image.sh`, which builds the runtime target locally and pushes the same `sha-<full-sha>` tag to the same registry. It is a stand-in for the workflow, not a new deploy path: Dokploy still pulls an immutable tag it did not build, and `IMAGE_TAG` means what it always meant. The rule that survives is **the deploy host does not build the image** — adding a `build:` key to `docker-compose.dokploy.yml` is the wrong fix for this, always. Note that the script must create a `docker-container` buildx builder: Docker's default `docker` driver cannot export a build cache and fails the build outright.
+
 ## Official php: images, compiled extensions — not Debian/sury
 Rejected deliberately after evaluation. sury would be ~10s instead of ~6min per build, but building in CI already removes that cost from deploys, and the switch would buy: a repo that keeps only the latest 8.5.x patch (no pinning an old release), plus the entire Debian layout — FPM on a unix socket vs this stack's `fastcgi_pass 127.0.0.1:9000`, separate `/etc/php/8.5/{fpm,cli}/conf.d` so an ini copied to one SAPI silently misses the other, a `php-fpm8.5` binary name that breaks `command=php-fpm` in supervisord, and an FPM master that logs to a file instead of stderr. Every one of those is a silent failure. Do not switch without a concrete reason.
 
