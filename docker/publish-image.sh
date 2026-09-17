@@ -77,7 +77,22 @@ echo
 # letting it default to the builder's own.
 PLATFORM="${PLATFORM:-linux/amd64}"
 
+# A dedicated `docker-container` builder, which is what setup-buildx-action
+# gives the workflow. Docker's DEFAULT builder uses the `docker` driver, and
+# that driver cannot export a cache at all -- the build dies immediately with
+# "Cache export is not supported for the docker driver". So the cache flags
+# below are only usable on a builder created like this one.
+#
+# Created once and reused; `docker buildx create` is not idempotent, so the
+# inspect guards it. The builder survives reboots.
+BUILDER="${BUILDER:-boilerplate-publish}"
+if ! docker buildx inspect "$BUILDER" >/dev/null 2>&1; then
+  echo "==> Creating buildx builder: $BUILDER"
+  docker buildx create --name "$BUILDER" --driver docker-container >/dev/null
+fi
+
 BUILD_ARGS=(
+  --builder "$BUILDER"
   --file Dockerfile
   --target runtime
   --platform "$PLATFORM"
