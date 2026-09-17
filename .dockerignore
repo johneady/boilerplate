@@ -56,3 +56,8 @@ phpstan.neon
 todo.txt
 screenshots
 docker-compose*.yml
+
+# Local BuildKit layer cache written by docker/publish-image.sh (the temporary
+# stand-in for the CI build). Hundreds of MB, and sending it into the context
+# would slow every build it exists to speed up.
+.docker-cache
