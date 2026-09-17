@@ -182,6 +182,43 @@ It also gives you a rollback: set `IMAGE_TAG` to the previous sha and redeploy.
 `latest` cannot express "the one before". Past tags are listed under the repo's
 **Packages** page on GitHub.
 
+### Publishing without GitHub Actions (temporary fallback)
+
+When Actions minutes are exhausted, the **Docker** workflow cannot run and step
+1 above produces no image. Do **not** work around this by giving
+`docker-compose.dokploy.yml` a `build:` key — building on the deploy host is
+the exact failure this setup exists to prevent, and it OOMs a small VPS mid
+deploy.
+
+Instead build the same image on your own machine and push it to the same
+registry under the same tag:
+
+```bash
+./docker/publish-image.sh              # build + push HEAD as sha-<full-sha>
+./docker/publish-image.sh --dry-run    # build + smoke-test only, no push
+```
+
+Then continue from step 4 above: the script prints the `IMAGE_TAG` to paste
+into Dokploy, exactly as the workflow's job summary does. Nothing else about
+the deploy changes — Dokploy still pulls an immutable tag it did not build.
+
+Notes:
+
+- **Auth.** Needs a PAT with **`write:packages`** (the deploy credential only
+  needs `read:packages`). Put it in `GHCR_TOKEN`, or the script falls back to
+  `gh auth token`.
+- **It refuses to run on a dirty tree.** The `sha-<sha>` tag has to name the
+  source that produced the image, or a rollback to that tag gives you something
+  you have never seen.
+- **First build is ~10 minutes** (the extension compile); subsequent ones are
+  seconds. The layer cache lives in `.docker-cache/` — gitignored, ~400MB, and
+  safe to delete at the cost of one slow rebuild.
+- **It builds `linux/amd64`** regardless of your machine, because the deploy
+  host is amd64 and a wrong-architecture image pulls fine and then dies with
+  `exec format error`. Override with `PLATFORM=` if that ever changes.
+- The workflow is left in place and untouched, so publishing returns to CI by
+  itself once minutes are available. Delete the script then.
+
 ### The seeded demo accounts
 
 Both are created on first boot and are the same on every deployment, so there is
