@@ -195,6 +195,21 @@ RUN set -eux; \
 #                 arrives -- so the configure flags are load-bearing, not
 #                 decoration. The assertion at the end of this stage is what
 #                 turns a dropped flag into a failed build.
+#   pcntl      -- what makes the worker role's shutdown contract real.
+#                 queue:work registers its SIGTERM handler and the per-job
+#                 $timeout alarm through pcntl_signal/pcntl_alarm, and Laravel
+#                 SILENTLY skips both when the extension is absent: supervisord's
+#                 stopwaitsecs then buys nothing (the process dies mid-job on
+#                 the first SIGTERM) and App\Jobs\Job::$timeout is never
+#                 enforced. Nothing logs either omission.
+#   bcmath     -- arbitrary-precision decimal arithmetic. Five of the eight
+#                 projects derived from this boilerplate added it; the first
+#                 time money or quantities are handled is the wrong time to
+#                 discover floats.
+#   exif       -- orientation and metadata from uploaded photos. Pairs with gd:
+#                 intervention/image auto-rotates through exif_read_data(), and
+#                 without it phone photos land sideways. Four derived projects
+#                 added it.
 #   redis      -- from PECL, so it needs `pecl install` + `docker-php-ext-enable`
 #                 rather than docker-php-ext-install (which only knows bundled
 #                 extensions).
@@ -215,7 +230,7 @@ RUN set -eux; \
 RUN set -eux; \
     apk add --no-cache --virtual .build-deps $PHPIZE_DEPS \
         libjpeg-turbo-dev libpng-dev libwebp-dev freetype-dev; \
-    docker-php-ext-install pdo_mysql; \
+    docker-php-ext-install pdo_mysql bcmath exif pcntl; \
     docker-php-ext-configure gd --with-jpeg --with-webp --with-freetype; \
     docker-php-ext-install gd; \
     pecl install redis; \
@@ -230,6 +245,18 @@ RUN set -eux; \
 # opcache.file_cache as a startup FATAL rather than a warning, which would
 # kill every artisan call in the entrypoint before the app booted.
 RUN mkdir -p /tmp/opcache && chown www-data:www-data /tmp/opcache
+
+# The official php: images ship NO php.ini, only php.ini-production and
+# php.ini-development next to it. Without this copy every directive the app
+# ini below does not set falls through to PHP's compiled-in defaults, which
+# are the development ones: display_errors=1 (a fatal before Laravel's handler
+# exists -- missing vendor, bad bootstrap -- prints paths and a stack trace to
+# the visitor), zend.assertions=1 (every assert() in vendor code is compiled
+# and run on every request), log_errors=0 (those same early errors go
+# nowhere instead of to stderr and the container log). Verified on this
+# base. The app ini in conf.d still wins for everything it sets; this only
+# changes what it does not.
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
 COPY docker/php/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
@@ -261,7 +288,9 @@ RUN nginx -t
 # Every trap this guards against is silent at build time and loud much later:
 # a dropped `docker-php-ext-configure gd` flag surfaces on the worker when a
 # real photo arrives; a missing pdo_mysql surfaces at the first query; a
-# missing redis surfaces only once someone flips CACHE_STORE. gd is checked
+# missing redis surfaces only once someone flips CACHE_STORE; a missing pcntl
+# never surfaces at all -- the worker just stops honouring SIGTERM and job
+# timeouts. gd is checked
 # per FORMAT, not just for the extension, because that is the flag that gets
 # dropped. Runs as a separate layer so the failure names this step.
 #
@@ -276,11 +305,12 @@ RUN nginx -t
 # loaded and enabled. Verified against this base. Do not "tidy" that string to
 # lowercase opcache -- that turns this line into a guard that always fails.
 RUN set -eu; \
-    php -r 'foreach (["intl", "zip", "pdo_mysql", "gd", "redis", "Zend OPcache"] as $e) { if (! extension_loaded($e)) { fwrite(STDERR, "FATAL: php extension \"$e\" missing from image\n"); exit(1); } } \
+    php -r 'foreach (["intl", "zip", "pdo_mysql", "bcmath", "exif", "pcntl", "gd", "redis", "Zend OPcache"] as $e) { if (! extension_loaded($e)) { fwrite(STDERR, "FATAL: php extension \"$e\" missing from image\n"); exit(1); } } \
         $i = gd_info(); \
         foreach (["JPEG Support", "PNG Support", "WebP Support", "FreeType Support"] as $f) { if (empty($i[$f])) { fwrite(STDERR, "FATAL: gd built without $f\n"); exit(1); } } \
         if (! ini_get("opcache.enable")) { fwrite(STDERR, "FATAL: opcache present but not enabled -- check docker/php/php.ini reached conf.d\n"); exit(1); } \
-        echo "extension check passed: intl zip pdo_mysql gd(jpeg,png,webp,freetype) redis opcache(enabled)\n";'
+        if (ini_get("zend.assertions") !== "-1") { fwrite(STDERR, "FATAL: zend.assertions=" . ini_get("zend.assertions") . " -- php.ini-production was not copied to php.ini, so PHP is on its development defaults\n"); exit(1); } \
+        echo "extension check passed: intl zip pdo_mysql bcmath exif pcntl gd(jpeg,png,webp,freetype) redis opcache(enabled) php.ini-production\n";'
 
 WORKDIR /var/www/html
 
