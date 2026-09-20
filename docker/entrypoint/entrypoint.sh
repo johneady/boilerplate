@@ -187,6 +187,27 @@ for d in /var/www/html/bootstrap/cache \
         log "WARNING: could not set ownership on $d (continuing)."
 done
 
+# The log FILE, not just the directory it sits in.
+#
+# The loop above assumes a writable directory is enough, which holds for every
+# cache under storage/framework: those are keyed by hash, so a file php-fpm
+# cannot write is simply rewritten under a new name. The log is the exception —
+# `single` and `daily` both append to a FIXED filename, so an unwritable
+# laravel.log cannot be routed around.
+#
+# That is exactly what the Debian->Alpine move produced. www-data went from uid
+# 33 to uid 82, storage/logs is a persistent volume, and laravel.log stayed
+# uid 33 mode 664: the directory is www-data and writable, the file is not.
+# Monolog then fails to open it and Laravel drops the line.
+#
+# The failure mode is the dangerous part: the site behaves normally and the log
+# simply STOPS, so it reads as "quiet" rather than "broken". On a sibling image
+# it hid an upload outage for days — 500s with an empty laravel.log to explain
+# them.
+find /var/www/html/storage/logs -maxdepth 1 -type f ! -user www-data \
+    -exec chown www-data:www-data {} + 2>/dev/null || \
+    log "WARNING: could not repair log ownership (continuing)."
+
 # The loop above fixes the storage MOUNT POINTS. It does not fix what is
 # already inside them, on the reasoning that files there are already
 # www-data-owned — which holds right up until www-data stops meaning the same
@@ -214,10 +235,24 @@ done
 # The test is `-user www-data`, never a hardcoded 82. Pinning the number would
 # just trade uid 33 for the next base-image surprise; resolving the NAME means
 # this repairs itself on any future uid change, which is the whole point.
+#
+# FILES are repaired as well as directories, and the depth limit is gone. An
+# earlier version fixed only `-type d` at -maxdepth 2, on the reasoning that a
+# writable directory is enough. It is enough to CREATE a file, which is why new
+# uploads started working — but not to overwrite or delete an existing one, so
+# replacing a file already in the catalogue still failed the same way. The
+# stranded files are uid 33 mode 644.
+#
+# Dropping the depth limit is safe because `! -user www-data` makes this a
+# stat-only walk that matches nothing in the steady state. Measured on a
+# production volume: 0.07s over 2,400 entries with every one stale, 0.05s with
+# none. Cost tracks the file COUNT, not bytes — a sibling storing 5G of
+# archives holds 29 entries and measures 0.00s. The "many seconds" warned about
+# elsewhere came from an unfiltered `chown -R`, which pays a syscall per file.
 for root in /var/www/html/storage/app/private \
             /var/www/html/storage/app/public; do
     [ -d "$root" ] || continue
-    find "$root" -maxdepth 2 -mindepth 1 -type d ! -user www-data \
+    find "$root" -mindepth 1 ! -user www-data \
         -exec chown www-data:www-data {} + 2>/dev/null || \
         log "WARNING: could not repair ownership under $root (continuing)."
 done

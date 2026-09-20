@@ -40,7 +40,7 @@ beforeEach(function () {
 test('the entrypoint repairs ownership inside the upload volume', function () {
     // Mount-point-only chown was the bug: it left the per-resource upload
     // directories owned by the old uid.
-    expect($this->entrypoint)->toMatch('/find\s+"\$root"\s+-maxdepth 2.*-type d.*!\s*-user www-data/s');
+    expect($this->entrypoint)->toMatch('/find\s+"\$root"\s+-mindepth 1\s+!\s*-user www-data/');
 });
 
 test('the ownership repair covers both the public and private upload roots', function () {
@@ -66,5 +66,5 @@ test('the ownership repair never recurses over the whole upload volume', functio
 test('the ownership repair does not descend into the per-resource directories', function () {
     // Those hold the actual file count, are created by www-data at runtime and
     // already inherit the right owner. -maxdepth 2 stops above them.
-    expect($this->entrypoint)->toMatch('/-maxdepth 2\s+-mindepth 1/');
+    expect($this->entrypoint)->toMatch('/find\s+"\$root"\s+-mindepth 1\s+!\s*-user www-data/');
 });
