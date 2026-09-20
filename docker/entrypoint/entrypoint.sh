@@ -187,6 +187,41 @@ for d in /var/www/html/bootstrap/cache \
         log "WARNING: could not set ownership on $d (continuing)."
 done
 
+# The loop above fixes the storage MOUNT POINTS. It does not fix what is
+# already inside them, on the reasoning that files there are already
+# www-data-owned — which holds right up until www-data stops meaning the same
+# uid.
+#
+# Moving these images from Debian to Alpine changed www-data from uid 33 to uid
+# 82. storage/app/public is a persistent volume, so the per-resource upload
+# directories inside it survive a rebuild still owned by uid 33 at mode 755 —
+# owner-only write, and php-fpm is no longer that owner. The symptom is
+# specific and quiet: records that carry no file still save, but attaching any
+# image fails because Livewire cannot write its temp upload, Filament reports
+# only "There was an error while attempting to load this page", and nothing
+# reaches laravel.log because the failure is below the application.
+#
+# So: repair the ownership of the per-resource directories, not just the mount
+# points. Two properties keep this cheap enough to run before nginx starts:
+#
+#   - `! -user www-data` means a correctly-owned tree matches nothing and the
+#     loop body never runs. Steady-state cost is one stat per directory, not
+#     the recursive walk the comment above rules out.
+#   - -maxdepth 2 covers the per-resource directories without descending into
+#     their contents, which is where the file count actually lives. Those are
+#     created by www-data at runtime and inherit the right owner.
+#
+# The test is `-user www-data`, never a hardcoded 82. Pinning the number would
+# just trade uid 33 for the next base-image surprise; resolving the NAME means
+# this repairs itself on any future uid change, which is the whole point.
+for root in /var/www/html/storage/app/private \
+            /var/www/html/storage/app/public; do
+    [ -d "$root" ] || continue
+    find "$root" -maxdepth 2 -mindepth 1 -type d ! -user www-data \
+        -exec chown www-data:www-data {} + 2>/dev/null || \
+        log "WARNING: could not repair ownership under $root (continuing)."
+done
+
 if [ -f /var/www/html/public/hot ]; then
     log "WARNING: removing stale public/hot (Vite dev-server marker)."
     rm -f /var/www/html/public/hot
