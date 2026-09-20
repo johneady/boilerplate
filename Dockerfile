@@ -164,6 +164,25 @@ FROM php-base AS runtime
 # rather than making every future edit watch its step around ash.
 RUN apk add --no-cache nginx supervisor curl bash
 
+# Two users serve this app: php-fpm runs as www-data and WRITES the uploads,
+# while nginx runs as its own `nginx` user and is what READS them back out for
+# every static file request. PHP is not in the request path for those, so a
+# permission problem here never reaches laravel.log — it surfaces only in the
+# nginx error log, as a 403/404 on a file the upload just reported saving
+# successfully, with previously-uploaded files still working. That reads like a
+# CDN or cache fault, not a permissions one.
+#
+# Alpine's nginx package already adds its user to the www-data group (verified:
+# `id nginx` gives groups=nginx,www-data), so group-read is sufficient and
+# uploads do NOT depend on the world-readable bit of mode 0644. A file written
+# 0640, or a directory tightened to 0750, still serves correctly.
+#
+# No `addgroup` is needed here, and adding one would be a no-op. This comment
+# exists because the arrangement is easy to misread as "nginx only works
+# because uploads happen to be world-readable" and then to over-correct. If a
+# future base image drops that group membership, THAT is when uploads start
+# 404ing after a permission change, and this is the note that explains why.
+
 # Alpine and Debian put supervisor's config in DIFFERENT places, and the
 # difference is silent until the container crash-loops:
 #   Alpine: /etc/supervisord.conf          + [include] /etc/supervisor.d/*.ini
