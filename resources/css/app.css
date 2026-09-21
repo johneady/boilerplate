@@ -75,7 +75,11 @@ select:focus[data-flux-control] {
  * headings as zinc-400. On the blue-50/70 tint the shell uses, zinc-500 is
  * 4.47:1 -- a hair under WCAG AA's 4.5 -- and zinc-400 is 2.4:1 on anything.
  * One shade darker in light mode only; the dark: variants Flux ships are fine
- * and are left to it.
+ * and are left to it. The mobile header's profile button sits on the same
+ * tint, so its name gets the same treatment.
+ *
+ * The name is the profile button's direct child span; the avatar initials are
+ * a nested span that must keep their white-on-gradient colour, hence `>`.
  *
  * Utilities layer, after Tailwind's own, with :where() zeroing the ancestor
  * part so the selector ties Flux's single-class utilities on specificity and
@@ -84,8 +88,9 @@ select:focus[data-flux-control] {
  */
 @layer utilities {
     :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-item],
-    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-profile] span,
-    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-group] > div:first-child {
+    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-profile] > span,
+    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-group] > div:first-child,
+    :where(html:not(.dark) [data-flux-header]) [data-flux-profile] > span {
         color: var(--color-zinc-600);
     }
 }

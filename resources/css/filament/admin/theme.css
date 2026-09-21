@@ -11,4 +11,5 @@
 @source '../../../../app/Filament/**/*';
 @source '../../../../resources/views/filament/**/*';
 @source '../../../../resources/views/partials/settings/**/*';
+@source '../../../../resources/views/livewire/settings/**/*';
 @source '../../../../vendor/livewire/flux/stubs/**/*.blade.php';
