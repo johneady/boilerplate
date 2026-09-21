@@ -111,6 +111,12 @@ class UserResource extends Resource
                         ? url($url)
                         : null)
                     ->circular()
+                    // The cell is wrapped in the row-click button, whose only
+                    // content is this image -- so without an alt the button has
+                    // no accessible name at all (axe: button-name, critical).
+                    // The user's name is what the button opens, so it is the
+                    // right name for both.
+                    ->alt(fn (User $record): string => $record->name)
                     ->defaultImageUrl(fn (User $record): string => static::initialsAvatarUrl($record)),
                 TextColumn::make('name')
                     ->searchable()

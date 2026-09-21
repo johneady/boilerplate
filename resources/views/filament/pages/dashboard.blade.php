@@ -33,7 +33,7 @@
                     </h2>
                     <p class="mt-0.5 text-xs font-semibold text-blue-800/80 dark:text-blue-200/80">
                         In the finished product they are replaced with widgets built around your real business data.
-                        <span class="font-normal text-blue-700/70 dark:text-blue-300/70">The panel itself is a live work sample by John Eady. See the story behind both.</span>
+                        <span class="font-normal text-blue-700 dark:text-blue-300/80">The panel itself is a live work sample by John Eady. See the story behind both.</span>
                     </p>
                 </div>
             </div>

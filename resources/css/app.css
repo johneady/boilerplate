@@ -69,3 +69,23 @@ select:focus[data-flux-control] {
 /* \[:where(&)\]:size-4 {
     @apply size-4;
 } */
+
+/*
+ * Contrast: Flux's sidebar renders its muted text as zinc-500 and its group
+ * headings as zinc-400. On the blue-50/70 tint the shell uses, zinc-500 is
+ * 4.47:1 -- a hair under WCAG AA's 4.5 -- and zinc-400 is 2.4:1 on anything.
+ * One shade darker in light mode only; the dark: variants Flux ships are fine
+ * and are left to it.
+ *
+ * Utilities layer, after Tailwind's own, with :where() zeroing the ancestor
+ * part so the selector ties Flux's single-class utilities on specificity and
+ * wins on order alone -- while the (0,2,0) hover:, data-current: and
+ * group-hover: utilities still win over it, as they should.
+ */
+@layer utilities {
+    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-item],
+    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-profile] span,
+    :where(html:not(.dark) [data-flux-sidebar]) [data-flux-sidebar-group] > div:first-child {
+        color: var(--color-zinc-600);
+    }
+}

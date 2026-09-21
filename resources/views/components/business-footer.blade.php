@@ -58,7 +58,7 @@
             the query so the compact variant above never runs it. Invoked here,
             which is the only place its result is needed.
         --}}
-        <nav class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-200 pt-4 dark:border-neutral-800">
+        <nav aria-label="{{ __('Footer') }}" class="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-neutral-200 pt-4 dark:border-neutral-800">
             @foreach ($footerPages() as $footerPage)
                 <a href="{{ route('pages.show', $footerPage) }}" class="hover:underline" wire:navigate>
                     {{ $footerPage->title }}

@@ -17,7 +17,11 @@
         collapsible="mobile"
         class="border-e border-blue-100 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950"
     >
-        <flux:sidebar.header>
+        {{-- role="banner": the brand row is the shell's masthead, and
+             <flux:sidebar.header> renders a <div>, which leaves it outside every
+             landmark. The mobile <flux:header> below is a real <header>; only
+             one of the two is visible at any viewport. --}}
+        <flux:sidebar.header role="banner">
             <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
             <flux:sidebar.collapse class="lg:hidden" />
         </flux:sidebar.header>

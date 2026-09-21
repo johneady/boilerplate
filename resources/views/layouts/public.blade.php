@@ -53,7 +53,7 @@
                     <span>{{ $businessName }}</span>
                 </a>
 
-                <nav class="flex items-center gap-2">
+                <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
                     <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
                         {{ __('Contact') }}
                     </flux:button>

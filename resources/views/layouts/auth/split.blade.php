@@ -5,7 +5,10 @@
 </head>
 <body class="min-h-screen bg-white antialiased dark:bg-linear-to-b dark:from-neutral-950 dark:to-neutral-900">
     <div class="relative grid h-dvh flex-col items-center justify-center px-8 sm:px-0 lg:max-w-none lg:grid-cols-2 lg:px-0">
-        <div class="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-e dark:border-neutral-800">
+        {{-- Landmarks: every top-level region is one, so nothing on the page sits
+             outside the landmark tree (axe "region" / "landmark-one-main"). The
+             hero column is complementary, the form is the main content. --}}
+        <aside aria-label="{{ __('About :business', ['business' => $businessName]) }}" class="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-e dark:border-neutral-800">
             <img
                 src="{{ asset('images/auth/backdrop.svg') }}"
                 alt=""
@@ -34,12 +37,13 @@
                     </flux:heading>
                 </blockquote>
             </div>
-        </div>
+        </aside>
         <div class="w-full lg:p-8">
-            <div class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+            <main class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+                <header class="lg:hidden">
                 <a
                     href="{{ route('home') }}"
-                    class="z-20 flex flex-col items-center gap-2 font-medium lg:hidden"
+                    class="z-20 flex flex-col items-center gap-2 font-medium"
                     wire:navigate
                 >
                     <span class="flex h-9 w-9 items-center justify-center rounded-md">
@@ -48,8 +52,9 @@
 
                     <span class="sr-only">{{ $businessName }}</span>
                 </a>
+                </header>
                 {{ $slot }}
-            </div>
+            </main>
 
             <x-business-footer
                 compact
