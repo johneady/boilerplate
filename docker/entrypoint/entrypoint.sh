@@ -167,6 +167,28 @@ if [ "${CONTAINER_ROLE}" = "app" ]; then
 
     # Storage symlink: recreated every boot because public/ is a fresh image layer.
     php artisan storage:link --force || log "WARNING: storage:link failed (continuing)."
+
+    # Audit the configuration this container ACTUALLY loaded.
+    #
+    # .env.production.example only helps the person who copies it; this catches
+    # what an example file cannot -- a platform-injected variable, a stale env
+    # carried over from a previous deploy, APP_DEBUG left true while debugging
+    # an incident. App\Console\Commands\CheckProductionConfig reads config()
+    # rather than env() throughout, which is why it runs HERE, after `optimize`
+    # has written the config cache: run before it, every check would read the
+    # uncached values and report on a configuration that is not the live one.
+    #
+    # WARN-ONLY, deliberately. The command exits non-zero only on hard failures
+    # (APP_DEBUG=true, empty APP_KEY) and passes on warnings, so failing the
+    # boot here would be defensible -- but a container that refuses to start is
+    # strictly harder to diagnose than one that starts and says what is wrong,
+    # and a false positive would take the site down rather than flag it. The
+    # findings land in the container log where a deploy can be read back.
+    #
+    # It no-ops on APP_ENV=local/testing by design; a staging instance is
+    # audited exactly as production is.
+    php artisan app:check-production || \
+        log "WARNING: app:check-production reported problems (see its output above)."
 fi
 
 # The steps above ran as root; php-fpm serves as www-data and Blade writes to
@@ -214,9 +236,11 @@ find /var/www/html/storage/logs -maxdepth 1 -type f ! -user www-data \
 # uid.
 #
 # Moving these images from Debian to Alpine changed www-data from uid 33 to uid
-# 82. storage/app/public is a persistent volume, so the per-resource upload
-# directories inside it survive a rebuild still owned by uid 33 at mode 755 —
-# owner-only write, and php-fpm is no longer that owner. The symptom is
+# 82. storage/app/private and storage/app/public are persistent volumes —
+# declared in x-app-base in BOTH compose files, since uploads land there and an
+# image-layer directory would be wiped by every deploy — so the per-resource
+# upload directories inside them survive a rebuild still owned by uid 33 at
+# mode 755 — owner-only write, and php-fpm is no longer that owner. The symptom is
 # specific and quiet: records that carry no file still save, but attaching any
 # image fails because Livewire cannot write its temp upload, Filament reports
 # only "There was an error while attempting to load this page", and nothing

@@ -280,6 +280,12 @@ RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-app.ini
 COPY docker/php/www.conf /usr/local/etc/php-fpm.d/zz-www.conf
 COPY docker/nginx/default.conf /etc/nginx/http.d/default.conf
+# Included by default.conf at the server level AND inside every location that
+# sets an add_header of its own (add_header does not merge -- see that file).
+# Lives beside nginx.conf rather than in http.d/, which is a glob of SERVER
+# blocks: a bare list of add_header directives there is not a valid config and
+# the `nginx -t` below would fail the build.
+COPY docker/nginx/security-headers.conf /etc/nginx/security-headers.conf
 # Role program sets live OUTSIDE conf.d/ deliberately. The distro
 # supervisord.conf ends with `[include] files = /etc/supervisor/conf.d/*.conf`,
 # so anything dropped in there is loaded by EVERY container -- a worker would

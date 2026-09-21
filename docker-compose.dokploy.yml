@@ -167,17 +167,45 @@ x-app-base: &app-base
   networks:
     - dokploy-network
 
+  # ALL THREE roles mount the SAME storage volumes, and both upload disks are
+  # volumes rather than image layers. Each of those is load-bearing for a
+  # different reason:
+  #
+  #   storage/app/private and storage/app/public are where uploads actually
+  #   land -- config/filesystems.php points the `local` disk at the first and
+  #   the `public` disk at the second, and App\Media\MediaCollection::disk()
+  #   resolves to one or the other for every collection. Without a volume they
+  #   are ordinary image-layer directories, so `pull_policy: always` plus a new
+  #   IMAGE_TAG DELETES every uploaded file on each deploy. The media rows
+  #   survive in MariaDB, so the app returns with a full catalogue pointing at
+  #   files that are gone -- broken images rather than an error anyone notices.
+  #
+  #   Sharing them across roles is what makes image processing work at all.
+  #   App\Jobs\ProcessUploadedImage reads its source from Storage::disk('local')
+  #   -- a file the WEB container wrote. On unshared per-container filesystems
+  #   the worker looks for it on its own disk, never finds it, and every
+  #   conversion fails while both containers report healthy.
+  #
+  # The cost of local named volumes is that they are per-HOST, so this pins the
+  # three roles to one machine. That is already true of single-node Dokploy. The
+  # moment a second node is involved, these must become shared object storage --
+  # config/filesystems.php already carries an `s3` disk, so that is a matter of
+  # setting FILESYSTEM_DISK/IMAGE_DISK and the AWS_* variables, not new code.
   volumes:
     - storage-logs:/var/www/html/storage/logs
+    - storage-app-private:/var/www/html/storage/app/private
+    - storage-app-public:/var/www/html/storage/app/public
 
   # Hard memory ceiling: a runaway process kills its own container (restarted by
   # Docker) instead of the host.
   #
-  # Applies to ALL THREE roles, since it sits in the shared base. Sized for the
-  # web role, which is the largest: pm.max_children = 6 * ~60MB worker RSS +
-  # nginx/php-fpm/opcache overhead stays comfortably under this cap. The worker
-  # and scheduler each run a single PHP process (the worker self-recycles at
-  # --memory=192, below php.ini's 256M limit), so they sit far below it.
+  # Sized for the WEB role: pm.max_children = 6 * ~60MB worker RSS +
+  # nginx/php-fpm/opcache overhead stays comfortably under this cap. The
+  # scheduler runs a single PHP process and sits far below it.
+  #
+  # The worker OVERRIDES this to 768m -- see the comment on that service for
+  # why image decoding makes it the one role a web-sized cap does not fit.
+  # Anything else inheriting from this base gets the web figure.
   #
   # Raising pm.max_children or php.ini's memory_limit means raising this too.
   mem_limit: 512m
@@ -193,6 +221,34 @@ services:
   # same queue coordinate through the database, so extra processes are safe.
   worker:
     <<: *app-base
+    # Overrides the shared 512m, which is sized for the WEB role's php-fpm pool
+    # and has nothing to do with what a worker actually needs.
+    #
+    # The worker's steady state is far below 512m -- a single PHP process that
+    # self-recycles at --memory=192. The spike is App\Jobs\ProcessUploadedImage:
+    # gd decodes a JPEG to a RAW BITMAP, so peak memory tracks the image's
+    # PIXEL count and has almost nothing to do with its file size.
+    #
+    # Measured in this container, not estimated: a 6000x4000 photo (24 MP) is
+    # 0.36 MB on disk and costs 190 MB to decode. config/images.php caps
+    # uploads at 5120 KB, which sounds protective and is not -- JPEG
+    # compression means that ceiling admits images of essentially unbounded
+    # dimensions, and nothing validates DIMENSIONS anywhere. A 12000x9000
+    # (108 MP) file measures 4.72 MB, passes validation, and then exhausts a
+    # 1 GB limit outright.
+    #
+    # So 768m is headroom for the ordinary case (a phone photo at 12-50 MP),
+    # NOT a guarantee. The real fix is a megapixel cap at validation time, so
+    # the job never decodes something it cannot hold; raising this number just
+    # moves the cliff. Until then the failure is contained: the OOM kills this
+    # container, Docker restarts it, and the web tier is untouched.
+    #
+    # Getting OOM-killed is worse than it first looks. The kill is a SIGKILL
+    # from outside the container's control, so it bypasses the entire graceful
+    # shutdown contract the worker role is built around -- stopsignal=TERM and
+    # stopwaitsecs=90 buy nothing against it, the job dies mid-write, and it is
+    # retried only once retry_after elapses.
+    mem_limit: 768m
     environment:
       <<: *app-env
       CONTAINER_ROLE: worker
@@ -271,6 +327,10 @@ services:
 
 volumes:
   storage-logs:
+  # The upload disks. See the comment on x-app-base's volumes for why these
+  # must exist and must be shared by all three roles.
+  storage-app-private:
+  storage-app-public:
 
 # Created by the Dokploy installer; the managed database is attached to it.
 networks:

@@ -93,8 +93,19 @@ x-app-base: &app-base
     # Seeding is idempotent, so this stays safe across redeploys.
     RUN_SEEDERS: "true"
 
+  # Mirrors the Dokploy stack deliberately, including the two upload disks.
+  # This stack exists to make production problems surface locally, and the
+  # upload volumes are the clearest case: without them a redeploy wipes every
+  # uploaded file, and the worker cannot read the source image the web
+  # container wrote for App\Jobs\ProcessUploadedImage. Both failures are
+  # invisible until something is actually uploaded, so the local stack has to
+  # carry the same mounts or it verifies a different application.
+  #
+  # See docker-compose.dokploy.yml's x-app-base for the full reasoning.
   volumes:
     - storage-logs:/var/www/html/storage/logs
+    - storage-app-private:/var/www/html/storage/app/private
+    - storage-app-public:/var/www/html/storage/app/public
 
 services:
   # MariaDB, matching the Dokploy production database. Pinned to 11.8 rather
@@ -206,5 +217,10 @@ services:
 volumes:
   mysql-data:
   storage-logs:
+  # The upload disks, matching the Dokploy stack. `docker compose down -v`
+  # drops these along with the database, which is the intended way to reset
+  # this throwaway stack.
+  storage-app-private:
+  storage-app-public:
   # Uncomment alongside the `redis` service.
   # redis-data:
