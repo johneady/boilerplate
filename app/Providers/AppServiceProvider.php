@@ -13,6 +13,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Auth\Middleware\RequirePassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Mail\MailManager;
 use Illuminate\Support\Facades\Blade;
@@ -320,6 +321,16 @@ class AppServiceProvider extends ServiceProvider
     protected function configureDefaults(): void
     {
         Date::use(CarbonImmutable::class);
+
+        // Lazy loading, silently discarded fills and reads of unloaded
+        // attributes all throw outside production. Each is a bug that is
+        // invisible where it is written: an N+1 renders correctly and is only
+        // slow, a fill() of an unfillable key succeeds and drops the value, a
+        // ->name on a model fetched with select(['id']) is quietly null. In
+        // production they stay lenient -- a stray lazy load must cost a query,
+        // not a 500 -- and the suite is where they surface, since it runs
+        // every relation and form the app has.
+        Model::shouldBeStrict(! app()->isProduction());
 
         // Guarded everywhere except the environments that own a throwaway
         // database. A deployed staging instance is a real database with real

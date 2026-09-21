@@ -6,6 +6,7 @@ use App\Models\Media;
 use App\Models\Page;
 use App\Models\Setting;
 use App\Models\User;
+use Illuminate\Database\Eloquent\MassAssignmentException;
 
 test('a new user gets the least privileged role', function () {
     $user = User::create([
@@ -20,15 +21,18 @@ test('a new user gets the least privileged role', function () {
 
 test('the role cannot be mass assigned', function () {
     // The same protection is_admin had: a forged registration payload naming
-    // a role must not be able to grant itself one.
-    $user = User::create([
+    // a role must not be able to grant itself one. Outside production
+    // Model::shouldBeStrict() raises the unfillable key as an exception rather
+    // than discarding it silently; the guard (User::$fillable) is the same in
+    // both, and the second assertion proves the attempt persisted nothing.
+    expect(fn () => User::create([
         'name' => 'Mass Assigned',
         'email' => 'mass-role@example.com',
         'password' => 'password',
         'role' => Role::Admin->value,
-    ]);
+    ]))->toThrow(MassAssignmentException::class);
 
-    expect($user->fresh()->role)->toBe(Role::DEFAULT);
+    expect(User::query()->where('email', 'mass-role@example.com')->exists())->toBeFalse();
 });
 
 test('an unsaved user reads as the least privileged role', function () {

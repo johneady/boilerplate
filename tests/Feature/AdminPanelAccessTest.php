@@ -5,6 +5,7 @@ use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Filament\Auth\Http\Responses\Contracts\LogoutResponse;
 use Filament\Support\Enums\Width;
+use Illuminate\Database\Eloquent\MassAssignmentException;
 use Illuminate\Support\Facades\Storage;
 
 test('the panel does not register a login page of its own', function () {
@@ -28,14 +29,19 @@ test('admins may access the admin panel', function () {
 });
 
 test('is_admin cannot be mass assigned', function () {
-    $user = User::create([
+    // The guard is User::$fillable. Outside production Model::shouldBeStrict()
+    // turns the silent discard into an exception, which is what is asserted
+    // here; in production the same unfillable key is dropped and the row is
+    // created without it. Either way a forged payload cannot grant itself the
+    // flag, and the second assertion proves the attempt persisted nothing.
+    expect(fn () => User::create([
         'name' => 'Mass Assigned',
         'email' => 'mass@example.com',
         'password' => 'password',
         'is_admin' => true,
-    ]);
+    ]))->toThrow(MassAssignmentException::class);
 
-    expect($user->fresh()->is_admin)->toBeFalse();
+    expect(User::query()->where('email', 'mass@example.com')->exists())->toBeFalse();
 });
 
 test('logging out of the panel returns to the home page', function () {
