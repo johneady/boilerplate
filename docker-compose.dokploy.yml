@@ -24,7 +24,8 @@ x-app-base: &app-base
   # like a broken Dockerfile instead of an exhausted host.
   #
   # .github/workflows/docker.yml builds and pushes this image on every push to
-  # main. The bytes CI built and tested are the bytes that run here.
+  # main (and to demo/* branches, tagged demo-<slug>; see docker/new-demo.sh).
+  # The bytes CI built and tested are the bytes that run here.
   #
   # IMAGE_TAG must name a tag that workflow published. Prefer an immutable one
   # -- `sha-<full-commit-sha>`, or a `v*` release tag -- over `latest`: `latest`

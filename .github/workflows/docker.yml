@@ -13,8 +13,14 @@
 name: Docker
 
 on:
+  # demo/* branches are throwaway client prototypes (see docker/new-demo.sh).
+  # They reuse this pipeline so a demo needs no repo, registry or credential of
+  # its own: metadata-action's `type=ref,event=branch` tags them
+  # `demo-<slug>`, and `latest` stays main-only via is_default_branch.
+  # A single `*` on purpose: a nested demo/a/b would be tagged demo-a-b while
+  # the deploy summary below printed demo-a/b, which is not a valid tag.
   push:
-    branches: [main]
+    branches: [main, 'demo/*']
     tags: ['v*']
   # Build (but never push) on PRs that touch the image, so a broken Dockerfile
   # is caught on the branch rather than at deploy time. The extension assertion
@@ -161,17 +167,30 @@ jobs:
       # onto a build you never chose, with nothing recording that it happened.
       # A sha tag restarts as the same bytes every time, and rolling back is
       # setting IMAGE_TAG to an earlier sha and redeploying.
+      #
+      # Demo branches are the one exception: their slots track the moving
+      # `demo-<slug>` tag so iterating on a prototype is push + redeploy, with
+      # no sha to copy each time. Rolling forward on restart is harmless there
+      # -- the newest build of a throwaway demo is the one you want anyway.
       - name: Deploy instructions
         if: github.event_name != 'pull_request'
         env:
           IMAGE_TAG: sha-${{ github.sha }}
+          REF_NAME: ${{ github.ref_name }}
         run: |
           # shellcheck disable=SC2016 # the backticks below are literal markdown
           # for the job summary, not command substitution, so these printf
           # format strings are single-quoted on purpose.
           {
             printf '## Image published\n\n'
-            printf 'Deploy by setting `IMAGE_TAG` in the Dokploy environment, then redeploy:\n\n'
-            printf '```\nIMAGE_TAG=%s\n```\n\n' "$IMAGE_TAG"
-            printf 'Also tagged `latest` — published for convenience, but prefer the sha above.\n'
+            if [[ "$REF_NAME" == demo/* ]]; then
+              slug="${REF_NAME#demo/}"
+              printf 'Demo branch. On a free Dokploy slot, set these and redeploy:\n\n'
+              printf '```\nIMAGE_TAG=demo-%s\nDB_DATABASE=demo_%s\n```\n\n' "$slug" "${slug//-/_}"
+              printf 'Later pushes to this branch only need a redeploy of that slot.\n'
+            else
+              printf 'Deploy by setting `IMAGE_TAG` in the Dokploy environment, then redeploy:\n\n'
+              printf '```\nIMAGE_TAG=%s\n```\n\n' "$IMAGE_TAG"
+              printf 'Also tagged `latest` — published for convenience, but prefer the sha above.\n'
+            fi
           } >> "$GITHUB_STEP_SUMMARY"

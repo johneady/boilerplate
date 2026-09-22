@@ -193,6 +193,11 @@ loud instead of silent.
 The entrypoint waits for the database, migrates, seeds, rebuilds caches against
 the real environment, and republishes Filament's assets on every boot.
 
+Client prototypes are `demo/<slug>` branches rather than clones:
+`./docker/new-demo.sh <slug>` creates one, CI publishes it as the image tag
+`demo-<slug>`, and a reusable Dokploy slot is pointed at it. See
+[Client demos](docker/README.md#client-demos-demo-branches).
+
 #### Overriding APP_ENV for a staging instance
 
 `APP_ENV` defaults to `production` but is overridable in Dokploy. Note what the

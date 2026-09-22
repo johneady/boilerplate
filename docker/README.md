@@ -25,6 +25,8 @@ them, they each fire every due task.
   known password, published port — never deploy this one)
 - `docker-compose.dokploy.yml` — the **Dokploy deployment stack** (no database
   service, no ports, every secret supplied by Dokploy)
+- `docker/new-demo.sh` — starts, lists and removes `demo/*` client-demo
+  branches (see [Client demos](#client-demos-demo-branches))
 - `docker/nginx`, `docker/php`, `docker/entrypoint` — runtime configs
   (`supervisord.conf`, `supervisord.worker.conf`, `supervisord.scheduler.conf`
   are the per-role program sets; the entrypoint installs exactly one)
@@ -218,6 +220,78 @@ Notes:
   `exec format error`. Override with `PLATFORM=` if that ever changes.
 - The workflow is left in place and untouched, so publishing returns to CI by
   itself once minutes are available. Delete the script then.
+
+### Client demos (`demo/*` branches)
+
+Throwaway client prototypes are **branches of this repo, not clones**. Every
+push to `demo/<slug>` is built by the same **Docker** workflow and published as
+`ghcr.io/<repo>:demo-<slug>`, so a demo needs no repo, registry or credential of
+its own. `latest` stays main-only.
+
+```bash
+./docker/new-demo.sh acme-crm          # branch demo/acme-crm from origin/main and push it
+./docker/new-demo.sh --list            # demo branches on origin, newest first
+./docker/new-demo.sh --delete acme-crm # drop the branch locally and on origin
+```
+
+Slugs are lowercase letters, digits and hyphens; `acme-crm` becomes the image
+tag `demo-acme-crm` and the database `demo_acme_crm`.
+
+**Slots (one-time Dokploy setup).** Instead of a new Dokploy application per
+demo, keep a fixed pool of them — `demo1` … `demo5` — each deploying
+`docker-compose.dokploy.yml` with its own domain (`demoN.<wildcard domain>`),
+its own `APP_KEY` and `APP_URL`, and:
+
+```dotenv
+GHCR_REPOSITORY=<owner/repo, lowercase>
+APP_ENV=demo
+DB_CONNECTION=mariadb
+DB_HOST=<the shared MariaDB service's host>
+DB_PORT=3306
+DB_USERNAME=root
+DB_PASSWORD=<its root password>
+IMAGE_TAG=demo-<slug>
+DB_DATABASE=demo_<slug>
+```
+
+`APP_ENV=demo` rather than `production` is what keeps the one-click quick
+logins. Only `IMAGE_TAG` and `DB_DATABASE` change from demo to demo.
+
+All slots share **one** MariaDB service, with a separate database per demo.
+They connect as `root` so that `migrate --force` can create `demo_<slug>` on
+first boot — nothing to provision by hand, and no wipe when a slot is reused.
+That also means any demo can reach every other demo's database, which is
+acceptable only because they are all throwaway.
+
+**Per demo:**
+
+1. `./docker/new-demo.sh <slug>`, then build the prototype and push as you go.
+2. Once the Docker run is green, its summary prints the two values to set. On
+   the oldest slot, set `IMAGE_TAG` and `DB_DATABASE` and **Redeploy**.
+3. Later pushes to the branch only need a Redeploy of that slot.
+
+Demo slots deliberately track the **moving** `demo-<slug>` tag rather than a
+sha: rolling forward on a restart is harmless for a prototype, and it saves
+copying a sha on every iteration. Everything under "Deploying a new build"
+still applies to real deployments.
+
+Rules of thumb:
+
+- **Never merge a demo into `main`.** Anything every future demo should have
+  lands on `main` first; bring it into a live demo with `git rebase main`.
+- **Recycling a slot breaks its old link.** Reuse the oldest slot first, and
+  hold one back while a client is still engaging.
+- **A demo that wins graduates** to its own repo:
+  `git push git@github.com:<you>/<project>.git demo/<slug>:main`, and from
+  there it is deployed like any other project (`APP_ENV=production`, its own
+  database and user, sha tags).
+- **Push `main` before starting a demo.** Demos branch from `origin/main`, so
+  unpushed commits on your local `main` are not in them; the script warns.
+- `--delete` leaves the GHCR image and the `demo_<slug>` database behind; prune
+  them from the repo's **Packages** page and with `DROP DATABASE`. A slot's
+  upload volumes also outlive the demo that used them: the files sit under
+  uuid paths, so they never collide with the next demo's, but they take disk
+  until you clear the volumes.
 
 ### The seeded demo accounts
 
