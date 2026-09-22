@@ -94,7 +94,8 @@ production is an OOM waiting to happen).
 
    ```dotenv
    APP_ENV=local
-   APP_KEY=base64:4Y8Dl6aeVTwEdWQ+M9NK+l5+3k4QmtUQSPZDav73V+s=
+   # php artisan key:generate --show -- one per instance, never a published one
+   APP_KEY=FILL_ME_IN
    # e.g. https://app.example.com
    APP_URL=FILL_ME_IN
 
