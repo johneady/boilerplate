@@ -13,7 +13,15 @@ File uploads do NOT work. The plugin's in-process server builds its Symfony requ
 
 WebAuthn/passkeys cannot be driven either: the plugin exposes no CDP session, so there is no way to install a virtual authenticator. tests/Feature/Auth/PasskeyLoginOptionsTest.php covers the server half (the challenge payload shape and rpId) instead.
 
-Playwright's npm version must match a browser build in ~/.cache/ms-playwright, since the CDN download can be blocked. playwright 1.62.0 -> chromium-1234, 1.61.0 -> chromium-1228. Pinned to 1.62.0 in package.json for that reason.
+Playwright's npm version must match a browser build in ~/.cache/ms-playwright, since the CDN download can be blocked. playwright 1.62.0 -> chromium-1234, 1.61.0 -> chromium-1228, 1.63.0 -> chromium-1243. Pinned to 1.62.0 in package.json for that reason.
+
+The pin is EXACT (`"playwright": "1.62.0"`, no caret) and must stay that way. A caret range does not express this constraint: `^1.62.0` resolves to the newest 1.x, so a routine `npm install` silently pulls a Playwright whose required chromium is not cached. That is how 1.63.0 got in (commit c3cba3d bumped package.json and package-lock.json without an `npm install`, leaving node_modules on 1.62.0 and the tree inconsistent). Installing the locked 1.63.0 then wants chromium-1243, and the download times out here:
+
+    Error: Request to https://cdn.playwright.dev/builds/cft/153.0.8010.12/linux64/chrome-linux64.zip timed out after 30000ms
+
+Symptom of a mismatch: `vendor/bin/pest tests/Browser` spins at ~100% CPU with no `playwright run-server` process and produces no output. To move the pin, first confirm the new version's chromium revision is in ~/.cache/ms-playwright (node_modules/playwright-core/browsers.json names it), then update package.json, run `npm install` so the lockfile and node_modules agree, and update this note.
+
+Note that pest-plugin-browser v5.0.1 requires playwright >= 1.62.1 in PlaywrightNpmServer::PLAYWRIGHT_VERSION, but only checks it on a FAILED start, so 1.62.0 runs fine. Bumping the plugin may force this pin forward and require fetching a new chromium build.
 
 Assert paths with assertPathIs(), never assertUrlIs() -- the test server binds an ephemeral port.
 

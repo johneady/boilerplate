@@ -8,7 +8,10 @@
         {{-- Landmarks: every top-level region is one, so nothing on the page sits
              outside the landmark tree (axe "region" / "landmark-one-main"). The
              hero column is complementary, the form is the main content. --}}
-        <aside aria-label="{{ __('About :business', ['business' => $businessName]) }}" class="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-e dark:border-neutral-800">
+        <aside
+            aria-label="{{ __('About :business', ['business' => $businessName]) }}"
+            class="bg-muted relative hidden h-full flex-col p-10 text-white lg:flex dark:border-e dark:border-neutral-800"
+        >
             <img
                 src="{{ asset('images/auth/backdrop.svg') }}"
                 alt=""
@@ -41,17 +44,17 @@
         <div class="w-full lg:p-8">
             <main class="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
                 <header class="lg:hidden">
-                <a
-                    href="{{ route('home') }}"
-                    class="z-20 flex flex-col items-center gap-2 font-medium"
-                    wire:navigate
-                >
-                    <span class="flex h-9 w-9 items-center justify-center rounded-md">
-                        <x-app-logo-icon class="size-9" />
-                    </span>
+                    <a
+                        href="{{ route('home') }}"
+                        class="z-20 flex flex-col items-center gap-2 font-medium"
+                        wire:navigate
+                    >
+                        <span class="flex h-9 w-9 items-center justify-center rounded-md">
+                            <x-app-logo-icon class="size-9" />
+                        </span>
 
-                    <span class="sr-only">{{ $businessName }}</span>
-                </a>
+                        <span class="sr-only">{{ $businessName }}</span>
+                    </a>
                 </header>
                 {{ $slot }}
             </main>
