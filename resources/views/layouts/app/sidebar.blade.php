@@ -12,9 +12,17 @@
     --}}
     @php($avatarUrl = auth()->user()->avatarUrl())
 
+    {{-- role="complementary": <flux:sidebar> renders a <ui-sidebar>, so its
+         brand row and profile menu sit outside every landmark (axe "region").
+         Not "banner": the mobile <flux:header> below is a real <header>, and
+         on small screens the sidebar is only translated off-screen -- or open
+         beside it -- so a banner here would be a duplicate at that viewport.
+         The <nav> inside stays its own landmark. --}}
     <flux:sidebar
         sticky
         collapsible="mobile"
+        role="complementary"
+        :aria-label="__('Sidebar')"
         class="border-e border-blue-100 bg-blue-50/70 dark:border-blue-900 dark:bg-blue-950"
     >
         <flux:sidebar.header>
