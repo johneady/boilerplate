@@ -20,6 +20,10 @@
 # arm64 and the deploy host is amd64, read the ARCH note below or the image
 # will pull and then refuse to start with an exec format error.
 #
+# On a demo/<slug> branch the image is also tagged demo-<slug>, the moving tag
+# the Dokploy demo slots track (see "Client demos" in docker/README.md), so a
+# demo is published the same way whether CI or this script built it.
+#
 # Usage:
 #   ./docker/publish-image.sh              # build + push HEAD, tagged sha-<sha>
 #   ./docker/publish-image.sh --also-latest
@@ -66,8 +70,19 @@ REPO="$(git remote get-url origin \
 IMAGE="ghcr.io/${REPO}"
 TAG="sha-${SHA}"
 
+# Mirrors the workflow's `type=ref,event=branch` tag for demo branches only;
+# other branch tags are never deployed, so they are not worth pushing.
+BRANCH="$(git branch --show-current)"
+DEMO_TAG=""
+if [[ "$BRANCH" == demo/* ]]; then
+  DEMO_TAG="demo-${BRANCH#demo/}"
+fi
+
 echo "Repository : ${REPO}"
 echo "Image      : ${IMAGE}:${TAG}"
+if [ -n "$DEMO_TAG" ]; then
+  echo "Demo tag   : ${IMAGE}:${DEMO_TAG}"
+fi
 echo
 
 # ARCH: the deploy host is amd64. If this machine is not, cross-building here
@@ -106,6 +121,9 @@ BUILD_ARGS=(
 
 if [ "$ALSO_LATEST" -eq 1 ]; then
   BUILD_ARGS+=(--tag "${IMAGE}:latest")
+fi
+if [ -n "$DEMO_TAG" ]; then
+  BUILD_ARGS+=(--tag "${IMAGE}:${DEMO_TAG}")
 fi
 
 # --load in both cases, never --push. The push happens as a separate step below,
@@ -155,6 +173,22 @@ echo "==> Pushing"
 docker push "${IMAGE}:${TAG}"
 if [ "$ALSO_LATEST" -eq 1 ]; then
   docker push "${IMAGE}:latest"
+fi
+if [ -n "$DEMO_TAG" ]; then
+  docker push "${IMAGE}:${DEMO_TAG}"
+  SLUG="${BRANCH#demo/}"
+  cat <<EOF
+
+Published ${IMAGE}:${DEMO_TAG}
+
+On a free Dokploy slot, set these and redeploy (later publishes of this
+branch only need a redeploy of that slot):
+
+    IMAGE_TAG=${DEMO_TAG}
+    DB_DATABASE=demo_${SLUG//-/_}
+
+EOF
+  exit 0
 fi
 
 cat <<EOF

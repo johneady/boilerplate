@@ -269,7 +269,10 @@ acceptable only because they are all throwaway.
 1. `./docker/new-demo.sh <slug>`, then build the prototype and push as you go.
 2. Once the Docker run is green, its summary prints the two values to set. On
    the oldest slot, set `IMAGE_TAG` and `DB_DATABASE` and **Redeploy**.
-3. Later pushes to the branch only need a Redeploy of that slot.
+   Without Actions, run `./docker/publish-image.sh` on the demo branch instead:
+   it pushes the same `demo-<slug>` tag and prints the same two values.
+3. Later pushes to the branch only need a Redeploy of that slot (or, without
+   Actions, a re-run of `publish-image.sh` and then a Redeploy).
 
 Demo slots deliberately track the **moving** `demo-<slug>` tag rather than a
 sha: rolling forward on a restart is harmless for a prototype, and it saves

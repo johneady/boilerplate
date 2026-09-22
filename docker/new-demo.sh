@@ -92,9 +92,10 @@ git push --set-upstream origin "$branch"
 
 cat <<EOF
 
-Created $branch (image build started in GitHub Actions).
+Created $branch. GitHub Actions builds it on push; if Actions is unavailable,
+publish it from this machine instead: ./docker/publish-image.sh
 
-Once the build is green, on the oldest free Dokploy slot set:
+Once the image is published, on the oldest free Dokploy slot set:
 
   IMAGE_TAG=demo-$slug
   DB_DATABASE=demo_${slug//-/_}
