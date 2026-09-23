@@ -20,6 +20,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\Width;
+use Filament\Support\Facades\FilamentView;
 use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -33,6 +34,13 @@ use Illuminate\View\Middleware\ShareErrorsFromSession;
 class AdminPanelProvider extends PanelProvider
 {
     /**
+     * The cascade-layer order of Filament's Tailwind v4 stylesheets.
+     *
+     * @var list<string>
+     */
+    public const CSS_LAYER_ORDER = ['properties', 'theme', 'base', 'components', 'utilities'];
+
+    /**
      * Register panel services.
      */
     public function register(): void
@@ -40,6 +48,32 @@ class AdminPanelProvider extends PanelProvider
         parent::register();
 
         $this->app->singleton(LogoutResponseContract::class, FilamentLogoutResponse::class);
+    }
+
+    /**
+     * Declare the cascade-layer order before any stylesheet on every panel.
+     *
+     * A page's layer order is fixed by the first stylesheet that names a
+     * layer, and Filament loads plugin CSS (@filamentStyles) BEFORE the panel
+     * theme. A plugin sheet wrapped in `@layer components{...}` therefore
+     * registers `components` ahead of `base`, and Tailwind's Preflight reset
+     * (`*{padding:0}`) then overrides every `.fi-*` layout rule: the panel
+     * renders with no padding and default-size headings, with nothing 404ing
+     * and no JS error. croustibat/filament-jobs-monitor v4.6.0 did exactly this
+     * in four projects built from this boilerplate.
+     *
+     * STYLES_BEFORE runs ahead of every stylesheet, so declaring the order
+     * there makes it independent of what plugins ship. It cannot live in
+     * theme.css: Tailwind strips a bare `@layer` statement at build time.
+     * Registered globally rather than on the panel so every panel gets it,
+     * including ones added later.
+     */
+    public function boot(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::STYLES_BEFORE,
+            fn (): string => '<style>@layer '.implode(', ', self::CSS_LAYER_ORDER).';</style>',
+        );
     }
 
     public function panel(Panel $panel): Panel

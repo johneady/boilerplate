@@ -18,3 +18,8 @@ Colours used by badges must be registered on the panel's ->colors(). Filament em
 ->brandName() is passed a closure resolving App\Settings\Settings::businessName(). The panel is configured once per process, so resolving the setting eagerly there would pin the brand to whatever was stored at boot and ignore later edits — which a long-lived worker or Octane process would serve indefinitely.
 
 tests/Feature/AdminPanelAccessTest.php ('the panel brand follows a business name changed after boot') covers this.
+
+## Keep the STYLES_BEFORE cascade-layer declaration
+AdminPanelProvider::boot() registers a global STYLES_BEFORE render hook emitting `<style>@layer properties, theme, base, components, utilities;</style>` before every stylesheet on every panel. Do not remove it as clutter. Filament loads plugin CSS (@filamentStyles) BEFORE the panel theme, and a page's layer order is fixed by the first sheet that names a layer — so a plugin sheet wrapped in `@layer components{}` (croustibat/filament-jobs-monitor v4.6.0) pushes Tailwind's Preflight after the components layer and the panel renders with no padding and default-size headings, with no 404 and no JS error.
+
+It cannot move into theme.css: Tailwind strips a bare `@layer` statement at build time. A plugin CSS naming a layer outside CSS_LAYER_ORDER is appended after utilities and would still win; tests/Feature/FilamentCssLayerOrderTest.php fails on both cases.
