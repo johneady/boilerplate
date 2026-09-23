@@ -1,7 +1,9 @@
 <?php
 
+use App\Bakery\InquiryStatus;
 use App\Filament\Pages\Dashboard;
 use App\Filament\Widgets\BusinessOverview;
+use App\Models\OrderInquiry;
 use App\Models\User;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
@@ -34,8 +36,8 @@ test('a control on the landing page reopens the work overview', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
-        ->assertSee('The widgets above are generic examples')
-        ->assertSee('In the finished product they are replaced with widgets built around your real business data.')
+        ->assertSee('The figures above are live')
+        ->assertSee("They read the bakery's real orders and menu.", false)
         ->assertSee('Show introduction')
         ->assertSee("x-on:click=\"\$dispatch('open-modal', { id: 'work-overview' })\"", escape: false);
 });
@@ -47,11 +49,18 @@ test('the landing page embeds the business overview widget', function () {
         ->assertSee('Widgets\BusinessOverview', escape: false);
 });
 
-test('the business overview widget renders its sample data', function () {
+test('the business overview widget reports the live order book', function () {
+    OrderInquiry::factory()->count(2)->create();
+    OrderInquiry::factory()->status(InquiryStatus::Confirmed)->create([
+        'needed_on' => now()->addDays(2)->toDateString(),
+        'quoted_total_cents' => 5500,
+    ]);
+
     Livewire::test(BusinessOverview::class)
-        ->assertSee('This month at a glance')
-        ->assertSee('Revenue this month')
-        ->assertSee('$48,650');
+        ->assertSee('The bakery at a glance')
+        ->assertSee('Waiting for a reply')
+        ->assertSee('3 received in the last 7 days')
+        ->assertSee('$55.00');
 });
 
 test('the hero portrait is present on disk', function () {

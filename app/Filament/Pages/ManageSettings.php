@@ -607,6 +607,16 @@ class ManageSettings extends Page
                 // the avatar upload in App\Livewire\Settings\Profile).
                 ->disk('local')
                 ->directory('uploads/pending'),
+            SettingKey::ComingSoon => Toggle::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default()),
+            SettingKey::ComingSoonMessage => Textarea::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->maxLength(500)
+                ->rows(3),
             SettingKey::AllowRegistration => Toggle::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())

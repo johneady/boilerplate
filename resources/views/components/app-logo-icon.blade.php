@@ -31,10 +31,10 @@
         on a page (the sidebar brand and the mobile header, for one), and a
         duplicate id makes every later instance resolve the first one's stops.
 
-        The bolt is drawn in white rather than knocked out of the tile: a
-        knockout shows whatever sits behind the mark, which turns the bolt
-        black on the dark auth backdrop. The gradient is saturated enough that
-        a white bolt holds contrast against every stop, in both themes.
+        The wheat stalk is drawn in white rather than knocked out of the tile:
+        a knockout shows whatever sits behind the mark, which turns it black on
+        the dark auth backdrop. The warm gradient is saturated enough that a
+        white stalk holds contrast against every stop, in both themes.
     --}}
     @php
         $gradientId = 'app-logo-'.Str::random(8);
@@ -43,15 +43,24 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-hidden="true" {{ $attributes }}>
         <defs>
             <linearGradient id="{{ $gradientId }}" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#22D3EE" />
-                <stop offset="0.5" stop-color="#6366F1" />
-                <stop offset="1" stop-color="#E879F9" />
+                <stop stop-color="#F6C96B" />
+                <stop offset="0.5" stop-color="#EA8A3A" />
+                <stop offset="1" stop-color="#C2452D" />
             </linearGradient>
         </defs>
         <path
             fill="url(#{{ $gradientId }})"
             d="M15 2h18c7.18 0 13 5.82 13 13v18c0 7.18-5.82 13-13 13H15C7.82 46 2 40.18 2 33V15C2 7.82 7.82 2 15 2Z"
         />
-        <path fill="#fff" d="M26.5 7.5 12.5 28h8.2l-1.3 13.2L35.5 21h-8.4l1.4-13.5Z" />
+        <g fill="#fff">
+            <path d="M23 40.5V14h2v26.5z" />
+            <ellipse cx="24" cy="10.8" rx="2.6" ry="4.4" />
+            <ellipse cx="19.6" cy="17.4" rx="2.5" ry="4.6" transform="rotate(-38 19.6 17.4)" />
+            <ellipse cx="28.4" cy="17.4" rx="2.5" ry="4.6" transform="rotate(38 28.4 17.4)" />
+            <ellipse cx="19.6" cy="24.6" rx="2.5" ry="4.6" transform="rotate(-38 19.6 24.6)" />
+            <ellipse cx="28.4" cy="24.6" rx="2.5" ry="4.6" transform="rotate(38 28.4 24.6)" />
+            <ellipse cx="19.6" cy="31.8" rx="2.5" ry="4.6" transform="rotate(-38 19.6 31.8)" />
+            <ellipse cx="28.4" cy="31.8" rx="2.5" ry="4.6" transform="rotate(38 28.4 31.8)" />
+        </g>
     </svg>
 @endif

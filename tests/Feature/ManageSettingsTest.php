@@ -155,6 +155,8 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'seo_title',
         'seo_description',
         'allow_search_indexing',
+        'coming_soon',
+        'coming_soon_message',
         'allow_registration',
         'mail_from_address',
         'mail_from_name',

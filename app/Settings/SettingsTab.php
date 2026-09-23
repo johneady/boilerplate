@@ -23,6 +23,8 @@ enum SettingsTab: string
 
     case SeoBrand = 'seo_brand';
 
+    case Launch = 'launch';
+
     case Registration = 'registration';
 
     case Mail = 'mail';
@@ -44,6 +46,7 @@ enum SettingsTab: string
         return match ($this) {
             self::BusinessDetails => 'Business',
             self::SeoBrand => 'Brand',
+            self::Launch => 'Launch',
             self::Registration => 'Registration',
             self::Mail => 'Email',
             self::LocaleTime => 'Locale',
@@ -60,6 +63,7 @@ enum SettingsTab: string
         return match ($this) {
             self::BusinessDetails => Heroicon::OutlinedBuildingOffice2,
             self::SeoBrand => Heroicon::OutlinedGlobeAlt,
+            self::Launch => Heroicon::OutlinedRocketLaunch,
             self::Registration => Heroicon::OutlinedUserPlus,
             self::Mail => Heroicon::OutlinedEnvelope,
             self::LocaleTime => Heroicon::OutlinedClock,

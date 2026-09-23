@@ -78,4 +78,49 @@ abstract class BaseNotification extends Notification
             'business' => $this->businessName(),
         ]));
     }
+
+    /**
+     * Backslash-escape the characters the Markdown parser would act on.
+     *
+     * The mail template parses every line as Markdown, so a customer-typed
+     * value such as "[invoice](https://evil.example)" would otherwise render
+     * as a clickable link inside an email the business trusts.
+     *
+     * The backslash itself first, or the escapes below would double the ones
+     * already in the text. Block markers (`#`, `-`, `+`) are included so a
+     * line cannot open a heading or a list. A backslash escape renders as the
+     * bare character, so nothing legitimate is distorted.
+     */
+    protected function escapeMarkdownTokens(string $value): string
+    {
+        $escaped = str_replace('\\', '\\\\', $value);
+
+        foreach (['`', '*', '_', '~', '[', ']', '!', '#', '-', '+'] as $character) {
+            $escaped = str_replace($character, '\\'.$character, $escaped);
+        }
+
+        return $escaped;
+    }
+
+    /**
+     * Customer-written text as an escaped Markdown blockquote.
+     *
+     * The caller wraps the result in HtmlString to keep its line breaks, which
+     * opts it out of the mail template's own escaping -- so the text is
+     * escaped here for both HTML and Markdown. A stranger wrote it, so
+     * escaping it is not optional.
+     *
+     * Every line is prefixed, blank lines included: a bare `>` on the empty
+     * lines is what keeps consecutive paragraphs inside the same quote instead
+     * of ending it at the first blank line.
+     */
+    protected function quotedText(string $text): string
+    {
+        $lines = preg_split('/\R/', trim($text)) ?: [];
+
+        return implode("\n", array_map(
+            fn (string $line): string => rtrim('> '.e($this->escapeMarkdownTokens($line))),
+            $lines,
+        ));
+    }
 }

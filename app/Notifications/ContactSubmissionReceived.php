@@ -73,57 +73,13 @@ class ContactSubmissionReceived extends BaseNotification
     /**
      * The submitted message as an escaped Markdown blockquote.
      *
-     * Escaped here rather than by the mail template, because toMail() passes
-     * this through HtmlString to keep its line breaks -- which opts it out of
-     * the escaping every other line gets. A stranger wrote this text, so
-     * escaping it is not optional.
-     *
-     * Every line is prefixed, blank lines included: a bare `>` on the empty
-     * lines is what keeps consecutive paragraphs inside the same quote instead
-     * of ending it at the first blank line.
+     * Escaped by BaseNotification::quotedText() rather than by the mail
+     * template, because toMail() passes this through HtmlString to keep its
+     * line breaks -- which opts it out of the escaping every other line gets.
      */
     private function quotedMessage(): string
     {
-        $lines = preg_split('/\R/', trim($this->submission->message)) ?: [];
-
-        return implode("\n", array_map(
-            fn (string $line): string => rtrim('> '.$this->escapeMarkdown($line)),
-            $lines,
-        ));
-    }
-
-    /**
-     * Escape a line for both HTML and the Markdown parser.
-     *
-     * e() covers the HTML the mail template would otherwise escape anyway;
-     * backslash-escaping the Markdown-significant characters covers what it
-     * does not -- `[text](url)` and `*emphasis*` are not HTML, so without this
-     * a visitor's message renders as a clickable link inside a notification
-     * the business has every reason to trust.
-     */
-    private function escapeMarkdown(string $line): string
-    {
-        return e($this->escapeMarkdownTokens($line));
-    }
-
-    /**
-     * Backslash-escape the characters the Markdown parser would act on.
-     *
-     * The backslash itself first, or the escapes below would double the ones
-     * already in the visitor's text. Block markers (`#`, `-`, `+`) are
-     * included so a line cannot open a heading or a list inside the quote.
-     * A backslash escape renders as the bare character, so nothing legitimate
-     * is distorted.
-     */
-    private function escapeMarkdownTokens(string $value): string
-    {
-        $escaped = str_replace('\\', '\\\\', $value);
-
-        foreach (['`', '*', '_', '~', '[', ']', '!', '#', '-', '+'] as $character) {
-            $escaped = str_replace($character, '\\'.$character, $escaped);
-        }
-
-        return $escaped;
+        return $this->quotedText($this->submission->message);
     }
 
     /**

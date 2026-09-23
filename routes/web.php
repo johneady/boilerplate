@@ -4,20 +4,36 @@ use App\Auth\DevLoginAccounts;
 use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MailPreviewController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Middleware\ShowComingSoonPage;
 use App\Livewire\Contact;
+use App\Livewire\OrderInquiryForm;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+// The public site, behind the "coming soon" switch in Settings -> Launch. Only
+// these routes: login, the admin panel and the health checks must keep
+// working while the holding page is up, or nobody could sign in to take it
+// down. The content-page fallback at the foot of this file carries the same
+// middleware for the same reason.
+Route::middleware(ShowComingSoonPage::class)->group(function (): void {
+    Route::get('/', HomeController::class)->name('home');
 
-// Declared as its own route rather than served by the content-page catch-all
-// below: it validates, persists and sends mail, so it is a Livewire component,
-// and 'contact' is in Page::RESERVED_SLUGS so no page can shadow it.
-Route::livewire('contact', Contact::class)->name('contact');
+    // Declared as its own route rather than served by the content-page
+    // catch-all below: it validates, persists and sends mail, so it is a
+    // Livewire component, and 'contact' is in Page::RESERVED_SLUGS so no page
+    // can shadow it. 'order' is reserved for the same reason.
+    Route::livewire('contact', Contact::class)->name('contact');
+    Route::livewire('order', OrderInquiryForm::class)->name('order');
+});
+
+// The holding page itself, always reachable, so the owner can see exactly
+// what visitors will see before switching it on.
+Route::view('coming-soon', 'coming-soon', ['message' => null])->name('coming-soon');
 
 // Served by the application rather than as files in public/, so both follow
 // the AllowSearchIndexing setting. public/robots.txt was deleted for this
@@ -91,4 +107,5 @@ require __DIR__.'/settings.php';
 // unreachable.
 Route::fallback(PageController::class)
     ->where('fallbackPlaceholder', '[a-z0-9]+(?:-[a-z0-9]+)*')
+    ->middleware(ShowComingSoonPage::class)
     ->name('pages.show');

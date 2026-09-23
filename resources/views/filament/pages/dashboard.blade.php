@@ -29,10 +29,10 @@
                             icon="heroicon-s-information-circle"
                             class="size-4.5 shrink-0 text-blue-700 dark:text-blue-400"
                         />
-                        The widgets above are generic examples
+                        The figures above are live
                     </h2>
                     <p class="mt-0.5 text-xs font-semibold text-blue-800/80 dark:text-blue-200/80">
-                        In the finished product they are replaced with widgets built around your real business data.
+                        They read the bakery's real orders and menu. Place an order on the site and watch them change.
                         <span class="font-normal text-blue-700 dark:text-blue-300/80">The panel itself is a live work sample by John Eady. See the story behind both.</span>
                     </p>
                 </div>

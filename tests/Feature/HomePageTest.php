@@ -8,7 +8,7 @@ test('the home page renders', function () {
     $this->get('/')
         ->assertSuccessful()
         ->assertSee(config('app.name'))
-        ->assertSee('We make the thing that holds the other things.');
+        ->assertSee('Baked fresh, by hand,');
 });
 
 test('the home page shows the configured business name throughout', function () {
@@ -19,8 +19,8 @@ test('the home page shows the configured business name throughout', function () 
         // The header brand, the <title>, the body copy and the footer all read
         // from the one setting.
         ->assertSee('Cromulent Widgets')
-        ->assertSee('Since the beginning, Cromulent Widgets has specialised')
-        ->assertSee('A division of nothing in particular.')
+        ->assertSee('Cromulent Widgets is a small home bakery')
+        ->assertSee('Small-batch baking from our home kitchen.')
         ->assertDontSee('Boilerplate Industries');
 });
 

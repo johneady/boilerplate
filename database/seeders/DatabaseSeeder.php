@@ -31,6 +31,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AdminUserSeeder::class,
+            // Before SettingsSeeder and PagesSeeder: it seeds the demo
+            // bakery's brand and page copy, which must land ahead of their
+            // generic placeholders.
+            BakerySeeder::class,
             SettingsSeeder::class,
             PagesSeeder::class,
         ]);

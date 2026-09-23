@@ -40,6 +40,20 @@ enum Permission: string
 
     case DeleteContactSubmissions = 'contact-submissions.delete';
 
+    case ViewMenuItems = 'menu-items.view';
+
+    case CreateMenuItems = 'menu-items.create';
+
+    case UpdateMenuItems = 'menu-items.update';
+
+    case DeleteMenuItems = 'menu-items.delete';
+
+    case ViewOrderInquiries = 'order-inquiries.view';
+
+    case UpdateOrderInquiries = 'order-inquiries.update';
+
+    case DeleteOrderInquiries = 'order-inquiries.delete';
+
     case ManageSettings = 'settings.manage';
 
     case ViewLogs = 'logs.view';
@@ -69,6 +83,13 @@ enum Permission: string
             self::ViewContactSubmissions => 'View contact form submissions',
             self::UpdateContactSubmissions => 'Mark contact form submissions handled',
             self::DeleteContactSubmissions => 'Delete contact form submissions',
+            self::ViewMenuItems => 'View the bakery menu',
+            self::CreateMenuItems => 'Add items to the bakery menu',
+            self::UpdateMenuItems => 'Update menu items and their availability',
+            self::DeleteMenuItems => 'Delete menu items',
+            self::ViewOrderInquiries => 'View order inquiries',
+            self::UpdateOrderInquiries => 'Quote, confirm and complete order inquiries',
+            self::DeleteOrderInquiries => 'Delete order inquiries',
             self::ManageSettings => 'Manage application settings',
             self::ViewLogs => 'View application logs',
             self::ViewMedia => 'View uploaded files',

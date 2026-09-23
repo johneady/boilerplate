@@ -122,6 +122,15 @@ enum SettingKey: string
      */
     case Logo = 'logo';
 
+    /*
+     * While on, the public site shows a holding page to everyone who cannot
+     * reach the admin panel -- the "coming soon" a new domain resolves to
+     * while the real site is built and checked behind it.
+     */
+    case ComingSoon = 'coming_soon';
+
+    case ComingSoonMessage = 'coming_soon_message';
+
     case AllowRegistration = 'allow_registration';
 
     case MailMailer = 'mail_mailer';
@@ -158,6 +167,7 @@ enum SettingKey: string
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
+            self::ComingSoon, self::ComingSoonMessage => SettingsTab::Launch,
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => SettingsTab::Mail,
             self::Timezone, self::Locale, self::DateFormat, self::TimeFormat => SettingsTab::LocaleTime,
@@ -174,6 +184,8 @@ enum SettingKey: string
             self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => '',
             self::SeoTitle, self::SeoDescription, self::Logo => '',
             self::AllowSearchIndexing => true,
+            self::ComingSoon => false,
+            self::ComingSoonMessage => '',
             self::AllowRegistration => false,
             self::MailMailer => 'log',
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => '',
@@ -199,6 +211,8 @@ enum SettingKey: string
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => self::toFilledString($value, $this->default()),
             self::SeoTitle, self::SeoDescription, self::Logo => self::toFilledString($value, ''),
             self::AllowSearchIndexing => self::toBoolean($value),
+            self::ComingSoon => self::toBoolean($value),
+            self::ComingSoonMessage => self::toFilledString($value, ''),
             self::AllowRegistration => self::toBoolean($value),
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
             self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
@@ -288,6 +302,7 @@ enum SettingKey: string
             self::MailPassword => true,
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
+            self::ComingSoon, self::ComingSoonMessage,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
             self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
@@ -309,6 +324,8 @@ enum SettingKey: string
             self::SeoDescription => 'Meta description',
             self::AllowSearchIndexing => 'Allow search engines to index the site',
             self::Logo => 'Logo',
+            self::ComingSoon => 'Show the "coming soon" page',
+            self::ComingSoonMessage => 'Coming soon message',
             self::AllowRegistration => 'Allow new user registrations',
             self::MailMailer => 'Mailer',
             self::MailHost => 'Host',
@@ -340,6 +357,8 @@ enum SettingKey: string
             self::SeoDescription => 'A sentence or two summarising the site for search results and link previews. Leave blank to omit the tag.',
             self::AllowSearchIndexing => 'When off, every page asks search engines not to index it or follow its links. Turn off while a site is under development.',
             self::Logo => 'Shown as the brand mark across the site and in the admin panel, and re-encoded into the favicon, Apple touch icon and social sharing image. Square artwork works best.',
+            self::ComingSoon => 'While on, visitors see a playful "our website is in the oven" holding page instead of the site. You stay signed in and keep seeing the full site, so you can build and test it behind the page. Turn off to launch.',
+            self::ComingSoonMessage => 'A line or two under the headline, such as when you expect to open or how to order in the meantime. Leave blank for the default wording.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
             self::MailMailer => 'How outgoing email is delivered. "Log" writes messages to the application log; "SMTP" sends through the server below. A from address must be set on the Email tab before SMTP can be chosen.',
             self::MailHost => 'The SMTP server to send through, e.g. smtp.fastmail.com. Required before SMTP delivery is used.',

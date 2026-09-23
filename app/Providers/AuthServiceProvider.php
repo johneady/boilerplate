@@ -6,11 +6,15 @@ use App\Auth\Permission;
 use App\Models\AuditLog;
 use App\Models\ContactSubmission;
 use App\Models\Media;
+use App\Models\MenuItem;
+use App\Models\OrderInquiry;
 use App\Models\Page;
 use App\Models\User;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ContactSubmissionPolicy;
 use App\Policies\MediaPolicy;
+use App\Policies\MenuItemPolicy;
+use App\Policies\OrderInquiryPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -100,6 +104,8 @@ class AuthServiceProvider extends ServiceProvider
         AuditLog::class => AuditLogPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
         Media::class => MediaPolicy::class,
+        MenuItem::class => MenuItemPolicy::class,
+        OrderInquiry::class => OrderInquiryPolicy::class,
         Page::class => PagePolicy::class,
         User::class => UserPolicy::class,
     ];

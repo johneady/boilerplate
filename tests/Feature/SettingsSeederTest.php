@@ -110,7 +110,9 @@ test('the full seed includes the demo business details', function () {
 
     app()->forgetInstance(Settings::class);
 
-    expect(app(Settings::class)->string(SettingKey::BusinessEmail))->toBe('hello@example.com');
+    // The demo bakery's brand (BakerySeeder) is seeded ahead of the generic
+    // placeholders, so its address is the one a fresh instance shows.
+    expect(app(Settings::class)->string(SettingKey::BusinessEmail))->toBe('hello@hearthandhoney.example');
 });
 
 test('the demo details are seeded without the factory', function () {

@@ -20,6 +20,10 @@ export default defineConfig(({ mode }) => {
                     bunny('Instrument Sans', {
                         weights: [400, 500, 600],
                     }),
+                    bunny('Fraunces', {
+                        weights: [600, 700],
+                        styles: ['normal', 'italic'],
+                    }),
                 ],
             }),
             tailwindcss(),

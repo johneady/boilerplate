@@ -30,6 +30,7 @@ class SitemapController extends Controller
      */
     public const array ROUTES = [
         'home' => ['changefreq' => 'weekly', 'priority' => '1.0'],
+        'order' => ['changefreq' => 'monthly', 'priority' => '0.8'],
         'contact' => ['changefreq' => 'yearly', 'priority' => '0.5'],
     ];
 

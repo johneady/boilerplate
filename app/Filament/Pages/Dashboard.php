@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Widgets\BakingSchedule;
 use App\Filament\Widgets\BusinessOverview;
 use Filament\Pages\Dashboard as BaseDashboard;
 
@@ -28,6 +29,7 @@ class Dashboard extends BaseDashboard
     {
         return [
             BusinessOverview::class,
+            BakingSchedule::class,
         ];
     }
 }

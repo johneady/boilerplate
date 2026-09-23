@@ -2,10 +2,14 @@
 
 namespace App\Mail;
 
+use App\Bakery\Occasion;
 use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
+use App\Models\OrderInquiry;
 use App\Models\User;
 use App\Notifications\ContactSubmissionReceived;
+use App\Notifications\OrderInquiryAcknowledged;
+use App\Notifications\OrderInquiryReceived;
 use App\Notifications\PasswordChanged;
 use App\Notifications\QueueJobFailed;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -97,6 +101,25 @@ class PreviewableEmails
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $contactSubmission->toMail($notifiable),
             ],
+            'order-inquiry-received' => [
+                'description' => 'new order inquiry alert',
+                // Routed on demand to the business address, like the contact
+                // alert. Made, not created, so a preview leaves no inquiry in
+                // the order book.
+                'notification' => $orderInquiryReceived = new OrderInquiryReceived($orderInquiry = $this->sampleOrderInquiry()),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $orderInquiryReceived->toMail($notifiable),
+            ],
+            'order-inquiry-acknowledged' => [
+                'description' => 'order inquiry acknowledgement',
+                // Routed on demand: customers order without an account, so
+                // the real mail goes to the address typed on the form.
+                'notification' => $orderInquiryAcknowledged = new OrderInquiryAcknowledged($orderInquiry),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $orderInquiryAcknowledged->toMail($notifiable),
+            ],
             'password-changed' => [
                 'description' => 'password change security alert',
                 // Routed to the factory user rather than on demand: unlike the
@@ -123,6 +146,28 @@ class PreviewableEmails
                 'render' => fn (): MailMessage => $queueFailure->toMail($notifiable),
             ],
         ];
+    }
+
+    /**
+     * An unsaved order inquiry for the two order emails to render.
+     */
+    private function sampleOrderInquiry(): OrderInquiry
+    {
+        return OrderInquiry::factory()->make([
+            'id' => 1,
+            'reference' => 'HH-PREVIEW',
+            'name' => 'Sam Visitor',
+            'email' => 'sam@example.test',
+            'needed_on' => now()->addDays(9)->toDateString(),
+            'occasion' => Occasion::Birthday,
+            'items' => [
+                ['menu_item_id' => null, 'name' => 'Sprinkle Celebration Cake', 'price_unit' => '6-inch, 3 layers', 'price_cents' => 6500, 'quantity' => 1],
+                ['menu_item_id' => null, 'name' => 'Strawberry Vanilla Cupcakes', 'price_unit' => 'dozen', 'price_cents' => 3600, 'quantity' => 2],
+            ],
+            'estimated_total_cents' => 13700,
+            'details' => "It's for Ava's 7th birthday.\n\nPink and purple please, with \"Happy Birthday Ava\" on top.",
+            'allergies' => 'One guest has a sesame allergy.',
+        ]);
     }
 
     /**
