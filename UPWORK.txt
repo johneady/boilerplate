@@ -1,31 +1,48 @@
-Hi there, I created a real prototype for you at xxxxxx.powerphpscripts.com
+Hi there, you need a home bakery website with a homepage and menu, an "About us" page and an order inquiry form, plus a "coming soon" page on your domain while it is built. I built a working version of exactly that: https://demo3.powerphpscripts.com
 
-You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
+And the coming soon page, ready to go up on your domain first: https://demo3.powerphpscripts.com/coming-soon
 
-WHY THIS DEMO MATTERS FOR YOUR PROJECT
+WHAT YOU CAN TRY RIGHT NOW
 
-Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
+- Homepage with the full menu: photos, prices, "serves", dietary badges (vegan, gluten-free, contains nuts) and a filter by category
+- "About us" page with your story, values and a clear path to ordering
+- Order inquiry form: pick items from the menu, quantities, date, pickup or local delivery, occasion, cake message and allergies. It shows a live price estimate and only offers dates you can actually bake for (a celebration cake needs 7 days, cookies 2)
+- The customer gets an email with a reference number, and you get an alert with every detail
+- Log in as admin (one-click quick login on the login page) to edit the menu, mark items sold out, drag items into order, and work through orders: quote a price, confirm, mark as collected
+- Settings > Launch: one switch shows the coming soon page to visitors while you keep seeing and testing the real site behind it. Flip it off on launch day
 
-1. I am showcasing my techncials skills.
-2. I have the technical stack and execution speed ready to start delivering immediately.
+Everything in the demo uses placeholder copy and photos. Your design brief, copy, logo and graphics replace them.
+
+WHAT I WOULD NEED FROM YOU
+
+- Access to your domain (registrar login or someone who can change DNS), so the coming soon page can go up first
+- The design brief, website copy, logo files (SVG or high-res PNG) and the additional graphics
+- Your menu: items, prices, sizes, allergens, and how much notice each needs
+- How ordering works for you: pickup location and days, delivery area and fee, and how customers pay (e-transfer, cash, card)
+- The email address where order inquiries should go, and any social links (Instagram, Facebook)
+
+TIMELINE AND BUDGET
+
+- Coming soon page live on your domain within 1 day of getting domain access
+- Full site ready for your review within 1 week of receiving the brief, copy and images, with two rounds of revisions included
+- Launch in about 2 weeks in total, depending on how quickly the content comes together
+- Fixed price: [YOUR PRICE] USD, covering the three pages, the order form with email notifications, the admin panel, the coming soon page, and setup on your domain
 
 RELEVANT TRACK RECORD
 
-I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took several seconds to load, and every application came in as an email thread someone re-keyed by hand.
-
-I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds. The email chain became a proper application workflow. Staff got back several hours a week that had been going into data entry.
+I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took several seconds to load, and every application came in as an email thread someone re-keyed by hand. I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds, and turned the email chain into a proper application workflow. Your order inquiries get the same treatment: they land in one organised list instead of scattered emails.
 
 I've been doing full-stack work for 20 years, database design through deployment and security. You'd be dealing with me for the whole build.
 
 NEXT STEPS
 
-Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
+Would it be worth a quick 10-minute call this week so I can walk you through the demo and go over your design brief? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
 
 Best regards,
 
 John.
 
-P.S. I built this demo in ~2 hours.That is the pace you can expect on the actual project.
+P.S. Everything in the demo is real and working, including the admin side, and it was built specifically for your post. The real project starts from here, not from zero.
 
 ---
 
