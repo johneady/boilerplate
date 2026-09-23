@@ -4,29 +4,35 @@ And the coming soon page, ready to go up on your domain first: https://demo3.pow
 
 WHAT YOU CAN TRY RIGHT NOW
 
-- Homepage with the full menu: photos, prices, "serves", dietary badges (vegan, gluten-free, contains nuts) and a filter by category
-- "About us" page with your story, values and a clear path to ordering
-- Order inquiry form: pick items from the menu, quantities, date, pickup or local delivery, occasion, cake message and allergies. It shows a live price estimate and only offers dates you can actually bake for (a celebration cake needs 7 days, cookies 2)
-- The customer gets an email with a reference number, and you get an alert with every detail
-- Log in as admin (one-click quick login on the login page) to edit the menu, mark items sold out, drag items into order, and work through orders: quote a price, confirm, mark as collected
-- Settings > Launch: one switch shows the coming soon page to visitors while you keep seeing and testing the real site behind it. Flip it off on launch day
+• Homepage with the full menu: photos, prices, "serves", dietary badges (vegan, gluten-free, contains nuts) and a filter by category
+• "About us" page with your story, values and a clear path to ordering
+• Order inquiry form: pick items from the menu, quantities, date, pickup or local delivery, occasion, cake message and allergies. It shows a live price estimate and only offers dates you can actually bake for (a celebration cake needs 7 days, cookies 2)
+• The customer gets an email with a reference number, and you get an alert with every detail
+• Log in as admin (one-click quick login on the login page) to edit the menu, mark items sold out, drag items into order, and work through orders: quote a price, confirm, mark as collected
+• Settings, then Launch: one switch shows the coming soon page to visitors while you keep seeing and testing the real site behind it. Flip it off on launch day
 
 Everything in the demo uses placeholder copy and photos. Your design brief, copy, logo and graphics replace them.
 
 WHAT I WOULD NEED FROM YOU
 
-- Access to your domain (registrar login or someone who can change DNS), so the coming soon page can go up first
-- The design brief, website copy, logo files (SVG or high-res PNG) and the additional graphics
-- Your menu: items, prices, sizes, allergens, and how much notice each needs
-- How ordering works for you: pickup location and days, delivery area and fee, and how customers pay (e-transfer, cash, card)
-- The email address where order inquiries should go, and any social links (Instagram, Facebook)
+• Access to your domain (registrar login or someone who can change DNS), so the coming soon page can go up first
+• The design brief, website copy, logo files (SVG or high-res PNG) and the additional graphics
+• Your menu: items, prices, sizes, allergens, and how much notice each needs
+• How ordering works for you: pickup location and days, delivery area and fee, and how customers pay (e-transfer, cash, card)
+• The email address where order inquiries should go, and any social links (Instagram, Facebook)
 
 TIMELINE AND BUDGET
 
-- Coming soon page live on your domain within 1 day of getting domain access
-- Full site ready for your review within 1 week of receiving the brief, copy and images, with two rounds of revisions included
-- Launch in about 2 weeks in total, depending on how quickly the content comes together
-- Fixed price: [YOUR PRICE] USD, covering the three pages, the order form with email notifications, the admin panel, the coming soon page, and setup on your domain
+• Coming soon page live on your domain within 1 day of getting domain access
+• Full site ready for your review within 1 week of receiving the brief, copy and images, with two rounds of revisions included
+• Launch in about 2 weeks in total, depending on how quickly the content comes together
+• Fixed price: [YOUR PRICE] USD, covering the three pages, the order form with email notifications, the admin panel, the coming soon page, and setup on your domain
+
+HOSTING AND OWNERSHIP
+
+Hosting is the server your website lives on. It keeps the site online around the clock, connects it to your domain name, and keeps it secure (the padlock / https in the browser). I can host your site for $49 a year, and the first year is free.
+
+You own everything I create. You get full access to all of it: the code, the content, the images and the order data. It is yours to take to any other hosting company at any time, no issues at all.
 
 RELEVANT TRACK RECORD
 
