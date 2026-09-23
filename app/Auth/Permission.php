@@ -40,6 +40,18 @@ enum Permission: string
 
     case DeleteContactSubmissions = 'contact-submissions.delete';
 
+    case ViewPackages = 'packages.view';
+
+    case CreatePackages = 'packages.create';
+
+    case UpdatePackages = 'packages.update';
+
+    case DeletePackages = 'packages.delete';
+
+    case ViewOrders = 'orders.view';
+
+    case UpdateOrders = 'orders.update';
+
     case ManageSettings = 'settings.manage';
 
     case ViewLogs = 'logs.view';
@@ -69,6 +81,12 @@ enum Permission: string
             self::ViewContactSubmissions => 'View contact form submissions',
             self::UpdateContactSubmissions => 'Mark contact form submissions handled',
             self::DeleteContactSubmissions => 'Delete contact form submissions',
+            self::ViewPackages => 'View video packages',
+            self::CreatePackages => 'Create video packages',
+            self::UpdatePackages => 'Update video packages and their stock',
+            self::DeletePackages => 'Delete video packages',
+            self::ViewOrders => 'View orders',
+            self::UpdateOrders => 'Fulfil and refund orders',
             self::ManageSettings => 'Manage application settings',
             self::ViewLogs => 'View application logs',
             self::ViewMedia => 'View uploaded files',

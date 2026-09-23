@@ -53,10 +53,16 @@
                     <span>{{ $businessName }}</span>
                 </a>
 
-                <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
-                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
+                <nav aria-label="{{ __('Primary') }}" class="flex flex-wrap items-center justify-end gap-2">
+                    <flux:button :href="route('shop.index')" size="sm" variant="ghost" wire:navigate>
+                        {{ __('Browse footage') }}
+                    </flux:button>
+
+                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate class="max-sm:hidden">
                         {{ __('Contact') }}
                     </flux:button>
+
+                    <livewire:shop.cart-indicator />
 
                     @if (Route::has('login'))
                         @auth

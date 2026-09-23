@@ -4,12 +4,16 @@ namespace App\Mail;
 
 use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
+use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\User;
 use App\Notifications\ContactSubmissionReceived;
+use App\Notifications\OrderConfirmed;
 use App\Notifications\PasswordChanged;
 use App\Notifications\QueueJobFailed;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification as BaseNotification;
@@ -96,6 +100,26 @@ class PreviewableEmails
                 'mailable' => null,
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $contactSubmission->toMail($notifiable),
+            ],
+            'order-confirmed' => [
+                'description' => 'order confirmation',
+                // Routed on demand: customers check out without an account, so
+                // the real mail goes to the address typed at checkout. Made,
+                // not created, so a preview leaves no order behind.
+                'notification' => $orderConfirmed = new OrderConfirmed(
+                    Order::factory()->make([
+                        'reference' => 'DV-PREVIEW1',
+                        'customer_name' => 'Sam Visitor',
+                        'customer_email' => 'sam@example.test',
+                        'total_cents' => 44800,
+                    ])->setRelation('items', new EloquentCollection([
+                        new OrderItem(['package_title' => 'Santorini Caldera at Golden Hour', 'price_cents' => 24900]),
+                        new OrderItem(['package_title' => 'Lake Bled Island Church', 'price_cents' => 19900]),
+                    ])),
+                ),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $orderConfirmed->toMail($notifiable),
             ],
             'password-changed' => [
                 'description' => 'password change security alert',

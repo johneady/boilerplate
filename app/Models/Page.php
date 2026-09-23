@@ -59,6 +59,7 @@ class Page extends Model implements HoldsMedia
     public const array RESERVED_SLUGS = [
         'admin',
         'api',
+        'cart',
         'contact',
         'dashboard',
         'dev',
@@ -69,6 +70,7 @@ class Page extends Model implements HoldsMedia
         'login',
         'logout',
         'media',
+        'orders',
         'register',
         'reset-password',
         'robots.txt',
@@ -79,6 +81,7 @@ class Page extends Model implements HoldsMedia
         'up',
         'user',
         'verify-email',
+        'videos',
         'well-known',
     ];
 

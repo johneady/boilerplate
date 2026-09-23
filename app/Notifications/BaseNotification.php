@@ -78,4 +78,24 @@ abstract class BaseNotification extends Notification
             'business' => $this->businessName(),
         ]));
     }
+
+    /**
+     * Backslash-escape the characters the Markdown parser would act on.
+     *
+     * The backslash itself first, or the escapes below would double the ones
+     * already in the text. Block markers (`#`, `-`, `+`) are included so
+     * a line cannot open a heading or a list.
+     * A backslash escape renders as the bare character, so nothing legitimate
+     * is distorted.
+     */
+    protected function escapeMarkdownTokens(string $value): string
+    {
+        $escaped = str_replace('\\', '\\\\', $value);
+
+        foreach (['`', '*', '_', '~', '[', ']', '!', '#', '-', '+'] as $character) {
+            $escaped = str_replace($character, '\\'.$character, $escaped);
+        }
+
+        return $escaped;
+    }
 }

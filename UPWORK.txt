@@ -1,31 +1,38 @@
-Hi there, I created a real prototype for you at xxxxxx.powerphpscripts.com
+Hi there, you want a site that sells drone videos by location, with a package per location, clear product pages, simple checkout and stock control. I built a working version of exactly that for you: https://demo1.powerphpscripts.com
 
-You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
+WHAT YOU CAN TRY RIGHT NOW
 
-WHY THIS DEMO MATTERS FOR YOUR PROJECT
+- Browse 8 location packages, filter by region, search and sort by price
+- Open any package: price, resolution, frame rate, clip count, running time, licence terms and live availability ("Only 3 licences left", "Sold out")
+- Add packages to the basket and check out in one step (name, email, done). Payment is simulated in the demo; in production it hands off to Stripe Checkout
+- Land on an order confirmation page (a confirmation email is sent too, once a mail server is connected)
+- Log in as admin (one-click quick login on the login page) to add or edit packages, change stock right in the table, switch packages on or off sale, and fulfil or refund orders. Refunds put the licences back into stock automatically
 
-Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
+Stock is enforced safely at checkout, so two buyers can never both get the last licence of a limited package.
 
-1. I am showcasing my techncials skills.
-2. I have the technical stack and execution speed ready to start delivering immediately.
+SIMILAR SITES AND PLATFORMS
+
+The closest references are the stock footage marketplaces: Pond5, Artgrid, Storyblocks and Adobe Stock. They sell per-clip licences inside a marketplace that takes a commission. Your site keeps the parts that work (clear specs, licence terms up front, instant download) but sells complete location packages under your own brand, with no commission.
+
+On platforms: Shopify with a digital downloads app or WooCommerce can get a basic store live, but limited licences per package, per-location bundles and custom licence terms quickly need paid plugins and workarounds. A custom Laravel build like this demo gives you exactly your workflow and no monthly app fees. I'm happy to talk through the trade-offs for your budget.
 
 RELEVANT TRACK RECORD
 
-I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took several seconds to load, and every application came in as an email thread someone re-keyed by hand.
+[ADD YOUR E-COMMERCE EXPERIENCE HERE: one specific store or checkout you built, with a number, e.g. orders per month or a conversion or speed improvement. Delete this line if you have none.]
 
-I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds. The email chain became a proper application workflow. Staff got back several hours a week that had been going into data entry.
+I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took several seconds to load, and every application came in as an email thread someone re-keyed by hand. I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds, and turned the email chain into a proper application workflow.
 
 I've been doing full-stack work for 20 years, database design through deployment and security. You'd be dealing with me for the whole build.
 
 NEXT STEPS
 
-Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
+Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear which locations and licence options you have in mind? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
 
 Best regards,
 
 John.
 
-P.S. I built this demo in ~2 hours.That is the pace you can expect on the actual project.
+P.S. Everything in the demo is real and working, including the admin side, and it was built specifically for your post. The real project starts from here, not from zero.
 
 ---
 
