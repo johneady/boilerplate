@@ -1,4 +1,6 @@
 Take this boilerplate application and create a demo (I have already run the ./docker/new-demo.sh calculator) so this is a fresch demo branch). Once done update the UPWORK.txt with a custom reply based on the current UPWORK.txt style. For for formulas below, do some light research and give me the best you can figure out for the demo. here is the customer's request:
 
 Summary
-[FILL HERE]
+We need a clean, responsive mobile web app featuring a simple landing page that lets users choose between two open-access real estate calculators, with zero registration or lead capture required. The first option is for prospective agents and takes a desired annual income input to calculate a detailed breakdown of required yearly listings, buyer clients, and weekly appointments based on pre-determined formulas. The second option is for active agents, allowing them to input their sales volume, average commission, current company split, and royalties to display a side-by-side comparison of their current net take-home pay versus what they would earn under our company's split structure. The app should be built mobile-first using standard JavaScript for client-side calculations, with all underlying formula variables stored in a central configuration file for easy future updates.
+
+I will pay for the website and hosting, and can send along the parameters we need for the calculators/formulas.

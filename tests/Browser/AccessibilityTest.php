@@ -30,6 +30,8 @@ const ACCESSIBILITY_LEVEL = 2;
 
 $publicPages = [
     'home' => '/',
+    'income planner' => '/income-planner',
+    'split comparison' => '/split-comparison',
     'contact' => '/contact',
     'login' => '/login',
     'register' => '/register',

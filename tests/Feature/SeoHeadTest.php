@@ -115,7 +115,7 @@ test('the bundled mark renders when no logo has been uploaded', function () {
         ->assertSuccessful()
         // The gradient is painted from the mark's own defs rather than
         // inherited, so the stops are what prove the new mark rendered.
-        ->assertSee('#6366F1', false)
+        ->assertSee('#0F766E', false)
         ->assertDontSee('/storage/logo/', false);
 });
 

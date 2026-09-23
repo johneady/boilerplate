@@ -36,26 +36,45 @@
     @include('partials.head', array_filter(['seoDescription' => $pageDescription]))
 </head>
 <body class="antialiased">
-    <div class="relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <div class="brokerage-theme relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         <div
-            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-sky-400/20 via-indigo-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-teal-400/20 via-cyan-400/10 to-transparent blur-3xl"
             aria-hidden="true"
         ></div>
         <div
-            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-violet-400/20 via-sky-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-slate-400/20 via-teal-400/10 to-transparent blur-3xl"
             aria-hidden="true"
         ></div>
 
-        <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 lg:px-8">
-            <header class="flex items-center justify-between gap-4 py-8">
+        <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
+            <header class="flex items-center justify-between gap-4 py-5 sm:py-8">
                 <a href="{{ route('home') }}" class="flex items-center gap-2 font-medium" wire:navigate>
                     <x-app-logo-icon class="size-7" />
                     <span>{{ $businessName }}</span>
                 </a>
 
                 <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
-                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
-                        {{ __('Contact') }}
+                    {{--
+                        Full page loads rather than wire:navigate: the
+                        calculators' script is a module that binds on load.
+                        Hidden on phones, where each calculator page carries
+                        its own switcher and the header needs the room.
+                    --}}
+                    <flux:button
+                        :href="route('calculators.income-planner')"
+                        size="sm"
+                        variant="ghost"
+                        class="max-sm:hidden"
+                    >
+                        {{ __('Income planner') }}
+                    </flux:button>
+                    <flux:button
+                        :href="route('calculators.split-comparison')"
+                        size="sm"
+                        variant="ghost"
+                        class="max-sm:hidden"
+                    >
+                        {{ __('Split comparison') }}
                     </flux:button>
 
                     @if (Route::has('login'))

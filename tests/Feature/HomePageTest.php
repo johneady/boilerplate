@@ -8,7 +8,13 @@ test('the home page renders', function () {
     $this->get('/')
         ->assertSuccessful()
         ->assertSee(config('app.name'))
-        ->assertSee('We make the thing that holds the other things.');
+        ->assertSee('Run the numbers on your real estate career.');
+});
+
+test('the home page sends guests straight to both calculators', function () {
+    $this->get('/')
+        ->assertSee(route('calculators.income-planner'))
+        ->assertSee(route('calculators.split-comparison'));
 });
 
 test('the home page shows the configured business name throughout', function () {
@@ -19,8 +25,8 @@ test('the home page shows the configured business name throughout', function () 
         // The header brand, the <title>, the body copy and the footer all read
         // from the one setting.
         ->assertSee('Cromulent Widgets')
-        ->assertSee('Since the beginning, Cromulent Widgets has specialised')
-        ->assertSee('A division of nothing in particular.')
+        ->assertSee('Two quick calculators from Cromulent Widgets.')
+        ->assertSee('Free calculators for real estate agents. No sign-up, nothing stored.')
         ->assertDontSee('Boilerplate Industries');
 });
 

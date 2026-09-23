@@ -14,6 +14,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
 
+// The two public agent calculators. Plain views: the arithmetic runs in the
+// browser (resources/js/calculators.js) from config/calculators.php, and
+// nothing is submitted, so there is no controller or request to validate.
+// Both slugs are in Page::RESERVED_SLUGS so no content page can shadow them.
+Route::view('income-planner', 'calculators.income-planner')->name('calculators.income-planner');
+Route::view('split-comparison', 'calculators.split-comparison')->name('calculators.split-comparison');
+
 // Declared as its own route rather than served by the content-page catch-all
 // below: it validates, persists and sends mail, so it is a Livewire component,
 // and 'contact' is in Page::RESERVED_SLUGS so no page can shadow it.

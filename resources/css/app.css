@@ -41,6 +41,26 @@
     }
 }
 
+/*
+ * The public site is the brokerage's, not the app's: inside it the accent is
+ * teal rather than the signed-in shell's blue, so primary buttons, focus rings
+ * and the calculators' highlights match the brand. Scoped to the public
+ * layout's wrapper, so the signed-in shell keeps its own tokens.
+ */
+@layer theme {
+    .brokerage-theme {
+        --color-accent: var(--color-teal-700);
+        --color-accent-content: var(--color-teal-700);
+        --color-accent-foreground: var(--color-white);
+    }
+
+    .dark .brokerage-theme {
+        --color-accent: var(--color-teal-400);
+        --color-accent-content: var(--color-teal-300);
+        --color-accent-foreground: var(--color-slate-950);
+    }
+}
+
 @layer base {
 
     *,

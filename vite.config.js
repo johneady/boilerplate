@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
                 input: [
                     'resources/css/app.css',
                     'resources/js/app.js',
+                    'resources/js/calculators.js',
                     'resources/js/passkeys.js',
                     'resources/css/filament/admin/theme.css',
                 ],
