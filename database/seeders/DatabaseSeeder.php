@@ -31,6 +31,11 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AdminUserSeeder::class,
+            // Before SettingsSeeder and PagesSeeder: Voltiva's brand details
+            // and its About page must land ahead of their generic
+            // placeholders, which are only written where nothing exists yet.
+            VoltivaSeeder::class,
+            VoltivaContentSeeder::class,
             SettingsSeeder::class,
             PagesSeeder::class,
         ]);

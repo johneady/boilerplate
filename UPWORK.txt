@@ -1,31 +1,51 @@
-Hi there, I created a real prototype for you at xxxxxx.powerphpscripts.com
+Hi there, you want a clean, Polestar-style site for Voltiva where every car uses ONE template, specs are entered once and reused on a compare page, and forms feed a CRM with automatic follow-ups. I built a working prototype of exactly that: https://demo2.powerphpscripts.com
 
-You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
+WHAT YOU CAN TRY RIGHT NOW
 
-WHY THIS DEMO MATTERS FOR YOUR PROJECT
+- The header from your brief (Cars, Why Voltiva, News & Advice, About, Find Your Car, VIEW CARS), with a simple mobile menu
+- A language button: English, Español, Deutsch, Français. Adding another language is one translation file
+- Home page in the order you described: hero, electric cars, why Voltiva, batteries & range, charging, registration, servicing, finance, then an enquiry form
+- ONE car template for all four demo cars: sales message, price, finance "from", key benefits, battery & range, charging, interior, safety, specifications, registration, servicing, finance estimate, accessories, FAQ and an enquiry form with that car already selected
+- Customer first: "More range between charges" comes before "72V 150Ah LiFePO4", and L6e, L7e, Ah, kWh, CoC, VIN, LiFePO4, EPS and EU type approval all open a plain-English pop-up
+- Compare Cars built only from the stored car data (price, speed, range, battery, charging, seats, motor, size, equipment). Change a price once and it changes everywhere
+- Find Your Car: four questions (licence, roads, daily distance, budget) that explain which car suits and why
+- News & Advice with one article template, filtered by topic, linking back to cars, batteries, charging, registration, servicing and finance. Your six example articles are in there
+- Fixed image areas, so swapping a photo never changes the layout, plus a standard 16:9 video area that only loads the player when clicked (keeps pages fast)
 
-Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
+THE ADMIN SIDE (quick login on the login page)
 
-1. I am showcasing my techncials skills.
-2. I have the technical stack and execution speed ready to start delivering immediately.
+- Add or edit a car in one tabbed form: prices, specs, benefits, equipment, FAQ, photos, video link. No design work, and nothing an editor can break
+- Articles and page text edited the same way
+- Enquiries work as a simple built-in CRM: customer, car, date, source page, driving needs, finance and registration interest, follow-up status and notes, with CSV export
+- The automatic emails you asked for: immediately, day 2, day 5, day 10 and day 20, in the language the customer used. Marking an enquiry sold or closed stops the rest, and every email has a stop link
+- Technical SEO basics: clean URLs, sitemap, canonical URLs, structured data for cars and articles, optimised WebP images
 
-RELEVANT TRACK RECORD
+ABOUT WORDPRESS
 
-I rebuilt the adoption platform for a regional animal rescue that places about 200 animals a year. Their listings page took several seconds to load, and every application came in as an email thread someone re-keyed by hand.
+Your brief says WordPress, and I want to be upfront: this prototype is built on Laravel, the stack I can show working fastest. What it proves is the part that matters for your budget: the design, the one-template approach, the specs-entered-once compare page and the enquiry workflow.
 
-I indexed the search queries and moved images to a CDN, which got the page down to 0.8 seconds. The email chain became a proper application workflow. Staff got back several hours a week that had been going into data entry.
+Two honest options:
 
-I've been doing full-stack work for 20 years, database design through deployment and security. You'd be dealing with me for the whole build.
+- Build it in WordPress as briefed: a custom block theme with one car post type, custom fields for the specs, and the same templates, compare page and forms, connected to your chosen CRM and email tool
+- Or keep it on this stack: no paid plugins or plugin updates to manage, the CRM and email sequence are built in, and you still edit everything from an admin panel. The trade-off is that a Laravel developer (rather than any WordPress freelancer) maintains it
+
+Happy to go with whichever you prefer. You own the domain, hosting, code, data and backups either way.
+
+FIXED-PRICE QUOTE
+
+[FILL IN BEFORE SENDING: build cost / CRM cost / email system cost / hosting per month / third-party software / monthly maintenance / optional extras. Keep the numbers you are comfortable committing to.]
+
+Security and backups in either option: HTTPS, 2FA for admin logins, limited user roles, daily off-site backups with a restore test, and a staging copy of the site.
 
 NEXT STEPS
 
-Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
+Would a quick 10-minute call this week work, so I can walk you through the demo and hear whether WordPress is a firm requirement? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
 
 Best regards,
 
 John.
 
-P.S. I built this demo in ~2 hours.That is the pace you can expect on the actual project.
+P.S. Everything in the demo is real and working, including the admin, the CRM and the email sequence. The car photos are Creative Commons placeholders (credited on the site) until your own photography is ready, and the copy is placeholder text for you to replace or approve.
 
 ---
 

@@ -3,16 +3,22 @@
 namespace App\Providers;
 
 use App\Auth\Permission;
+use App\Models\Article;
 use App\Models\AuditLog;
 use App\Models\ContactSubmission;
+use App\Models\Enquiry;
 use App\Models\Media;
 use App\Models\Page;
 use App\Models\User;
+use App\Models\Vehicle;
+use App\Policies\ArticlePolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ContactSubmissionPolicy;
+use App\Policies\EnquiryPolicy;
 use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\UserPolicy;
+use App\Policies\VehiclePolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -97,11 +103,14 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     private const array POLICIES = [
+        Article::class => ArticlePolicy::class,
         AuditLog::class => AuditLogPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
+        Enquiry::class => EnquiryPolicy::class,
         Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
         User::class => UserPolicy::class,
+        Vehicle::class => VehiclePolicy::class,
     ];
 
     /**

@@ -206,8 +206,10 @@ class Contact extends Component
         }
 
         try {
+            // In the team's language rather than the visitor's, which the
+            // header's language switcher may have changed for this request.
             Notification::route('mail', $recipient)
-                ->notify(new ContactSubmissionReceived($submission));
+                ->notify((new ContactSubmissionReceived($submission))->locale((string) config('voltiva.team_locale')));
         } catch (Throwable $exception) {
             Log::error('Failed to send contact form notification.', [
                 'submission_id' => $submission->id,

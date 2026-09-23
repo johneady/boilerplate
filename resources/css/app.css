@@ -9,7 +9,23 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    /*
+     * Voltiva: a clean neo-grotesque in the Helvetica family, as the brief
+     * asks. Inter is served (so every device sees the same face), with
+     * Helvetica as the fallback while it loads.
+     */
+    --font-sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+
+    /*
+     * The public site's single accent colour. Every accent on the Voltiva
+     * pages uses these volt-* utilities, so re-branding is this one block.
+     */
+    --color-volt-50: #f0fdfa;
+    --color-volt-100: #ccfbf1;
+    --color-volt-500: #14b8a6;
+    --color-volt-600: #0d9488;
+    --color-volt-700: #0f766e;
+    --color-volt-800: #115e59;
 
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -34,6 +50,18 @@
 }
 
 @layer theme {
+    /*
+     * The public site: black primary buttons and focus rings (the accent is
+     * kept for small highlights), on a white page whatever the visitor's
+     * colour scheme -- the brief is explicit about the white background.
+     */
+    .voltiva {
+        --color-accent: var(--color-neutral-950);
+        --color-accent-content: var(--color-neutral-950);
+        --color-accent-foreground: var(--color-white);
+        color-scheme: light;
+    }
+
     .dark {
         --color-accent: var(--color-blue-500);
         --color-accent-content: var(--color-blue-300);
@@ -93,4 +121,8 @@ select:focus[data-flux-control] {
     :where(html:not(.dark) [data-flux-header]) [data-flux-profile] > span {
         color: var(--color-zinc-600);
     }
+}
+
+[x-cloak] {
+    display: none !important;
 }

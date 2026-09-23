@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Article;
 use App\Models\Page;
+use App\Models\Vehicle;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Illuminate\Http\Response;
@@ -30,6 +32,11 @@ class SitemapController extends Controller
      */
     public const array ROUTES = [
         'home' => ['changefreq' => 'weekly', 'priority' => '1.0'],
+        'cars.index' => ['changefreq' => 'weekly', 'priority' => '0.9'],
+        'compare' => ['changefreq' => 'monthly', 'priority' => '0.7'],
+        'finder' => ['changefreq' => 'monthly', 'priority' => '0.6'],
+        'news.index' => ['changefreq' => 'weekly', 'priority' => '0.7'],
+        'enquiry' => ['changefreq' => 'yearly', 'priority' => '0.6'],
         'contact' => ['changefreq' => 'yearly', 'priority' => '0.5'],
     ];
 
@@ -108,6 +115,23 @@ class SitemapController extends Controller
                 'changefreq' => self::PAGE_DEFAULTS['changefreq'],
                 'priority' => self::PAGE_DEFAULTS['priority'],
             ];
+        }
+
+        // The car range and the articles are rows too, read the same way.
+        // A class listing is offered only while it has a car in it: an empty
+        // listing is thin content a crawler should not be pointed at.
+        $vehicles = Vehicle::query()->published()->ordered()->get(['id', 'slug', 'category']);
+
+        foreach ($vehicles->pluck('category')->unique() as $category) {
+            $urls[] = ['loc' => route('cars.category', $category), 'changefreq' => 'weekly', 'priority' => '0.8'];
+        }
+
+        foreach ($vehicles as $vehicle) {
+            $urls[] = ['loc' => route('cars.show', $vehicle), 'changefreq' => 'weekly', 'priority' => '0.9'];
+        }
+
+        foreach (Article::query()->published()->latestFirst()->get(['id', 'slug']) as $article) {
+            $urls[] = ['loc' => route('news.show', $article), 'changefreq' => 'monthly', 'priority' => '0.6'];
         }
 
         return array_values($urls);

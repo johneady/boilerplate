@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Article;
 use App\Models\Page;
+use App\Voltiva\ArticleTopic;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
@@ -45,6 +47,19 @@ class PageController extends Controller
             404,
         );
 
-        return response()->view('pages.show', ['page' => $page]);
+        // The "Why Voltiva" pages each belong to an article topic, and list
+        // the latest advice written on it beneath their own text.
+        $topic = ArticleTopic::forPageSlug($page->slug);
+
+        return response()->view('pages.show', [
+            'page' => $page,
+            'topic' => $topic,
+            'articles' => $topic === null ? collect() : Article::query()
+                ->published()
+                ->where('topic', $topic)
+                ->latestFirst()
+                ->limit(3)
+                ->get(),
+        ]);
     }
 }

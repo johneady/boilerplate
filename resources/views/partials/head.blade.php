@@ -46,7 +46,16 @@
     <meta property="og:description" content="{{ $seoDescription }}" />
 @endif
 <meta property="og:url" content="{{ url()->current() }}" />
-@if (($socialImageUrl ?? null) !== null)
+{{--
+    A page's own photograph (a car, an article) wins over the site-wide
+    social image, and earns the large card since it is a real photo. Named
+    differently from $socialImageUrl because the composer sets that one after
+    the page's data is bound and would overwrite it.
+--}}
+@if (($pageImageUrl ?? null) !== null)
+    <meta property="og:image" content="{{ url($pageImageUrl) }}" />
+    <meta name="twitter:card" content="summary_large_image" />
+@elseif (($socialImageUrl ?? null) !== null)
     <meta property="og:image" content="{{ url($socialImageUrl) }}" />
     <meta name="twitter:card" content="summary" />
 @endif
@@ -65,6 +74,13 @@
     </script>
 @endif
 
+{{-- The page's own structured data (a Car, an Article), encoded the same way. --}}
+@if (($allowSearchIndexing ?? true) && filled($pageSchema ?? null))
+    <script type="application/ld+json">
+        {!! json_encode($pageSchema, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) !!}
+    </script>
+@endif
+
 {{--
     Gated with the rest of the indexing signals: with indexing off the sitemap
     is served empty, so advertising it would point a crawler at nothing while
@@ -77,4 +93,11 @@
 @fonts
 
 @vite(['resources/css/app.css', 'resources/js/app.js'])
-@fluxAppearance
+{{--
+    The public Voltiva site is white by design, so it skips Flux's appearance
+    script -- which would otherwise add html.dark for visitors whose system
+    is in dark mode.
+--}}
+@unless ($lightOnly ?? false)
+    @fluxAppearance
+@endunless

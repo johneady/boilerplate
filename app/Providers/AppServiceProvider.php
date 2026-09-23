@@ -6,6 +6,7 @@ use App\Audit\AuditLogger;
 use App\Auth\DevLoginAccounts;
 use App\Models\Page;
 use App\Models\User;
+use App\Models\Vehicle;
 use App\Notifications\PasswordChanged;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
@@ -146,7 +147,7 @@ class AppServiceProvider extends ServiceProvider
         // like the global business name below, that keeps the settings table
         // unread on requests that render no view, and unrendered views cost
         // nothing.
-        View::composer('components.business-footer', function (ViewContract $view): void {
+        View::composer(['components.business-footer', 'components.voltiva.footer'], function (ViewContract $view): void {
             $settings = app(Settings::class);
 
             $view->with('businessAddress', $settings->string(SettingKey::BusinessAddress))
@@ -165,6 +166,16 @@ class AppServiceProvider extends ServiceProvider
                 ->with('footerPages', fn (): Collection => Page::query()
                     ->inFooter()
                     ->get(['id', 'slug', 'title']));
+        });
+
+        // The Voltiva header's Cars menu shows the range with a photo of each
+        // car, so adding a car in the panel adds it to the menu too. Only the
+        // columns the menu prints.
+        View::composer('components.voltiva.header', function (ViewContract $view): void {
+            $view->with('navVehicles', Vehicle::query()
+                ->published()
+                ->ordered()
+                ->get(['id', 'slug', 'name', 'category', 'image_path', 'price_cents']));
         });
 
         // Composed rather than shared: View::share() would resolve the settings

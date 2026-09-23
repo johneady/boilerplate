@@ -31,6 +31,8 @@ return [
         'body_help' => 'Markdown: # for headings, - for lists, [text](url) for links. HTML is shown as plain text rather than rendered.',
         'seo_description' => 'Search description',
         'seo_description_help' => 'A sentence summarising this page for search results and link previews. Leave blank to use the site-wide description.',
+        'image' => 'Header photo',
+        'image_help' => 'Optional. A wide photo shown above the title, cropped to fit -- any size or shape works.',
         'is_published' => 'Published',
         'is_published_help' => 'When off, only editors can reach the page.',
         'show_in_footer' => 'Link in footer',

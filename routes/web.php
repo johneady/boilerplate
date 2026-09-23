@@ -1,18 +1,51 @@
 <?php
 
 use App\Auth\DevLoginAccounts;
+use App\Http\Controllers\ArticleController;
 use App\Http\Controllers\DevLoginController;
+use App\Http\Controllers\EnquiryEmailsController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\MailPreviewController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\VehicleController;
+use App\Livewire\CompareCars;
 use App\Livewire\Contact;
+use App\Livewire\FindYourCar;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', HomeController::class)->name('home');
+
+// Voltiva's public site. Every slug below is in Page::RESERVED_SLUGS, so no
+// content page can claim one of these paths.
+Route::get('lang/{locale}', LocaleController::class)->name('locale');
+
+Route::get('cars', [VehicleController::class, 'index'])->name('cars.index');
+// Registered before the product route: the two share /cars/{segment}, and
+// Vehicle::RESERVED_SLUGS keeps a car from being slugged l6e or l7e.
+Route::get('cars/{category}', [VehicleController::class, 'category'])
+    ->whereIn('category', ['l6e', 'l7e'])
+    ->name('cars.category');
+Route::get('cars/{vehicle}', [VehicleController::class, 'show'])->name('cars.show');
+
+Route::livewire('compare', CompareCars::class)->name('compare');
+Route::livewire('find-your-car', FindYourCar::class)->name('finder');
+Route::view('register-your-interest', 'enquiry')->name('enquiry');
+
+Route::get('news', [ArticleController::class, 'index'])->name('news.index');
+Route::get('news/{article}', [ArticleController::class, 'show'])->name('news.show');
+
+Route::get('enquiries/{enquiry}/stop-emails', [EnquiryEmailsController::class, 'show'])
+    ->middleware('signed')
+    ->name('enquiry.stop-emails');
+Route::post('enquiries/{enquiry}/stop-emails', [EnquiryEmailsController::class, 'stop'])
+    ->middleware('signed')
+    ->name('enquiry.stop-emails.confirm');
 
 // Declared as its own route rather than served by the content-page catch-all
 // below: it validates, persists and sends mail, so it is a Livewire component,

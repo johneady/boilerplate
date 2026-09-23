@@ -124,3 +124,19 @@ Schedule::command('queue:restart')
     ->withoutOverlapping(60)
     ->onOneServer()
     ->description('Gracefully recycle queue workers');
+
+/*
+|--------------------------------------------------------------------------
+| Voltiva
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Hourly, so an email due "on day 5" goes out within the hour of the
+ * enquiry's own time of day rather than in one batch at midnight.
+ */
+Schedule::command('app:send-enquiry-follow-ups')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Send due emails in the enquiry follow-up sequence');

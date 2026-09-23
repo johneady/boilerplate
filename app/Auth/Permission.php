@@ -40,6 +40,28 @@ enum Permission: string
 
     case DeleteContactSubmissions = 'contact-submissions.delete';
 
+    case ViewVehicles = 'vehicles.view';
+
+    case CreateVehicles = 'vehicles.create';
+
+    case UpdateVehicles = 'vehicles.update';
+
+    case DeleteVehicles = 'vehicles.delete';
+
+    case ViewArticles = 'articles.view';
+
+    case CreateArticles = 'articles.create';
+
+    case UpdateArticles = 'articles.update';
+
+    case DeleteArticles = 'articles.delete';
+
+    case ViewEnquiries = 'enquiries.view';
+
+    case UpdateEnquiries = 'enquiries.update';
+
+    case DeleteEnquiries = 'enquiries.delete';
+
     case ManageSettings = 'settings.manage';
 
     case ViewLogs = 'logs.view';
@@ -69,6 +91,17 @@ enum Permission: string
             self::ViewContactSubmissions => 'View contact form submissions',
             self::UpdateContactSubmissions => 'Mark contact form submissions handled',
             self::DeleteContactSubmissions => 'Delete contact form submissions',
+            self::ViewVehicles => 'View cars',
+            self::CreateVehicles => 'Add cars',
+            self::UpdateVehicles => 'Edit cars, prices and specifications',
+            self::DeleteVehicles => 'Delete cars',
+            self::ViewArticles => 'View news articles',
+            self::CreateArticles => 'Write news articles',
+            self::UpdateArticles => 'Edit news articles',
+            self::DeleteArticles => 'Delete news articles',
+            self::ViewEnquiries => 'View customer enquiries',
+            self::UpdateEnquiries => 'Update enquiry status and notes',
+            self::DeleteEnquiries => 'Delete customer enquiries',
             self::ManageSettings => 'Manage application settings',
             self::ViewLogs => 'View application logs',
             self::ViewMedia => 'View uploaded files',

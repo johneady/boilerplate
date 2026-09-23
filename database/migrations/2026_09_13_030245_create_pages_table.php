@@ -25,6 +25,9 @@ return new class extends Migration
             // Nullable rather than defaulting to '' so "never set" and
             // "deliberately blank" stay distinguishable.
             $table->string('seo_description', 255)->nullable();
+            // The wide photograph above the page title. Optional: a page
+            // without one renders a plain text header.
+            $table->string('image_path')->nullable();
             // Unpublished by default: a page created by mistake, or one still
             // being written, must not be reachable the moment it is saved.
             $table->boolean('is_published')->default(false);

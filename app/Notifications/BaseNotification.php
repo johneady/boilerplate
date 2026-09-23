@@ -78,4 +78,28 @@ abstract class BaseNotification extends Notification
             'business' => $this->businessName(),
         ]));
     }
+
+    /**
+     * Backslash-escape the characters the Markdown parser would act on.
+     *
+     * For any line carrying text a customer typed: the mail template escapes
+     * HTML but still parses Markdown, so a name like "[invoice](https://...)"
+     * would otherwise render as a clickable link in a trusted email.
+     *
+     * The backslash itself first, or the escapes below would double the ones
+     * already in the visitor's text. Block markers (`#`, `-`, `+`) are
+     * included so a line cannot open a heading or a list inside the quote.
+     * A backslash escape renders as the bare character, so nothing legitimate
+     * is distorted.
+     */
+    protected function escapeMarkdownTokens(string $value): string
+    {
+        $escaped = str_replace('\\', '\\\\', $value);
+
+        foreach (['`', '*', '_', '~', '[', ']', '!', '#', '-', '+'] as $character) {
+            $escaped = str_replace($character, '\\'.$character, $escaped);
+        }
+
+        return $escaped;
+    }
 }

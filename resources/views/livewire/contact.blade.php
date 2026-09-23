@@ -13,12 +13,14 @@
     pages. Both fall back to translated copy, because the form has to work on an
     instance whose pages were never seeded.
 --}}
-<main class="flex-1 py-12">
+<main class="flex-1 px-4 py-16 sm:px-6 lg:py-24">
     <div class="mx-auto max-w-2xl">
-        <h1 class="text-4xl font-semibold tracking-tight text-balance">{{ $page?->title ?? __('Contact') }}</h1>
+        <h1 class="text-4xl font-medium tracking-tight text-balance sm:text-5xl">
+            {{ $page?->title ?? __('Contact') }}
+        </h1>
 
         @if ($page !== null && filled($page->body))
-            <div class="[&_a]:font-medium [&_a]:text-sky-700 [&_a]:underline [&_a]:underline-offset-2 dark:[&_a]:text-sky-400 [&_li]:my-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-4 [&_strong]:font-semibold [&_strong]:text-neutral-900 dark:[&_strong]:text-neutral-100 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6 mt-6 text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
+            <div class="[&_a]:font-medium [&_a]:text-volt-700 [&_a]:underline [&_a]:underline-offset-2 [&_li]:my-1 [&_ol]:my-4 [&_ol]:list-decimal [&_ol]:pl-6 [&_p]:my-4 [&_strong]:font-semibold [&_strong]:text-neutral-900 dark:[&_strong]:text-neutral-100 [&_ul]:my-4 [&_ul]:list-disc [&_ul]:pl-6 mt-6 text-base leading-relaxed text-neutral-600 dark:text-neutral-400">
                 {!! $page->renderedBody() !!}
             </div>
         @else

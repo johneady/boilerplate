@@ -88,9 +88,11 @@ test('the login page offers the sign-up link once registrations are opened', fun
 test('the home page hides the sign-up button while registrations are closed', function () {
     allowRegistration(false);
 
+    // Matched with the closing quote: /register-your-interest, the enquiry
+    // page every public page links to, begins with the sign-up URL.
     $this->get(route('home'))
         ->assertOk()
-        ->assertDontSee(route('register'));
+        ->assertDontSee('href="'.route('register').'"', false);
 });
 
 test('the home page offers the sign-up button once registrations are opened', function () {
@@ -98,7 +100,7 @@ test('the home page offers the sign-up button once registrations are opened', fu
 
     $this->get(route('home'))
         ->assertOk()
-        ->assertSee(route('register'));
+        ->assertSee('href="'.route('register').'"', false);
 });
 
 test('closing registrations does not affect signed-in users', function () {

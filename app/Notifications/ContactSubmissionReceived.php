@@ -107,26 +107,6 @@ class ContactSubmissionReceived extends BaseNotification
     }
 
     /**
-     * Backslash-escape the characters the Markdown parser would act on.
-     *
-     * The backslash itself first, or the escapes below would double the ones
-     * already in the visitor's text. Block markers (`#`, `-`, `+`) are
-     * included so a line cannot open a heading or a list inside the quote.
-     * A backslash escape renders as the bare character, so nothing legitimate
-     * is distorted.
-     */
-    private function escapeMarkdownTokens(string $value): string
-    {
-        $escaped = str_replace('\\', '\\\\', $value);
-
-        foreach (['`', '*', '_', '~', '[', ']', '!', '#', '-', '+'] as $character) {
-            $escaped = str_replace($character, '\\'.$character, $escaped);
-        }
-
-        return $escaped;
-    }
-
-    /**
      * Get the array representation of the notification.
      *
      * @return array{id: int, name: string, email: string, subject: string|null}

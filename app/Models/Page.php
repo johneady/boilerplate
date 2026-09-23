@@ -29,13 +29,14 @@ use Illuminate\Support\Str;
  * @property string $title
  * @property string|null $body
  * @property string|null $seo_description
+ * @property string|null $image_path
  * @property bool $is_published
  * @property bool $show_in_footer
  * @property int $sort_order
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  */
-#[Fillable(['slug', 'title', 'body', 'seo_description', 'is_published', 'show_in_footer', 'sort_order'])]
+#[Fillable(['slug', 'title', 'body', 'seo_description', 'image_path', 'is_published', 'show_in_footer', 'sort_order'])]
 class Page extends Model implements HoldsMedia
 {
     /** @use HasFactory<PageFactory> */
@@ -59,17 +60,23 @@ class Page extends Model implements HoldsMedia
     public const array RESERVED_SLUGS = [
         'admin',
         'api',
+        'cars',
+        'compare',
         'contact',
         'dashboard',
         'dev',
         'dev-login',
         'forgot-password',
+        'find-your-car',
         'health',
+        'lang',
         'livewire',
         'login',
         'logout',
         'media',
+        'news',
         'register',
+        'register-your-interest',
         'reset-password',
         'robots.txt',
         'settings',
@@ -161,6 +168,14 @@ class Page extends Model implements HoldsMedia
             ->where('show_in_footer', true)
             ->orderBy('sort_order')
             ->orderBy('title');
+    }
+
+    /**
+     * The header photograph's URL, or null when the page has none.
+     */
+    public function imageUrl(): ?string
+    {
+        return Vehicle::publicUrl($this->image_path);
     }
 
     /**

@@ -11,6 +11,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Hidden;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Textarea;
@@ -127,6 +128,18 @@ class PageResource extends Resource
                     ->helperText(__('pages.fields.seo_description_help'))
                     ->maxLength(255)
                     ->rows(2)
+                    ->columnSpanFull(),
+                // The wide photo above the title. Stored on the public disk
+                // beside the seeded photography; raster types only -- SVG is
+                // a scriptable document served from our own origin.
+                FileUpload::make('image_path')
+                    ->label(__('pages.fields.image'))
+                    ->helperText(__('pages.fields.image_help'))
+                    ->image()
+                    ->disk('public')
+                    ->directory('pages')
+                    ->acceptedFileTypes(['image/jpeg', 'image/png', 'image/webp'])
+                    ->maxSize((int) config('images.max_kilobytes'))
                     ->columnSpanFull(),
                 Toggle::make('is_published')
                     ->label(__('pages.fields.is_published'))

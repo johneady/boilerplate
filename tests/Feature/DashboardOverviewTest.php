@@ -2,7 +2,9 @@
 
 use App\Filament\Pages\Dashboard;
 use App\Filament\Widgets\BusinessOverview;
+use App\Models\Enquiry;
 use App\Models\User;
+use App\Voltiva\EnquiryStatus;
 use Filament\Facades\Filament;
 use Livewire\Livewire;
 
@@ -47,11 +49,16 @@ test('the landing page embeds the business overview widget', function () {
         ->assertSee('Widgets\BusinessOverview', escape: false);
 });
 
-test('the business overview widget renders its sample data', function () {
+test('the business overview widget reports the live enquiry pipeline', function () {
+    Enquiry::factory()->count(2)->create(['finance_interest' => true]);
+    Enquiry::factory()->create(['status' => EnquiryStatus::Won]);
+
     Livewire::test(BusinessOverview::class)
-        ->assertSee('This month at a glance')
-        ->assertSee('Revenue this month')
-        ->assertSee('$48,650');
+        ->assertSee('Voltiva at a glance')
+        ->assertSee('Enquiries this week')
+        ->assertSee('2 waiting for first contact')
+        ->assertSee('1 sold so far')
+        ->assertSee('67%');
 });
 
 test('the hero portrait is present on disk', function () {

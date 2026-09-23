@@ -4,8 +4,11 @@ namespace App\Mail;
 
 use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
+use App\Models\Enquiry;
 use App\Models\User;
 use App\Notifications\ContactSubmissionReceived;
+use App\Notifications\EnquiryFollowUp;
+use App\Notifications\EnquiryReceived;
 use App\Notifications\PasswordChanged;
 use App\Notifications\QueueJobFailed;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -55,6 +58,7 @@ class PreviewableEmails
         $resetPassword = new ResetPassword($this->resetPasswordToken());
 
         return [
+            ...$this->enquiryEmails($notifiable),
             'test-email' => [
                 'description' => 'settings test email',
                 'notification' => null,
@@ -123,6 +127,53 @@ class PreviewableEmails
                 'render' => fn (): MailMessage => $queueFailure->toMail($notifiable),
             ],
         ];
+    }
+
+    /**
+     * The Voltiva enquiry emails: the sales team's alert and each step of the
+     * customer's follow-up sequence.
+     *
+     * The enquiry is made, not created, so rendering a preview leaves no row
+     * in the CRM -- and an unsaved enquiry renders a harmless link in place
+     * of the signed stop-emails URL.
+     *
+     * @return array<string, array{description: string, notification: BaseNotification|null, mailable: Mailable|null, onDemand: bool, render: callable(): (Mailable|MailMessage)}>
+     */
+    private function enquiryEmails(User $notifiable): array
+    {
+        $enquiry = Enquiry::factory()->make([
+            'id' => 1,
+            'name' => 'Marta Pons',
+            'email' => 'marta@example.test',
+            'vehicle_name' => 'Voltiva Terra',
+            'location' => 'Sóller',
+            'finance_interest' => true,
+            'message' => 'Could I arrange a test drive next week?',
+        ]);
+
+        $emails = [
+            'enquiry-received' => [
+                'description' => 'new enquiry alert to the sales team',
+                'notification' => $received = new EnquiryReceived($enquiry),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $received->toMail($notifiable),
+            ],
+        ];
+
+        foreach (range(1, Enquiry::followUpCount()) as $step) {
+            $followUp = new EnquiryFollowUp($enquiry, $step);
+
+            $emails['enquiry-follow-up-'.$step] = [
+                'description' => "enquiry follow-up email {$step}",
+                'notification' => $followUp,
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $followUp->toMail($notifiable),
+            ];
+        }
+
+        return $emails;
     }
 
     /**
