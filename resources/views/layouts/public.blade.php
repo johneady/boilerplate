@@ -46,7 +46,7 @@
 
     <x-voltiva.header />
 
-    <div id="main" class="flex min-h-[60vh] flex-col">{{ $slot }}</div>
+    <main id="main" class="flex min-h-[60vh] flex-col">{{ $slot }}</main>
 
     <x-voltiva.footer />
 

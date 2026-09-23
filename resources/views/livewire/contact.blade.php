@@ -13,7 +13,7 @@
     pages. Both fall back to translated copy, because the form has to work on an
     instance whose pages were never seeded.
 --}}
-<main class="flex-1 px-4 py-16 sm:px-6 lg:py-24">
+<div class="flex-1 px-4 py-16 sm:px-6 lg:py-24">
     <div class="mx-auto max-w-2xl">
         <h1 class="text-4xl font-medium tracking-tight text-balance sm:text-5xl">
             {{ $page?->title ?? __('Contact') }}
@@ -79,4 +79,4 @@
             </div>
         </form>
     </div>
-</main>
+</div>
