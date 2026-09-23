@@ -17,11 +17,7 @@
 
     <div class="mt-10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div class="flex flex-wrap gap-2" role="group" aria-label="{{ __('Filter by region') }}">
-            <flux:button
-                size="sm"
-                :variant="$region === '' ? 'primary' : 'outline'"
-                wire:click="$set('region', '')"
-            >
+            <flux:button size="sm" :variant="$region === '' ? 'primary' : 'outline'" wire:click="$set('region', '')">
                 {{ __('All regions') }}
             </flux:button>
 

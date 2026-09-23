@@ -9,7 +9,11 @@
     <main class="flex-1">
         <section class="grid items-center gap-12 py-12 lg:grid-cols-2 lg:py-20">
             <div>
-                <flux:badge size="sm" color="sky" inset="top bottom">{{ __('Licensed 4K & 5.4K aerial footage') }}</flux:badge>
+                <flux:badge
+                    size="sm"
+                    color="sky"
+                    inset="top bottom"
+                >{{ __('Licensed 4K & 5.4K aerial footage') }}</flux:badge>
 
                 <h1 class="mt-6 text-5xl font-semibold tracking-tight text-balance sm:text-6xl">
                     {{ __('The world from above, ready for your next project.') }}
@@ -20,7 +24,12 @@
                 </p>
 
                 <div class="mt-10 flex flex-wrap items-center gap-3">
-                    <flux:button :href="route('shop.index')" variant="primary" icon-trailing="arrow-right" wire:navigate>
+                    <flux:button
+                        :href="route('shop.index')"
+                        variant="primary"
+                        icon-trailing="arrow-right"
+                        wire:navigate
+                    >
                         {{ __('Browse packages') }}
                     </flux:button>
                     <flux:button href="#how-it-works" variant="ghost">{{ __('How it works') }}</flux:button>
@@ -65,8 +74,12 @@
             <section class="py-12" aria-labelledby="featured-heading">
                 <div class="flex flex-wrap items-end justify-between gap-4">
                     <div>
-                        <h2 id="featured-heading" class="text-3xl font-semibold tracking-tight">{{ __('Featured packages') }}</h2>
-                        <p class="mt-2 text-neutral-600 dark:text-neutral-400">{{ __('Our most popular locations, hand-picked this season.') }}</p>
+                        <h2 id="featured-heading" class="text-3xl font-semibold tracking-tight">
+                            {{ __('Featured packages') }}
+                        </h2>
+                        <p class="mt-2 text-neutral-600 dark:text-neutral-400">
+                            {{ __('Our most popular locations, hand-picked this season.') }}
+                        </p>
                     </div>
                     <flux:button :href="route('shop.index')" variant="ghost" icon-trailing="arrow-right" wire:navigate>
                         {{ __('View all packages') }}
@@ -117,20 +130,33 @@
                             <flux:icon :name="$step['icon']" variant="mini" />
                         </span>
                         <flux:heading size="lg" class="mt-4">{{ $step['heading'] }}</flux:heading>
-                        <p class="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">{{ $step['body'] }}</p>
+                        <p class="mt-2 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                            {{ $step['body'] }}
+                        </p>
                     </li>
                 @endforeach
             </ol>
         </section>
 
-        <section class="my-12 overflow-hidden rounded-3xl bg-neutral-900 px-8 py-12 text-white sm:px-12 dark:bg-neutral-800" aria-labelledby="custom-heading">
+        <section
+            class="my-12 overflow-hidden rounded-3xl bg-neutral-900 px-8 py-12 text-white sm:px-12 dark:bg-neutral-800"
+            aria-labelledby="custom-heading"
+        >
             <div class="grid items-center gap-8 lg:grid-cols-3">
                 <div class="lg:col-span-2">
-                    <h2 id="custom-heading" class="text-3xl font-semibold tracking-tight">{{ __('Need a location we have not filmed yet?') }}</h2>
-                    <p class="mt-3 text-neutral-300">{{ __('We take on custom shoots for agencies, tourism boards and production companies — licensed pilots, full insurance and fast turnaround.') }}</p>
+                    <h2 id="custom-heading" class="text-3xl font-semibold tracking-tight">
+                        {{ __('Need a location we have not filmed yet?') }}
+                    </h2>
+                    <p class="mt-3 text-neutral-300">
+                        {{ __('We take on custom shoots for agencies, tourism boards and production companies — licensed pilots, full insurance and fast turnaround.') }}
+                    </p>
                 </div>
                 <div class="lg:text-right">
-                    <flux:button :href="route('contact')" variant="primary" wire:navigate>{{ __('Request a custom shoot') }}</flux:button>
+                    <flux:button
+                        :href="route('contact')"
+                        variant="primary"
+                        wire:navigate
+                    >{{ __('Request a custom shoot') }}</flux:button>
                 </div>
             </div>
         </section>

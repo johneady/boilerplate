@@ -10,8 +10,12 @@
                     <flux:icon.check variant="solid" class="size-6" />
                 </span>
                 <div>
-                    <p class="text-sm text-neutral-500 dark:text-neutral-400">{{ __('Order :reference', ['reference' => $order->reference]) }}</p>
-                    <h1 class="text-3xl font-semibold tracking-tight">{{ __('Thank you, :name!', ['name' => $order->customer_name]) }}</h1>
+                    <p class="text-sm text-neutral-500 dark:text-neutral-400">
+                        {{ __('Order :reference', ['reference' => $order->reference]) }}
+                    </p>
+                    <h1 class="text-3xl font-semibold tracking-tight">
+                        {{ __('Thank you, :name!', ['name' => $order->customer_name]) }}
+                    </h1>
                 </div>
             </div>
 
@@ -24,7 +28,11 @@
                     <li class="flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
                         <div class="w-full shrink-0 overflow-hidden rounded-lg bg-neutral-100 sm:w-36 dark:bg-neutral-800">
                             @if ($item->package?->imageUrl() !== null)
-                                <img src="{{ $item->package->imageUrl() }}" alt="" class="aspect-16/10 size-full object-cover" />
+                                <img
+                                    src="{{ $item->package->imageUrl() }}"
+                                    alt=""
+                                    class="aspect-16/10 size-full object-cover"
+                                />
                             @endif
                         </div>
 
@@ -41,7 +49,11 @@
                             <p class="font-semibold">{{ $item->formattedPrice() }}</p>
                             <flux:tooltip :content="__('Enabled once the original footage files are uploaded.')">
                                 <div>
-                                    <flux:button size="sm" icon="arrow-down-tray" disabled>{{ __('Download') }}</flux:button>
+                                    <flux:button
+                                        size="sm"
+                                        icon="arrow-down-tray"
+                                        disabled
+                                    >{{ __('Download') }}</flux:button>
                                 </div>
                             </flux:tooltip>
                         </div>
@@ -55,8 +67,16 @@
             </dl>
 
             <div class="mt-10 flex flex-wrap gap-3">
-                <flux:button variant="primary" :href="route('shop.index')" wire:navigate>{{ __('Browse more footage') }}</flux:button>
-                <flux:button variant="ghost" :href="route('contact')" wire:navigate>{{ __('Questions about your order?') }}</flux:button>
+                <flux:button
+                    variant="primary"
+                    :href="route('shop.index')"
+                    wire:navigate
+                >{{ __('Browse more footage') }}</flux:button>
+                <flux:button
+                    variant="ghost"
+                    :href="route('contact')"
+                    wire:navigate
+                >{{ __('Questions about your order?') }}</flux:button>
             </div>
         </div>
     </main>

@@ -10,7 +10,10 @@
         {{ __('Basket') }}
 
         @if ($count > 0)
-            <span class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-sky-600 px-1.5 text-xs font-semibold text-white" data-test="cart-count">
+            <span
+                class="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-sky-600 px-1.5 text-xs font-semibold text-white"
+                data-test="cart-count"
+            >
                 {{ $count }}
             </span>
         @endif

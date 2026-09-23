@@ -25,7 +25,10 @@
                 <h2 id="basket-heading" class="sr-only">{{ __('Packages in your basket') }}</h2>
 
                 @error('basket')
-                    <div class="mb-6 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200" role="alert">
+                    <div
+                        class="mb-6 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
+                        role="alert"
+                    >
                         {{ $message }}
                     </div>
                 @enderror
@@ -33,16 +36,28 @@
                 <ul class="divide-y divide-neutral-200 rounded-2xl border border-neutral-200 bg-white dark:divide-neutral-800 dark:border-neutral-800 dark:bg-neutral-900">
                     @foreach ($this->packages as $package)
                         <li wire:key="basket-{{ $package->id }}" class="flex gap-4 p-4">
-                            <a href="{{ route('shop.show', $package) }}" wire:navigate class="w-28 shrink-0 overflow-hidden rounded-lg bg-neutral-100 sm:w-36 dark:bg-neutral-800">
+                            <a
+                                href="{{ route('shop.show', $package) }}"
+                                wire:navigate
+                                class="w-28 shrink-0 overflow-hidden rounded-lg bg-neutral-100 sm:w-36 dark:bg-neutral-800"
+                            >
                                 @if ($package->imageUrl() !== null)
-                                    <img src="{{ $package->imageUrl() }}" alt="" class="aspect-16/10 size-full object-cover" />
+                                    <img
+                                        src="{{ $package->imageUrl() }}"
+                                        alt=""
+                                        class="aspect-16/10 size-full object-cover"
+                                    />
                                 @endif
                             </a>
 
                             <div class="flex min-w-0 flex-1 flex-col">
                                 <div class="flex items-start justify-between gap-4">
                                     <div class="min-w-0">
-                                        <a href="{{ route('shop.show', $package) }}" wire:navigate class="font-semibold hover:underline">{{ $package->title }}</a>
+                                        <a
+                                            href="{{ route('shop.show', $package) }}"
+                                            wire:navigate
+                                            class="font-semibold hover:underline"
+                                        >{{ $package->title }}</a>
                                         <p class="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
                                             {{ $package->location }} · {{ $package->resolution }} · {{ trans_choice(':count clip|:count clips', $package->clip_count, ['count' => $package->clip_count]) }}
                                         </p>
@@ -78,7 +93,9 @@
 
                     <dl class="mt-6 space-y-2 text-sm">
                         <div class="flex justify-between text-neutral-600 dark:text-neutral-400">
-                            <dt>{{ trans_choice(':count package|:count packages', $this->packages->count(), ['count' => $this->packages->count()]) }}</dt>
+                            <dt>
+                                {{ trans_choice(':count package|:count packages', $this->packages->count(), ['count' => $this->packages->count()]) }}
+                            </dt>
                             <dd>{{ $this->total }}</dd>
                         </div>
                         <div class="flex justify-between text-neutral-600 dark:text-neutral-400">
@@ -119,7 +136,10 @@
                         </div>
 
                         <flux:button type="submit" variant="primary" class="w-full" icon="lock-closed">
-                            <span wire:loading.remove wire:target="placeOrder">{{ __('Place order — :total', ['total' => $this->total]) }}</span>
+                            <span
+                                wire:loading.remove
+                                wire:target="placeOrder"
+                            >{{ __('Place order — :total', ['total' => $this->total]) }}</span>
                             <span wire:loading wire:target="placeOrder">{{ __('Placing your order...') }}</span>
                         </flux:button>
                     </form>

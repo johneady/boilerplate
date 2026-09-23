@@ -8,9 +8,21 @@
 <main class="flex-1 py-10">
     <nav aria-label="{{ __('Breadcrumb') }}" class="text-sm text-neutral-500 dark:text-neutral-400">
         <ol class="flex flex-wrap items-center gap-1.5">
-            <li><a href="{{ route('shop.index') }}" wire:navigate class="hover:text-neutral-900 hover:underline dark:hover:text-white">{{ __('All packages') }}</a></li>
+            <li>
+                <a
+                    href="{{ route('shop.index') }}"
+                    wire:navigate
+                    class="hover:text-neutral-900 hover:underline dark:hover:text-white"
+                >{{ __('All packages') }}</a>
+            </li>
             <li aria-hidden="true">/</li>
-            <li><a href="{{ route('shop.index', ['region' => $package->region->value]) }}" wire:navigate class="hover:text-neutral-900 hover:underline dark:hover:text-white">{{ __($package->region->label()) }}</a></li>
+            <li>
+                <a
+                    href="{{ route('shop.index', ['region' => $package->region->value]) }}"
+                    wire:navigate
+                    class="hover:text-neutral-900 hover:underline dark:hover:text-white"
+                >{{ __($package->region->label()) }}</a>
+            </li>
             <li aria-hidden="true">/</li>
             <li aria-current="page" class="text-neutral-900 dark:text-white">{{ $package->title }}</li>
         </ol>
@@ -40,7 +52,9 @@
                 </div>
 
                 @if (filled($package->image_credit))
-                    <figcaption class="px-4 py-2 text-xs text-neutral-500 dark:text-neutral-400">{{ $package->image_credit }}</figcaption>
+                    <figcaption class="px-4 py-2 text-xs text-neutral-500 dark:text-neutral-400">
+                        {{ $package->image_credit }}
+                    </figcaption>
                 @endif
             </figure>
 
@@ -53,7 +67,9 @@
             </section>
 
             <section class="mt-10" aria-labelledby="licence-heading">
-                <h2 id="licence-heading" class="text-xl font-semibold tracking-tight">{{ __('What your licence covers') }}</h2>
+                <h2 id="licence-heading" class="text-xl font-semibold tracking-tight">
+                    {{ __('What your licence covers') }}
+                </h2>
 
                 <ul class="mt-4 grid gap-3 sm:grid-cols-2">
                     @foreach ([
@@ -63,7 +79,10 @@
                         __('Original files with no watermark'),
                     ] as $benefit)
                         <li class="flex items-start gap-2 text-sm text-neutral-700 dark:text-neutral-300">
-                            <flux:icon.check-circle variant="mini" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                            <flux:icon.check-circle
+                                variant="mini"
+                                class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400"
+                            />
                             {{ $benefit }}
                         </li>
                     @endforeach
@@ -133,9 +152,15 @@
                 </div>
 
                 <ul class="mt-6 space-y-2 border-t border-neutral-200 pt-6 text-sm text-neutral-600 dark:border-neutral-800 dark:text-neutral-400">
-                    <li class="flex items-center gap-2"><flux:icon.lock-closed variant="micro" /> {{ __('Secure checkout') }}</li>
-                    <li class="flex items-center gap-2"><flux:icon.arrow-down-tray variant="micro" /> {{ __('Download links delivered instantly') }}</li>
-                    <li class="flex items-center gap-2"><flux:icon.document-text variant="micro" /> {{ __('Licence certificate with every order') }}</li>
+                    <li class="flex items-center gap-2">
+                        <flux:icon.lock-closed variant="micro" /> {{ __('Secure checkout') }}
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <flux:icon.arrow-down-tray variant="micro" /> {{ __('Download links delivered instantly') }}
+                    </li>
+                    <li class="flex items-center gap-2">
+                        <flux:icon.document-text variant="micro" /> {{ __('Licence certificate with every order') }}
+                    </li>
                 </ul>
             </div>
         </aside>

@@ -50,7 +50,9 @@
             <div class="flex items-center gap-1">
                 <dt class="sr-only">{{ __('Clips') }}</dt>
                 <flux:icon.squares-2x2 variant="micro" />
-                <dd>{{ trans_choice(':count clip|:count clips', $package->clip_count, ['count' => $package->clip_count]) }}</dd>
+                <dd>
+                    {{ trans_choice(':count clip|:count clips', $package->clip_count, ['count' => $package->clip_count]) }}
+                </dd>
             </div>
             <div class="flex items-center gap-1">
                 <dt class="sr-only">{{ __('Running time') }}</dt>
