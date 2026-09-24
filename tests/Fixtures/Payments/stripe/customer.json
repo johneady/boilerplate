@@ -1,0 +1,8 @@
+{
+    "id": "cus_test_C1",
+    "object": "customer",
+    "livemode": false,
+    "email": "sam@example.test",
+    "name": "Sam Subscriber",
+    "metadata": {}
+}

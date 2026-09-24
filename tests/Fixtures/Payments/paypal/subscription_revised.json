@@ -1,0 +1,8 @@
+{
+    "plan_id": "P-9YEARLY00000000000000000",
+    "plan_overridden": false,
+    "links": [
+        {"href": "https://www.sandbox.paypal.com/webapps/billing/subscriptions/update?ba_token=BA-8A802366G0648845Y", "rel": "approve", "method": "GET"},
+        {"href": "https://api-m.sandbox.paypal.com/v1/billing/subscriptions/I-BW452GLLEP1G", "rel": "edit", "method": "PATCH"}
+    ]
+}

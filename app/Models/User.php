@@ -9,6 +9,8 @@ use App\Concerns\HasMedia;
 use App\Concerns\HasRoles;
 use App\Media\HoldsMedia;
 use App\Media\MediaCollection;
+use App\Payments\Enums\SubscriptionStatus;
+use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
@@ -19,6 +21,7 @@ use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -232,6 +235,56 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             SVG;
 
         return 'data:image/svg+xml;base64,'.base64_encode($svg);
+    }
+
+    /**
+     * @return HasMany<Subscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * The subscription this user's access and billing page are about: the
+     * live one, or failing that the most recent one that started.
+     */
+    public function currentSubscription(): ?Subscription
+    {
+        return $this->subscriptions()
+            ->with(['plan', 'price', 'pendingPrice'])
+            ->whereIn('status', array_map(
+                fn (SubscriptionStatus $status): string => $status->value,
+                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
+            ))
+            ->orderByRaw('active_user_id IS NULL')
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * Whether the user may use a subscription's benefits right now.
+     *
+     * Any plan when $planKey is null, or the plan with that key. See
+     * Subscription::grantsAccess() for the trial, grace-period and
+     * paid-until-period-end rules.
+     */
+    public function subscribed(?string $planKey = null): bool
+    {
+        $graceDays = app(Settings::class)->integer(SettingKey::PastDueGraceDays);
+
+        return $this->subscriptions()
+            ->with('plan')
+            ->whereIn('status', [
+                SubscriptionStatus::Trialing->value,
+                SubscriptionStatus::Active->value,
+                SubscriptionStatus::PastDue->value,
+                SubscriptionStatus::Canceled->value,
+            ])
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
+            ->get()
+            ->contains(fn (Subscription $subscription): bool => $subscription->grantsAccess($graceDays)
+                && ($planKey === null || $subscription->plan?->key === $planKey));
     }
 
     /**

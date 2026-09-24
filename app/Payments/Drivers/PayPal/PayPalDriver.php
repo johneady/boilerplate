@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\WebhookEvent;
 use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Contracts\WebhookDriver;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
@@ -17,6 +18,7 @@ use App\Payments\Data\PaymentReference;
 use App\Payments\Data\VerifiedWebhook;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Currency;
+use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
 use App\Payments\Enums\TransactionType;
@@ -39,9 +41,14 @@ use Illuminate\Http\Request;
  * Requires a PayPal Business account: PayPal issues live REST credentials to
  * Business accounts only.
  */
-class PayPalDriver implements PaymentDriver, WebhookDriver
+class PayPalDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
 {
-    public function __construct(private readonly PayPalClient $client) {}
+    use ManagesPayPalSubscriptions;
+
+    public function __construct(
+        private readonly PayPalClient $client,
+        private readonly GatewayMode $mode,
+    ) {}
 
     public function createCheckout(Payment $payment, CheckoutUrls $urls): CheckoutSession
     {
@@ -123,8 +130,11 @@ class PayPalDriver implements PaymentDriver, WebhookDriver
 
     public function fetch(Payment $payment): GatewayPaymentState
     {
+        // A subscription payment is a sale with no order behind it.
         if ($payment->gateway_checkout_id === null) {
-            return new GatewayPaymentState(GatewayStatus::Open);
+            return $payment->gateway_payment_id === null
+                ? new GatewayPaymentState(GatewayStatus::Open)
+                : $this->fetchSale($payment);
         }
 
         $order = $this->client->get("/v2/checkout/orders/{$payment->gateway_checkout_id}");
@@ -199,6 +209,10 @@ class PayPalDriver implements PaymentDriver, WebhookDriver
 
     public function refund(Payment $payment, Refund $refund): GatewayRefund
     {
+        if ($payment->gateway_checkout_id === null && $payment->gateway_payment_id !== null) {
+            return $this->refundSale($payment, $refund);
+        }
+
         $captureId = $payment->transactions()
             ->where('type', TransactionType::Charge->value)
             ->orderBy('id')
@@ -284,6 +298,11 @@ class PayPalDriver implements PaymentDriver, WebhookDriver
 
         if (str_starts_with($event->type, 'CHECKOUT.ORDER.')) {
             return new PaymentReference(checkoutId: isset($resource['id']) ? (string) $resource['id'] : null);
+        }
+
+        // A refund or reversal of a subscription payment names its sale.
+        if (in_array($event->type, ['PAYMENT.SALE.REFUNDED', 'PAYMENT.SALE.REVERSED'], true)) {
+            return is_string($resource['sale_id'] ?? null) ? new PaymentReference(transactionId: $resource['sale_id']) : null;
         }
 
         if (! str_starts_with($event->type, 'PAYMENT.CAPTURE.') && ! str_starts_with($event->type, 'PAYMENT.AUTHORIZATION.')) {

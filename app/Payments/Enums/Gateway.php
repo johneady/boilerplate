@@ -73,4 +73,12 @@ enum Gateway: string
     {
         return $this !== self::Manual;
     }
+
+    /**
+     * Whether a customer can subscribe through this gateway.
+     */
+    public function supportsSubscriptions(): bool
+    {
+        return $this !== self::Manual;
+    }
 }

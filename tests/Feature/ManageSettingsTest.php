@@ -170,6 +170,7 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'paypal_enabled',
         'demo_gateway_enabled',
         'manual_payments_enabled',
+        'past_due_grace_days',
     ]);
 });
 

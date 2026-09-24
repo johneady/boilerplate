@@ -951,6 +951,14 @@ class ManageSettings extends Page
                 ->options(Currency::options())
                 ->required()
                 ->selectablePlaceholder(false),
+            SettingKey::PastDueGraceDays => TextInput::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->integer()
+                ->minValue(0)
+                ->maxValue(60)
+                ->required(),
             SettingKey::StripeSandboxSecretKey, SettingKey::StripeSandboxWebhookSecret, SettingKey::StripeLiveSecretKey,
             SettingKey::StripeLiveWebhookSecret, SettingKey::PayPalSandboxClientId, SettingKey::PayPalSandboxClientSecret,
             SettingKey::PayPalSandboxWebhookId, SettingKey::PayPalLiveClientId, SettingKey::PayPalLiveClientSecret,

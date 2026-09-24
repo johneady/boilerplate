@@ -2,6 +2,8 @@
 
 namespace App\Payments;
 
+use App\Models\Plan;
+use App\Payments\Actions\SyncPlan;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
 use App\Settings\DiagnosticResult;
@@ -78,6 +80,28 @@ class PaymentDiagnostics
                 DiagnosticSeverity::Warning,
                 "No {$gateway->label()} webhook secret is set for {$mode->label()} mode. Payments still complete when the customer returns, but refunds made in the {$gateway->label()} dashboard, disputes and customers who close the tab early are only picked up by the scheduled reconciliation.",
                 "{$gateway->label()} webhooks can be verified.",
+            );
+        }
+
+        $plans = Plan::query()->where('is_active', true)->whereHas('prices', fn ($prices) => $prices->where('is_active', true))->get();
+
+        if ($plans->isNotEmpty()) {
+            $unsynced = [];
+
+            foreach ($plans as $plan) {
+                foreach (app(SyncPlan::class)->status($plan) as $gateway => $synced) {
+                    if (! $synced) {
+                        $unsynced[] = "{$plan->name} ({$gateway})";
+                    }
+                }
+            }
+
+            $results[] = $this->check(
+                'Subscription plans synced',
+                $unsynced === [],
+                DiagnosticSeverity::Warning,
+                'These plans are not up to date at the gateway, so customers cannot subscribe through it or would get an old trial or tax: '.implode(', ', $unsynced).'. Open each plan and use Sync to see why.',
+                'Every active plan is up to date at the gateways.',
             );
         }
 

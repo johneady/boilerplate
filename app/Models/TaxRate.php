@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Concerns\Auditable;
+use App\Jobs\SyncPlans;
 use App\Payments\Enums\Currency;
 use App\Payments\Money;
+use App\Payments\Tax\TaxCalculator;
 use App\Payments\Tax\TaxLine;
 use Carbon\CarbonImmutable;
 use Database\Factories\TaxRateFactory;
@@ -36,6 +38,22 @@ class TaxRate extends Model
 {
     /** @use HasFactory<TaxRateFactory> */
     use Auditable, HasFactory;
+
+    protected static function booted(): void
+    {
+        // Subscription tax is charged by the gateways from copies of these
+        // rates, so a change re-syncs the plans (plan.md, assumption 5).
+        // gateway_refs is excluded: the sync itself writes it.
+        static::created(fn () => SyncPlans::dispatchForCurrentMode());
+
+        static::updated(function (TaxRate $rate): void {
+            if ($rate->wasChanged(['name', 'percentage', 'is_active'])) {
+                SyncPlans::dispatchForCurrentMode();
+            }
+        });
+
+        static::deleted(fn () => SyncPlans::dispatchForCurrentMode());
+    }
 
     /**
      * Get the attributes that should be cast.
@@ -88,5 +106,28 @@ class TaxRate extends Model
     public function label(): string
     {
         return (new TaxLine($this->name, (string) $this->percentage, Money::zero(Currency::CAD)))->label();
+    }
+
+    /**
+     * The active rates as one line, for a gateway that takes a single tax
+     * percentage on a subscription (PayPal): "GST + PST" at 12%. Null when no
+     * rate is active.
+     *
+     * @return array{name: string, percentage: string}|null
+     */
+    public static function combinedActive(): ?array
+    {
+        $rates = self::query()->active()->get();
+
+        if ($rates->isEmpty()) {
+            return null;
+        }
+
+        $thousandths = $rates->sum(fn (TaxRate $rate): int => TaxCalculator::thousandths((string) $rate->percentage));
+
+        return [
+            'name' => $rates->pluck('name')->implode(' + '),
+            'percentage' => sprintf('%d.%03d', intdiv($thousandths, 1000), $thousandths % 1000),
+        ];
     }
 }

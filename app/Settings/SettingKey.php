@@ -164,6 +164,8 @@ enum SettingKey: string
 
     case ManualPaymentsEnabled = 'manual_payments_enabled';
 
+    case PastDueGraceDays = 'past_due_grace_days';
+
     /*
      * Gateway credentials: a sandbox and a live set for each gateway, edited
      * through the credential modals on the Payments tab (never the tab's own
@@ -200,7 +202,7 @@ enum SettingKey: string
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => SettingsTab::Mail,
             self::Timezone, self::Locale, self::DateFormat, self::TimeFormat => SettingsTab::LocaleTime,
-            self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled,
+            self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => SettingsTab::Payments,
         };
@@ -231,6 +233,7 @@ enum SettingKey: string
             self::PaymentsEnabled, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled => false,
             self::PaymentsMode => 'sandbox',
             self::PaymentsCurrency => 'CAD',
+            self::PastDueGraceDays => 7,
             self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => '',
         };
@@ -262,6 +265,7 @@ enum SettingKey: string
             // points an installation at live credentials.
             self::PaymentsMode => self::toOneOf($value, ['sandbox', 'live'], 'sandbox'),
             self::PaymentsCurrency => self::toOneOf($value, ['CAD', 'USD'], 'CAD'),
+            self::PastDueGraceDays => self::toIntegerBetween($value, 0, 60, 7),
             self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => self::toFilledString($value, ''),
         };
@@ -298,6 +302,22 @@ enum SettingKey: string
         $trimmed = trim((string) $value);
 
         return $trimmed === '' ? $default : $trimmed;
+    }
+
+    /**
+     * Interpret a stored value as a whole number within bounds.
+     *
+     * Anything unreadable falls back to the default, and anything out of
+     * range is clamped: a grace period hand-edited to 9999 days must not
+     * become a way to keep access without paying.
+     */
+    private static function toIntegerBetween(mixed $value, int $min, int $max, int $default): int
+    {
+        if (! is_int($value) && ! (is_string($value) && ctype_digit(trim($value)))) {
+            return $default;
+        }
+
+        return max($min, min($max, (int) $value));
     }
 
     /**
@@ -348,7 +368,7 @@ enum SettingKey: string
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
             self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
-            self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled,
+            self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,
         };
     }
@@ -374,7 +394,7 @@ enum SettingKey: string
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress,
             self::MailFromName, self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
-            self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled,
+            self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,
         };
     }
@@ -414,6 +434,7 @@ enum SettingKey: string
             self::PayPalEnabled => 'Offer PayPal',
             self::DemoGatewayEnabled => 'Offer the demo gateway',
             self::ManualPaymentsEnabled => 'Record manual payments',
+            self::PastDueGraceDays => 'Grace period after a failed renewal (days)',
             self::StripeSandboxSecretKey => 'Sandbox secret key',
             self::StripeSandboxWebhookSecret => 'Sandbox webhook signing secret',
             self::StripeLiveSecretKey => 'Live secret key',
@@ -462,6 +483,7 @@ enum SettingKey: string
             self::PayPalEnabled => 'Offer PayPal checkout. Needs a PayPal Business account; a Personal account can be upgraded free and keeps its login.',
             self::DemoGatewayEnabled => 'A pretend gateway that takes no money and needs no credentials, for demonstrations. Never available in production.',
             self::ManualPaymentsEnabled => 'Let administrators record money received outside the site, such as an Interac e-Transfer, a cheque or cash.',
+            self::PastDueGraceDays => 'How long a subscriber keeps access after a renewal payment fails, while the gateway retries the card. 0 ends access at the first failure.',
             self::StripeSandboxSecretKey, self::StripeLiveSecretKey => 'From the Stripe dashboard under Developers -> API keys (sk_test_... or sk_live_...). A restricted key works if it can write Checkout Sessions, PaymentIntents and Refunds.',
             self::StripeSandboxWebhookSecret, self::StripeLiveWebhookSecret => 'The signing secret (whsec_...) of the webhook endpoint pointing at this site.',
             self::PayPalSandboxClientId, self::PayPalLiveClientId => 'From the PayPal developer dashboard under Apps & Credentials.',

@@ -137,6 +137,14 @@ class Settings
     }
 
     /**
+     * Read a setting known to hold a whole number.
+     */
+    public function integer(SettingKey $key): int
+    {
+        return (int) $this->get($key);
+    }
+
+    /**
      * Whether a row has ever been stored for this key.
      *
      * Distinguishes "never saved" from "saved with the declared default",

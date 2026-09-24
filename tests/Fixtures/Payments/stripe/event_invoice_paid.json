@@ -1,0 +1,19 @@
+{
+    "id": "evt_test_InvP",
+    "object": "event",
+    "api_version": "2026-08-26.dahlia",
+    "created": 1790000100,
+    "livemode": false,
+    "type": "invoice.paid",
+    "data": {
+        "object": {
+            "id": "in_test_1",
+            "object": "invoice",
+            "status": "paid",
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": "sub_test_S1", "metadata": {}}
+            }
+        }
+    }
+}

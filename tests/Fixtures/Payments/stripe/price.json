@@ -1,0 +1,12 @@
+{
+    "id": "price_test_Mo",
+    "object": "price",
+    "active": true,
+    "livemode": false,
+    "currency": "cad",
+    "product": "prod_test_Pro",
+    "unit_amount": 2900,
+    "tax_behavior": "exclusive",
+    "recurring": {"interval": "month", "interval_count": 1},
+    "metadata": {}
+}

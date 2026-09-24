@@ -163,6 +163,22 @@ Schedule::command('payments:check-authorizations')
     ->onOneServer()
     ->description('Warn about payment holds nearing expiry and expire lapsed ones');
 
+/*
+ * Hourly: a PayPal or Demo subscription cancelled at period end is ended
+ * within the hour after its paid period runs out.
+ */
+Schedule::command('payments:end-subscriptions')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('End subscriptions cancelled at period end, and expire unfinished subscription checkouts');
+
+Schedule::command('payments:notify-trials-ending')
+    ->daily()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Remind subscribers whose free trial ends soon');
+
 Schedule::command('payments:prune-webhook-events')
     ->daily()
     ->withoutOverlapping(60)

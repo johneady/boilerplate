@@ -5,6 +5,7 @@ namespace App\Payments\Drivers;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
 use App\Payments\Data\GatewayPaymentState;
@@ -33,8 +34,10 @@ use Illuminate\Support\Facades\DB;
  *
  * Refused in production by App\Payments\PaymentManager.
  */
-class DemoDriver implements PaymentDriver
+class DemoDriver implements PaymentDriver, SubscriptionDriver
 {
+    use SimulatesSubscriptions;
+
     public function createCheckout(Payment $payment, CheckoutUrls $urls): CheckoutSession
     {
         $this->write($payment, fn (array $state): array => $state + [

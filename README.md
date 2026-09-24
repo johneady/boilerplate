@@ -345,8 +345,49 @@ never held across a gateway call; the scheduled tasks (`payments:*` in
 [`routes/console.php`](routes/console.php)) expire abandoned checkouts, warn
 about holds nearing expiry and finish any operation whose result was lost.
 
-Emails (receipts, refunds, operator alerts) are queued, sent only after the
-change commits, and previewable at `/dev/mails`.
+Emails (receipts, refunds, subscription notices, operator alerts) are queued,
+sent only after the change commits, and previewable at `/dev/mails`.
+
+#### Subscriptions
+
+Plans are defined in Admin → Payments → Plans and **synced out** to Stripe
+(products and prices) and PayPal (products and billing plans) automatically
+when saved; the Sync button reports what a gateway refused. A plan has a key
+that code checks access by, an optional free trial and a taxable flag, and one
+or more prices (monthly, yearly, every N months). A price is never edited:
+add a new one and retire the old, and existing subscribers stay on theirs.
+
+Customers compare plans at `/pricing` and subscribe with a verified account;
+they manage their subscription at `/settings/billing` (cancel at period end
+and take it back, change plan, update the card, see receipts). Each user has at
+most one live subscription. Gate features with `$user->subscribed()` /
+`$user->subscribed('pro')`, or the `subscribed` / `subscribed:pro` route
+middleware.
+
+- **Renewals** are billed by the gateway and recorded as ordinary payments,
+  with a receipt each, refundable like any other.
+- **Tax on subscriptions is charged by the gateway**, from copies of the
+  configured rates (Stripe TaxRates; one combined percentage on the PayPal
+  billing plan). A rate change applies to new subscriptions; existing ones keep
+  the tax they started with.
+- **Failed renewals**: the gateway retries; the subscriber and the ops address
+  are emailed once, and the subscriber keeps access for the grace period
+  (Settings → Payments, default 7 days). Stripe's retry schedule is set in the
+  Stripe dashboard (Billing → Revenue recovery), not through the API.
+- **PayPal** has no cancel-at-period-end: the subscription is suspended and
+  `payments:end-subscriptions` cancels it when the period runs out. A PayPal
+  plan change needs the customer's approval at PayPal and applies from the next
+  cycle; Stripe's applies at once, prorated.
+- **Stripe's billing portal** (used for "Update payment method") must be saved
+  once in the Stripe dashboard (Settings → Billing → Customer portal) for each
+  mode before it can be opened.
+- **Demo** subscriptions renew only when an administrator presses "Simulate
+  renewal" (or "Simulate failed renewal") on the subscription.
+
+Subscription webhooks use the same endpoints as payments. Subscribe the Stripe
+endpoint to `customer.subscription.*` and `invoice.*` as well as the checkout,
+payment intent, charge and refund events, and the PayPal webhook to
+`BILLING.SUBSCRIPTION.*` and `PAYMENT.SALE.*`.
 
 ### Error pages
 

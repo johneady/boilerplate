@@ -5,8 +5,8 @@
 | Admin Panel: Payments
 |--------------------------------------------------------------------------
 |
-| Strings for the Filament payment, payment link, tax rate and webhook event
-| screens and the payment settings. Dotted keys rather than the JSON file's
+| Strings for the Filament payment, payment link, tax rate, webhook event,
+| plan and subscription screens and the payment settings. Dotted keys rather than the JSON file's
 | English-as-key convention -- see .ai/rules/i18n.md. The customer-facing pay
 | page, receipt and emails are in lang/en.json.
 |
@@ -34,6 +34,16 @@ return [
     'webhook_event' => [
         'label' => 'Webhook event',
         'plural_label' => 'Webhook events',
+    ],
+
+    'plan' => [
+        'label' => 'Plan',
+        'plural_label' => 'Plans',
+    ],
+
+    'subscription' => [
+        'label' => 'Subscription',
+        'plural_label' => 'Subscriptions',
     ],
 
     'fields' => [
@@ -161,6 +171,66 @@ return [
         'credentials_unchanged' => 'Nothing was changed',
         'webhook_urls' => 'Webhook URLs',
         'webhook_urls_help' => 'Point each gateway\'s webhook endpoint at the URL for its mode.',
+    ],
+
+    'plans' => [
+        'name' => 'Name',
+        'key' => 'Key',
+        'key_help' => 'How code refers to this plan, e.g. $user->subscribed(\'pro\'). Letters, numbers, dashes and underscores; it cannot be changed later.',
+        'description' => 'Description',
+        'features' => 'Features',
+        'features_help' => 'Listed under the plan on the pricing page. Press Enter after each.',
+        'trial_days' => 'Free trial (days)',
+        'trial_days_help' => 'New subscribers are not charged until the trial ends. 0 for no trial.',
+        'taxable' => 'Charge tax',
+        'taxable_help' => 'Add the configured tax rates on top of the price. The gateway calculates the tax on each renewal.',
+        'is_active' => 'On offer',
+        'is_active_help' => 'Switched off, the plan is hidden from the pricing page. Existing subscribers keep it.',
+        'prices' => 'Prices',
+        'price' => 'Price',
+        'amount' => 'Amount',
+        'interval' => 'Billed',
+        'interval_count' => 'Every',
+        'interval_count_help' => 'Billed every this many months or years, e.g. 3 with Monthly for quarterly.',
+        'subscribers' => 'Subscribers',
+        'synced' => 'Gateways',
+        'sync' => 'Sync to gateways',
+        'synced_ok' => 'The plan is up to date at every gateway.',
+        'sync_failed' => 'The plan could not be synced',
+        'gateway_synced' => ':gateway: synced',
+        'gateway_unsynced' => ':gateway: not synced',
+        'deactivate_price' => 'Retire',
+        'deactivate_price_help' => 'The price is taken off offer and archived at the gateways. Existing subscribers stay on it and keep being billed at it.',
+        'activate_price' => 'Offer again',
+    ],
+
+    'subscriptions' => [
+        'plan' => 'Plan',
+        'deleted_user' => 'Deleted user',
+        'pending_price' => 'Changing to',
+        'trial_ends' => 'Trial ends',
+        'period_ends' => 'Current period ends',
+        'cancel_at_period_end' => 'Cancels at period end',
+        'ends' => 'Access ends',
+        'past_due_since' => 'Past due since',
+        'gateway_subscription_id' => 'Gateway subscription ID',
+        'ending' => 'Ends :date',
+        'refresh' => 'Refresh from gateway',
+        'refreshed' => 'The subscription was refreshed from the gateway.',
+        'cancel_at_period_end_action' => 'Cancel at period end',
+        'cancel_at_period_end_help' => 'The subscriber keeps access until the end of the period they have paid for, and is not billed again. This can be taken back until then.',
+        'cancel_scheduled' => 'The subscription will end at the end of the period.',
+        'resume' => 'Resume',
+        'resumed' => 'The subscription will continue.',
+        'cancel_now' => 'Cancel now',
+        'cancel_now_help' => 'The subscription ends immediately and the subscriber loses access. Nothing is refunded automatically; refund the last payment from its own page if needed.',
+        'canceled' => 'The subscription was cancelled.',
+        'simulate_renewal' => 'Simulate renewal',
+        'renewed' => 'The demo subscription renewed.',
+        'simulate_failed_renewal' => 'Simulate failed renewal',
+        'renewal_failed' => 'The demo renewal failed; the subscription is past due.',
+        'action_failed' => 'That could not be done',
+        'open_payment' => 'Open',
     ],
 
 ];

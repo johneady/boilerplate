@@ -1,0 +1,11 @@
+{
+    "id": "cs_test_Sub1",
+    "object": "checkout.session",
+    "livemode": false,
+    "mode": "subscription",
+    "status": "open",
+    "url": "https://checkout.stripe.com/c/pay/cs_test_Sub1",
+    "customer": "cus_test_C1",
+    "metadata": {},
+    "subscription": null
+}

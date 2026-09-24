@@ -2,12 +2,16 @@
 
 use App\Auth\DevLoginAccounts;
 use App\Http\Controllers\Payments\DemoCheckoutController;
+use App\Http\Controllers\Payments\DemoSubscriptionCheckoutController;
 use App\Http\Controllers\Payments\PaymentCancelledController;
 use App\Http\Controllers\Payments\PaymentReturnController;
 use App\Http\Controllers\Payments\PaymentWebhookController;
 use App\Http\Controllers\Payments\ShowPaymentController;
+use App\Http\Controllers\Payments\SubscriptionCancelledController;
+use App\Http\Controllers\Payments\SubscriptionReturnController;
 use App\Http\Middleware\EnsurePaymentsEnabled;
 use App\Livewire\Payments\PayPaymentLink;
+use App\Livewire\Payments\Pricing;
 use Illuminate\Foundation\Http\Middleware\ValidateCsrfToken;
 use Illuminate\Support\Facades\Route;
 
@@ -31,12 +35,18 @@ use Illuminate\Support\Facades\Route;
 Route::middleware(EnsurePaymentsEnabled::class)->group(function (): void {
     Route::livewire('pay/{paymentLink:token}', PayPaymentLink::class)->name('payments.pay');
 
+    // Public, so the plans can be compared before signing in; subscribing
+    // itself asks for a verified account (App\Livewire\Payments\Pricing).
+    Route::livewire('pricing', Pricing::class)->name('payments.pricing');
+
     // The Demo gateway's pretend checkout exists only where the Demo gateway
     // may run -- the same environments that offer the dev login -- so in
     // production these routes are not registered at all.
     if (app(DevLoginAccounts::class)->enabled()) {
         Route::get('demo-checkout/{payment}', [DemoCheckoutController::class, 'show'])->name('payments.demo.show');
         Route::post('demo-checkout/{payment}', [DemoCheckoutController::class, 'store'])->name('payments.demo.store');
+        Route::get('demo-checkout/subscriptions/{subscription}', [DemoSubscriptionCheckoutController::class, 'show'])->name('subscriptions.demo.show');
+        Route::post('demo-checkout/subscriptions/{subscription}', [DemoSubscriptionCheckoutController::class, 'store'])->name('subscriptions.demo.store');
     }
 });
 
@@ -44,6 +54,12 @@ Route::middleware(EnsurePaymentsEnabled::class)->group(function (): void {
 // gateways append on the way back can be ignored.
 Route::get('payments/{payment}/return', PaymentReturnController::class)->name('payments.return');
 Route::get('payments/{payment}/cancelled', PaymentCancelledController::class)->name('payments.cancelled');
+
+// Signed like the payment ones (Subscription::returnUrl()), and for the same
+// reason not behind EnsurePaymentsEnabled: a subscription checkout already
+// open finishes even if payments are switched off meanwhile.
+Route::get('subscriptions/{subscription}/return', SubscriptionReturnController::class)->name('subscriptions.return');
+Route::get('subscriptions/{subscription}/cancelled', SubscriptionCancelledController::class)->name('subscriptions.cancelled');
 
 // Signed: guests pay without an account, so the signature is what keeps a
 // receipt private. See Payment::receiptUrl().

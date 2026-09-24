@@ -1,0 +1,18 @@
+{
+    "transactions": [
+        {
+            "status": "COMPLETED",
+            "id": "8HL18326JH8397335",
+            "amount_with_breakdown": {
+                "gross_amount": {"currency_code": "CAD", "value": "32.77"},
+                "tax_amount": {"currency_code": "CAD", "value": "3.77"},
+                "fee_amount": {"currency_code": "CAD", "value": "1.25"},
+                "net_amount": {"currency_code": "CAD", "value": "31.52"}
+            },
+            "payer_name": {"given_name": "Sam", "surname": "Subscriber"},
+            "payer_email": "sam@example.test",
+            "time": "2026-09-23T12:00:30Z"
+        }
+    ],
+    "links": []
+}

@@ -66,6 +66,12 @@ enum Permission: string
     /** The Payments settings tab, gateway credentials, tax rates and webhook events. */
     case ManagePaymentSettings = 'payment-settings.manage';
 
+    /** Subscription plans and their prices, and syncing them to the gateways. */
+    case ManagePlans = 'plans.manage';
+
+    /** Cancelling and resuming customers' subscriptions. Viewing them is ViewPayments. */
+    case ManageSubscriptions = 'subscriptions.manage';
+
     /**
      * The label shown wherever a permission is listed for a human.
      */
@@ -95,6 +101,8 @@ enum Permission: string
             self::RecordManualPayments => 'Record payments received outside the site',
             self::ManagePaymentLinks => 'Create and edit payment links',
             self::ManagePaymentSettings => 'Manage payment settings, credentials and tax rates',
+            self::ManagePlans => 'Create and edit subscription plans',
+            self::ManageSubscriptions => 'Cancel and resume customers\' subscriptions',
         };
     }
 }

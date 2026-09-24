@@ -137,7 +137,7 @@ gateway-issued IDs are unique per gateway. Every gateway-facing row stores
 
 | Table | Key columns |
 | --- | --- |
-| `payments` | `uuid` (public ref), `idempotency_key` (unique), `payable_type/id` (morph), `user_id?`, `subscription_id?`, `customer_name`, `customer_email`, `gateway`, `mode`, `status`, `capture_method`, `currency`, `subtotal`, `tax_total`, `amount`, `amount_captured`, `amount_refunded`, `tax_lines` (json snapshot), `description`, `gateway_checkout_id`, `gateway_payment_id`, `authorized_at`, `authorization_expires_at`, `captured_at`, `paid_at`, `receipt_sent_at`, `failed_at`, `failure_reason`, `manual_method?`, `manual_reference?`, `metadata` (json). `amount_captured` / `amount_refunded` are projections recomputed from the ledger, never written directly. |
+| `payments` | `uuid` (public ref), `idempotency_key` (unique), `payable_type/id` (morph; a subscription's payments have the Subscription as payable, so no separate `subscription_id`), `user_id?`, `customer_name`, `customer_email`, `gateway`, `mode`, `status`, `capture_method`, `currency`, `subtotal`, `tax_total`, `amount`, `amount_captured`, `amount_refunded`, `tax_lines` (json snapshot), `description`, `gateway_checkout_id`, `gateway_payment_id`, `authorized_at`, `authorization_expires_at`, `captured_at`, `paid_at`, `receipt_sent_at`, `failed_at`, `failure_reason`, `manual_method?`, `manual_reference?`, `metadata` (json). `amount_captured` / `amount_refunded` are projections recomputed from the ledger, never written directly. |
 | `payment_transactions` | **Append-only ledger** of every money movement: `payment_id`, `type` (authorization/capture/refund/void/dispute_debit/dispute_credit/manual), `amount` (signed), `currency`, `gateway`, `gateway_transaction_id` (unique with gateway), `source` (webhook/return/admin/demo/scheduler), `occurred_at`, `created_at` only |
 | `refunds` | `uuid`, `idempotency_key` (unique), `payment_id`, `gateway_refund_id` (unique with gateway), `amount`, `tax_amount`, `reason`, `status`, `initiated_by` (user id, null = came from the gateway dashboard), `notified_at` |
 | `webhook_events` | `gateway`, `mode`, `event_id` (unique with gateway), `type`, `payload` (json), `status` (received/processed/ignored/failed), `attempts`, `processed_at`, `error` |
@@ -284,7 +284,7 @@ they do not exist in production (see assumption 7).
 | `GET payments/{payment:uuid}` (**signed**) | Receipt and status page for guests, like the drone demo's order page |
 | `POST webhooks/{gateway}/{mode}` | CSRF-exempt, throttled, signature-verified. Mode in the path selects the secret, and events for both modes are accepted, so in-flight sandbox payments finish after a switch. |
 | `GET pricing` | Public plan list (phase 2) |
-| `POST subscribe/{planPrice}` (auth, verified) | Start a subscription checkout (phase 2) |
+| (Livewire action on `pricing`, verified account) | Start a subscription checkout (phase 2; a component action rather than a separate POST route) |
 | `GET settings/billing` (auth, verified) | Livewire billing page (phase 2) |
 | `GET demo-checkout/{payment:uuid}` | Demo gateway's fake hosted page (non-production only) |
 
@@ -369,7 +369,7 @@ they do not exist in production (see assumption 7).
   - The billing page explains which behaviour applies.
 - **Failed renewals.** Stripe `invoice.payment_failed` and PayPal
   `BILLING.SUBSCRIPTION.PAYMENT.FAILED` set `past_due` and `past_due_since`,
-  and send PaymentFailed to the customer (with a fix link) and ops. Access
+  and send SubscriptionPaymentFailed to the customer (with a fix link) and ops. Access
   continues until `past_due_since + PastDueGraceDays`. A gateway cancellation
   ends access. Stripe's retry schedule is a dashboard setting that the API
   cannot set, so the README says to set it.
@@ -423,8 +423,10 @@ model IDs, not snapshots, so a retried send renders current data.
 
 - **Customer:**
   - PaymentReceipt, RefundIssued
-  - SubscriptionStarted, SubscriptionRenewed, SubscriptionCanceled
-  - TrialEnding, PaymentFailed
+  - SubscriptionStarted, SubscriptionCanceled, TrialEnding,
+    SubscriptionPaymentFailed
+  - SubscriptionRenewed is the receipt for every subscription payment, sent
+    in place of PaymentReceipt (one receipt per payment, claimed the same way)
 
   Guests receive them through `Notification::route('mail', …)`.
 - **Ops, to the ops alert address:**
@@ -557,8 +559,8 @@ and is added to `ScheduledTasksTest`.
    renewal payments; failed-renewal handling and grace period.
 4. `User::subscribed()`, `subscribed:` middleware, pricing page, billing page, nav link.
 5. Admin: Plans (with Sync), Subscriptions (with Demo simulation).
-6. Emails: SubscriptionStarted, SubscriptionRenewed, SubscriptionCanceled,
-   TrialEnding, PaymentFailed.
+6. Emails: SubscriptionStarted, SubscriptionRenewed (the subscription
+   receipt), SubscriptionCanceled, TrialEnding, SubscriptionPaymentFailed.
 7. Scheduled tasks: end-subscriptions, notify-trials-ending.
 8. Diagnostics: plan not synced. README subscriptions section.
 

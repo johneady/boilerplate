@@ -10,7 +10,10 @@ use App\Models\Page;
 use App\Models\Payment;
 use App\Models\PaymentLink;
 use App\Models\PaymentTransaction;
+use App\Models\Plan;
+use App\Models\PlanPrice;
 use App\Models\Refund;
+use App\Models\Subscription;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Models\WebhookEvent;
@@ -20,6 +23,8 @@ use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
 use App\Policies\PaymentPolicy;
+use App\Policies\PlanPolicy;
+use App\Policies\SubscriptionPolicy;
 use App\Policies\TaxRatePolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WebhookEventPolicy;
@@ -117,6 +122,10 @@ class AuthServiceProvider extends ServiceProvider
         // payment they belong to, and written by nobody through the Gate.
         PaymentTransaction::class => PaymentPolicy::class,
         Refund::class => PaymentPolicy::class,
+        // A price is managed as part of its plan.
+        Plan::class => PlanPolicy::class,
+        PlanPrice::class => PlanPolicy::class,
+        Subscription::class => SubscriptionPolicy::class,
         TaxRate::class => TaxRatePolicy::class,
         User::class => UserPolicy::class,
         WebhookEvent::class => WebhookEventPolicy::class,
@@ -139,6 +148,7 @@ class AuthServiceProvider extends ServiceProvider
         Payment::class,
         PaymentTransaction::class,
         Refund::class,
+        Subscription::class,
         WebhookEvent::class,
     ];
 
@@ -239,6 +249,13 @@ class AuthServiceProvider extends ServiceProvider
         // PaymentLinkPolicy::delete() decide, for administrators too.
         if ($target instanceof PaymentLink) {
             return in_array($ability, ['delete', 'forceDelete'], true);
+        }
+
+        // Plans and prices are retired, never deleted: subscriptions and
+        // their payments name them. PlanPolicy denies deletion outright.
+        if ($target instanceof Plan || $target instanceof PlanPrice
+            || (is_string($target) && (is_a($target, Plan::class, true) || is_a($target, PlanPrice::class, true)))) {
+            return in_array($ability, ['delete', 'deleteAny', 'forceDelete', 'forceDeleteAny'], true);
         }
 
         if (! in_array($ability, self::SELF_PROTECTED_ABILITIES, true)) {

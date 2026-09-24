@@ -6,9 +6,11 @@ use App\Jobs\RefundDuplicatePayment;
 use App\Models\Payment;
 use App\Models\PaymentTransaction;
 use App\Models\Refund;
+use App\Models\Subscription;
 use App\Notifications\Payments\DuplicatePaymentRefunded;
 use App\Notifications\Payments\PaymentReceipt;
 use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\SubscriptionRenewed;
 use App\Payments\Contracts\Payable;
 use App\Payments\Data\GatewayPaymentState;
 use App\Payments\Data\GatewayRefund;
@@ -370,16 +372,29 @@ class ReconcilePayment
 
     /**
      * Send the receipt once, claimed like paid_at.
+     *
+     * A subscription's payment gets the subscription's own receipt, which
+     * also says when it renews next.
      */
     private function sendReceipt(Payment $payment): void
     {
+        // A subscription payment whose subscriber has since deleted their
+        // account has nowhere to go.
+        if ($payment->customer_email === '') {
+            return;
+        }
+
         $claimed = Payment::query()
             ->whereKey($payment->id)
             ->whereNull('receipt_sent_at')
             ->update(['receipt_sent_at' => CarbonImmutable::now()]);
 
         if ($claimed === 1) {
-            Notification::route('mail', $payment->customer_email)->notify(new PaymentReceipt($payment));
+            Notification::route('mail', $payment->customer_email)->notify(
+                $payment->payable_type === (new Subscription)->getMorphClass()
+                    ? new SubscriptionRenewed($payment)
+                    : new PaymentReceipt($payment),
+            );
         }
     }
 
@@ -400,7 +415,7 @@ class ReconcilePayment
         $refund = Refund::query()->with('payment')->findOrFail($refundId);
         $payment = $refund->payment;
 
-        if ($payment !== null) {
+        if ($payment !== null && $payment->customer_email !== '') {
             Notification::route('mail', $payment->customer_email)->notify(new RefundIssued($refund));
         }
     }

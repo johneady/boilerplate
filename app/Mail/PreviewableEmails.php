@@ -5,25 +5,36 @@ namespace App\Mail;
 use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
 use App\Models\Payment;
+use App\Models\Plan;
+use App\Models\PlanPrice;
 use App\Models\Refund;
+use App\Models\Subscription;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Notifications\ContactSubmissionReceived;
 use App\Notifications\PasswordChanged;
+use App\Notifications\Payments\AbandonedSubscriptionCanceled;
 use App\Notifications\Payments\AuthorizationExpiring;
 use App\Notifications\Payments\DuplicatePaymentRefunded;
 use App\Notifications\Payments\PaymentCredentialsChanged;
 use App\Notifications\Payments\PaymentReceipt;
 use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\SubscriptionCanceled;
+use App\Notifications\Payments\SubscriptionPaymentFailed;
+use App\Notifications\Payments\SubscriptionRenewed;
+use App\Notifications\Payments\SubscriptionStarted;
+use App\Notifications\Payments\TrialEnding;
 use App\Notifications\Payments\WebhookProcessingFailed;
 use App\Notifications\Payments\WebhookSignatureRejected;
 use App\Notifications\QueueJobFailed;
+use App\Payments\Enums\BillingInterval;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Currency;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
+use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\WebhookEventStatus;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
@@ -191,6 +202,55 @@ class PreviewableEmails
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $signatureRejected->toMail($notifiable),
             ],
+            'subscription-started' => [
+                'description' => 'subscription started',
+                'notification' => $subscriptionStarted = new SubscriptionStarted($subscription = $this->sampleSubscription()),
+                'mailable' => null,
+                'onDemand' => false,
+                'render' => fn (): MailMessage => $subscriptionStarted->toMail($notifiable),
+            ],
+            'subscription-renewed' => [
+                'description' => 'subscription payment receipt',
+                'notification' => $subscriptionRenewed = new SubscriptionRenewed($this->samplePayment()->setRelation('payable', $subscription)),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $subscriptionRenewed->toMail($notifiable),
+            ],
+            'trial-ending' => [
+                'description' => 'free trial ending reminder',
+                'notification' => $trialEnding = new TrialEnding($this->sampleSubscription(SubscriptionStatus::Trialing)),
+                'mailable' => null,
+                'onDemand' => false,
+                'render' => fn (): MailMessage => $trialEnding->toMail($notifiable),
+            ],
+            'subscription-payment-failed' => [
+                'description' => 'subscription renewal failed',
+                'notification' => $paymentFailed = new SubscriptionPaymentFailed($pastDue = $this->sampleSubscription(SubscriptionStatus::PastDue)),
+                'mailable' => null,
+                'onDemand' => false,
+                'render' => fn (): MailMessage => $paymentFailed->toMail($notifiable),
+            ],
+            'subscription-payment-failed-ops' => [
+                'description' => 'subscription renewal failed alert',
+                'notification' => $paymentFailedOps = new SubscriptionPaymentFailed($pastDue, forOperators: true),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $paymentFailedOps->toMail($notifiable),
+            ],
+            'subscription-canceled' => [
+                'description' => 'subscription ended',
+                'notification' => $subscriptionCanceled = new SubscriptionCanceled($this->sampleSubscription(SubscriptionStatus::Canceled)),
+                'mailable' => null,
+                'onDemand' => false,
+                'render' => fn (): MailMessage => $subscriptionCanceled->toMail($notifiable),
+            ],
+            'abandoned-subscription-canceled' => [
+                'description' => 'abandoned subscription cancelled alert',
+                'notification' => $abandonedCanceled = new AbandonedSubscriptionCanceled($this->sampleSubscription(SubscriptionStatus::Expired)),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $abandonedCanceled->toMail($notifiable),
+            ],
             'queue-failure' => [
                 'description' => 'queued job failure alert',
                 // Routed on demand rather than to the factory user: the real
@@ -258,6 +318,30 @@ class PreviewableEmails
             'tax_lines' => [['name' => 'HST', 'percentage' => '13.000', 'amount' => 6500]],
             'authorization_expires_at' => now()->addHours(20),
         ]);
+    }
+
+    /**
+     * A $29/month subscription to a "Pro" plan, made in memory with its
+     * relations set, like the sample payment.
+     */
+    private function sampleSubscription(SubscriptionStatus $status = SubscriptionStatus::Active): Subscription
+    {
+        $plan = (new Plan)->forceFill(['id' => 1, 'key' => 'pro', 'name' => 'Pro', 'features' => [], 'trial_days' => 14, 'taxable' => true, 'is_active' => true]);
+        $price = (new PlanPrice)->forceFill(['id' => 1, 'plan_id' => 1, 'currency' => Currency::CAD, 'amount' => 2900, 'interval' => BillingInterval::Month, 'interval_count' => 1, 'is_active' => true]);
+
+        return (new Subscription)->forceFill([
+            'id' => 1,
+            'uuid' => '3f6c1a2b-8d4e-4f7a-9b2c-5e1d0a9f8c7b',
+            'plan_id' => 1,
+            'plan_price_id' => 1,
+            'gateway' => Gateway::Stripe,
+            'mode' => GatewayMode::Live,
+            'status' => $status,
+            'currency' => Currency::CAD,
+            'trial_ends_at' => $status === SubscriptionStatus::Trialing ? now()->addDays(3) : null,
+            'current_period_end' => now()->addMonth(),
+            'past_due_since' => $status === SubscriptionStatus::PastDue ? now()->subDay() : null,
+        ])->setRelation('plan', $plan)->setRelation('price', $price)->setRelation('user', $this->notifiable());
     }
 
     /**

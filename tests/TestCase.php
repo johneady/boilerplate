@@ -7,11 +7,26 @@ use App\Models\Media;
 use App\Models\User;
 use App\Settings\Settings;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * No test may reach the network through the HTTP client.
+     *
+     * The payment gateways are called through it, and a test that switches a
+     * gateway on without faking it would otherwise send a real request to
+     * Stripe or PayPal -- which is how the absence of this was found.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Http::preventStrayRequests();
+    }
+
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
     {
         if (! Features::enabled($feature)) {

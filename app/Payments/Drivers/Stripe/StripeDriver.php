@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\WebhookEvent;
 use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Contracts\WebhookDriver;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
@@ -47,8 +48,10 @@ use UnexpectedValueException;
  * rather than Stripe TaxRate objects, so the amount charged is exactly the
  * amount this application calculated and showed the customer, to the cent.
  */
-class StripeDriver implements PaymentDriver, WebhookDriver
+class StripeDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
 {
+    use ManagesStripeSubscriptions;
+
     /**
      * Event types that can change a payment, and where in the event object
      * the payment's identifiers are.
@@ -127,8 +130,19 @@ class StripeDriver implements PaymentDriver, WebhookDriver
 
     public function fetch(Payment $payment): GatewayPaymentState
     {
+        // A subscription payment has no Checkout Session of its own: Stripe
+        // Billing charged its PaymentIntent directly.
         if ($payment->gateway_checkout_id === null) {
-            return new GatewayPaymentState(GatewayStatus::Open);
+            if ($payment->gateway_payment_id === null) {
+                return new GatewayPaymentState(GatewayStatus::Open);
+            }
+
+            $intent = $this->call(fn () => $this->client()->paymentIntents->retrieve(
+                $payment->gateway_payment_id,
+                ['expand' => ['latest_charge']],
+            ))->toArray();
+
+            return $this->stateFromIntent($payment, $intent, sessionExpired: false);
         }
 
         $session = $this->call(fn () => $this->client()->checkout->sessions->retrieve(
@@ -137,11 +151,20 @@ class StripeDriver implements PaymentDriver, WebhookDriver
         ))->toArray();
 
         $intent = is_array($session['payment_intent'] ?? null) ? $session['payment_intent'] : null;
+        $sessionExpired = ($session['status'] ?? null) === 'expired';
 
         if ($intent === null) {
-            return new GatewayPaymentState(($session['status'] ?? null) === 'expired' ? GatewayStatus::Expired : GatewayStatus::Open);
+            return new GatewayPaymentState($sessionExpired ? GatewayStatus::Expired : GatewayStatus::Open);
         }
 
+        return $this->stateFromIntent($payment, $intent, $sessionExpired);
+    }
+
+    /**
+     * @param  array<string, mixed>  $intent  A PaymentIntent with its latest_charge expanded.
+     */
+    private function stateFromIntent(Payment $payment, array $intent, bool $sessionExpired): GatewayPaymentState
+    {
         $charge = is_array($intent['latest_charge'] ?? null) ? $intent['latest_charge'] : null;
         $currency = $payment->currency;
 
@@ -175,7 +198,7 @@ class StripeDriver implements PaymentDriver, WebhookDriver
             // requires_payment_method -- the customer may still try another
             // card on the same Checkout page, so it is not a failure yet.
             default => new GatewayPaymentState(
-                status: ($session['status'] ?? null) === 'expired' ? GatewayStatus::Expired : GatewayStatus::Open,
+                status: $sessionExpired ? GatewayStatus::Expired : GatewayStatus::Open,
                 paymentId: (string) $intent['id'],
                 failureReason: isset($intent['last_payment_error']['message']) ? (string) $intent['last_payment_error']['message'] : null,
             ),
@@ -280,6 +303,14 @@ class StripeDriver implements PaymentDriver, WebhookDriver
     public function completesCheckout(WebhookEvent $event): bool
     {
         return false;
+    }
+
+    /**
+     * Every Stripe refund is on its PaymentIntent, which fetch() reads.
+     */
+    public function refundInEvent(WebhookEvent $event, Payment $payment): ?GatewayRefund
+    {
+        return null;
     }
 
     /**
