@@ -327,12 +327,25 @@ changed only with the administrator's password; every change emails the ops
 alert address. **Rotating `APP_KEY` makes them unreadable** unless the old key
 is listed in `APP_PREVIOUS_KEYS` -- Diagnostics reports it if that happens.
 
-**Webhooks.** Register one endpoint per gateway and mode at the gateway,
-pointing at `/webhooks/{stripe|paypal}/{sandbox|live}` (the credentials modal
-shows the exact URLs), and save its signing secret (Stripe) or webhook ID
-(PayPal). Payments still complete without webhooks -- the customer's return and
-the scheduled reconciliation record them -- but dashboard refunds, and customers
-who close the tab after paying, are only picked up promptly with them.
+**Webhooks.** Settings → Payments → **Connect webhooks** registers this site's
+endpoint at Stripe or PayPal for the current mode, subscribed to every event
+the module uses, and stores the signing secret (Stripe) or webhook ID
+(PayPal); run it again after an upgrade to refresh the event list. It needs
+the site on a public HTTPS address (`APP_URL`). Locally, forward events with
+`stripe listen --forward-to <APP_URL>/webhooks/stripe/sandbox` and paste the
+secret it prints into the Stripe credentials. The endpoints are
+`/webhooks/{stripe|paypal}/{sandbox|live}`. Payments still complete without
+webhooks -- the customer's return and the scheduled reconciliation record
+them -- but dashboard refunds, disputes, renewals and customers who close the
+tab after paying are only picked up promptly with them.
+
+**Disputes.** Chargebacks and PayPal claims arrive by webhook and are listed
+under Payments → Disputes (the badge counts those awaiting a response), with an
+email to the ops address when one opens. Evidence is submitted in the
+gateway's dashboard, linked from each dispute. A dispute is tracked beside its
+payment, not entered on the payment's ledger: the payment was not refunded, and
+the money may come back if the dispute is won. A payment with an open or lost
+dispute cannot be refunded as well -- that would pay the customer twice.
 
 **Integrity.** Money is integer minor units throughout. Every movement is an
 append-only row in `payment_transactions`; a payment's amounts, currency and
@@ -384,10 +397,67 @@ middleware.
 - **Demo** subscriptions renew only when an administrator presses "Simulate
   renewal" (or "Simulate failed renewal") on the subscription.
 
-Subscription webhooks use the same endpoints as payments. Subscribe the Stripe
-endpoint to `customer.subscription.*` and `invoice.*` as well as the checkout,
-payment intent, charge and refund events, and the PayPal webhook to
-`BILLING.SUBSCRIPTION.*` and `PAYMENT.SALE.*`.
+Subscriptions use the same webhook endpoints as payments; **Connect webhooks**
+subscribes them to the subscription events too.
+
+#### Going live: gateway checklist
+
+Stripe (dashboard, for each of test and live mode):
+
+1. Developers → API keys: copy the secret key into Settings → Payments →
+   Stripe credentials. A restricted key needs write access to Checkout
+   Sessions, PaymentIntents, Refunds, Customers, Products, Prices, Tax Rates,
+   Subscriptions, Billing Portal sessions and Webhook Endpoints, and read
+   access to Invoices and Disputes.
+2. Connect webhooks from the settings tab (or add an endpoint by hand and
+   paste its signing secret).
+3. Settings → Billing → Customer portal: save it once, so "Update payment
+   method" can open it.
+4. Billing → Revenue recovery: set the retry schedule for failed renewals, and
+   what happens after the last retry (cancel the subscription).
+5. Business settings → Public details: the name customers see on Checkout and
+   card statements.
+
+PayPal (developer dashboard, sandbox and live apps):
+
+1. A **Business** account; Apps & Credentials → create an app and copy its
+   client ID and secret into the PayPal credentials.
+2. Connect webhooks from the settings tab (or add a webhook to the app by
+   hand, subscribed to the events in `PayPalDriver::WEBHOOK_EVENTS`, and paste
+   its ID).
+3. Account settings → Payment preferences: the business name shown on
+   PayPal's pages.
+
+Then switch Settings → Payments → Mode to Live, and check Diagnostics.
+
+#### Testing against the real sandboxes
+
+The feature suite fakes both gateways. `tests/Sandbox` calls the real Stripe
+test mode and PayPal sandbox instead, to catch an API change the fakes cannot:
+
+```bash
+STRIPE_SANDBOX_SECRET=sk_test_... \
+PAYPAL_SANDBOX_CLIENT_ID=... PAYPAL_SANDBOX_CLIENT_SECRET=... \
+vendor/bin/pest --testsuite=Sandbox
+```
+
+It is never part of the default run, each gateway's tests skip without its
+credentials, and a Stripe key must be a test key. It tidies up what it creates
+(archiving products and prices, cancelling subscriptions, deleting webhook
+endpoints) and saves the real payloads it read to
+`storage/framework/testing/payment-captures/` for comparison with the fixtures
+in `tests/Fixtures/Payments`.
+
+What needs a person clicking through PayPal's own pages is checked by hand in
+the PayPal sandbox, with a sandbox buyer account, before relying on PayPal:
+
+- pay a payment link, and one for a held (authorized) payment, then capture
+  and void it from the admin panel;
+- subscribe, then cancel at period end (the subscription shows as suspended at
+  PayPal) and keep it, confirming it re-activates without an extra charge;
+- change plan and approve the change at PayPal;
+- refund a subscription payment from the admin panel, and one from PayPal's
+  own dashboard (it should appear here within a minute).
 
 ### Error pages
 

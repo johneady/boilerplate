@@ -7,11 +7,15 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Notifications\Payments\DisputeOpened;
+use App\Payments\Actions\RefundPayment;
+use App\Payments\Enums\Currency;
 use App\Payments\Enums\DisputeStatus;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\WebhookEventStatus;
 use App\Payments\Exceptions\ImmutableRecordException;
+use App\Payments\Exceptions\PaymentNotAllowed;
+use App\Payments\Money;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
@@ -85,7 +89,8 @@ test('a decided dispute is closed, and a stale read cannot reopen it', function 
 
     expect($payment->disputes()->sole())
         ->status->toBe(DisputeStatus::Lost)
-        ->closed_at->not->toBeNull();
+        ->closed_at->not->toBeNull()
+        ->evidence_due_by->toBeNull();
 });
 
 test('an inquiry closed without a chargeback counts as won', function () {
@@ -95,6 +100,9 @@ test('an inquiry closed without a chargeback counts as won', function () {
     GatewayFakes::deliverStripe(PaymentFixtures::load('stripe/event_dispute_created'))->assertOk();
 
     expect($payment->disputes()->sole()->status)->toBe(DisputeStatus::Won);
+
+    // Nothing to respond to, so nothing to be alerted about.
+    Notification::assertNothingSent();
 });
 
 test('a dispute on a payment this site did not make is ignored', function () {
@@ -178,4 +186,32 @@ test('nobody may edit or delete a dispute', function () {
         ->and($admin->can('delete', $dispute))->toBeFalse()
         ->and(fn () => $dispute->delete())->toThrow(ImmutableRecordException::class)
         ->and(fn () => $dispute->update(['gateway_dispute_id' => 'dp_other']))->toThrow(ImmutableRecordException::class);
+});
+
+test('a disputed payment cannot also be refunded', function (DisputeStatus $status) {
+    $dispute = Dispute::factory()->status($status)->create();
+
+    app(RefundPayment::class)->handle($dispute->payment, Money::of(1000, Currency::CAD), 'refund:disputed');
+})->with([DisputeStatus::NeedsResponse, DisputeStatus::UnderReview, DisputeStatus::Lost])->throws(PaymentNotAllowed::class, 'This payment is disputed');
+
+test('a payment whose dispute was won can be refunded again', function () {
+    // A Demo payment, so the refund is made without a gateway to fake.
+    $dispute = Dispute::factory()->status(DisputeStatus::Won)->create(['payment_id' => Payment::factory()->paid()->create()->id]);
+
+    expect(app(RefundPayment::class)->handle($dispute->payment, Money::of(1000, Currency::CAD), 'refund:won')->amount)->toBe(1000);
+});
+
+test('a dispute already recorded is found again whichever payment reference the gateway gives', function () {
+    $stripe = [];
+    $payment = disputedStripePayment($stripe);
+    GatewayFakes::deliverStripe(PaymentFixtures::load('stripe/event_dispute_created'))->assertOk();
+
+    // Recorded on another payment than the one the next event resolves to.
+    Dispute::query()->sole()->forceFill(['payment_id' => Payment::factory()->gateway(Gateway::Stripe)->paid()->create()->id])->saveQuietly();
+    $stripe['status'] = 'under_review';
+
+    GatewayFakes::deliverStripe(PaymentFixtures::load('stripe/event_dispute_created', ['id' => 'evt_test_Again', 'type' => 'charge.dispute.updated']))->assertOk();
+
+    expect(Dispute::sole()->status)->toBe(DisputeStatus::UnderReview)
+        ->and($payment->disputes()->count())->toBe(0);
 });

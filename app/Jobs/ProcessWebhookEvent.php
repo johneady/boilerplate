@@ -47,6 +47,14 @@ class ProcessWebhookEvent extends Job
 
     public int $maxExceptions = 4;
 
+    /**
+     * What the event is about, worked out once per run: the middleware needs
+     * it for the overlap key and handle() to act on. Null until resolved.
+     *
+     * @var array{event: WebhookEvent|null, dispute: string|null, subject: Subscription|Payment|null}|null
+     */
+    private ?array $resolved = null;
+
     public function __construct(public int $webhookEventId) {}
 
     /**
@@ -62,8 +70,7 @@ class ProcessWebhookEvent extends Job
      */
     public function middleware(): array
     {
-        $dispute = $this->disputeId();
-        $subject = $dispute === null ? $this->subject() : null;
+        ['dispute' => $dispute, 'subject' => $subject] = $this->resolve();
         $key = match (true) {
             $dispute !== null => "dispute:{$dispute}",
             $subject instanceof Subscription => "subscription:{$subject->id}",
@@ -80,7 +87,7 @@ class ProcessWebhookEvent extends Job
 
     public function handle(PaymentManager $payments, ReconcilePayment $reconcile, ReconcileSubscription $reconcileSubscription): void
     {
-        $event = WebhookEvent::query()->find($this->webhookEventId);
+        ['event' => $event, 'dispute' => $disputeId, 'subject' => $subject] = $this->resolve();
 
         if ($event === null || in_array($event->status, [WebhookEventStatus::Processed, WebhookEventStatus::Ignored], true)) {
             return;
@@ -88,7 +95,7 @@ class ProcessWebhookEvent extends Job
 
         $event->increment('attempts');
 
-        if (($disputeId = $this->disputeId()) !== null) {
+        if ($disputeId !== null) {
             $recorded = app(ReconcileDispute::class)->handle($event->gateway, $event->mode, $disputeId);
 
             $recorded === null
@@ -97,8 +104,6 @@ class ProcessWebhookEvent extends Job
 
             return;
         }
-
-        $subject = $this->subject();
 
         if ($subject instanceof Subscription) {
             $reconcileSubscription->handle($subject, TransactionSource::Webhook);
@@ -154,15 +159,26 @@ class ProcessWebhookEvent extends Job
     }
 
     /**
-     * The gateway's id for the dispute the event is about, if it is one.
+     * The event, and the dispute or the subscription or payment it is about.
+     *
+     * @return array{event: WebhookEvent|null, dispute: string|null, subject: Subscription|Payment|null}
      */
-    private function disputeId(): ?string
+    private function resolve(): array
     {
-        $event = WebhookEvent::query()->find($this->webhookEventId);
+        if ($this->resolved !== null) {
+            return $this->resolved;
+        }
 
-        return $event === null
-            ? null
-            : app(PaymentManager::class)->disputeDriver($event->gateway, $event->mode)->disputeReference($event);
+        $event = WebhookEvent::query()->find($this->webhookEventId);
+        $dispute = $event !== null
+            ? app(PaymentManager::class)->disputeDriver($event->gateway, $event->mode)->disputeReference($event)
+            : null;
+
+        return $this->resolved = [
+            'event' => $event,
+            'dispute' => $dispute,
+            'subject' => $event !== null && $dispute === null ? $this->subject($event) : null,
+        ];
     }
 
     /**
@@ -174,14 +190,8 @@ class ProcessWebhookEvent extends Job
      * Stripe invoice event for a subscription this application does not
      * know is about nothing here.
      */
-    private function subject(): Subscription|Payment|null
+    private function subject(WebhookEvent $event): Subscription|Payment|null
     {
-        $event = WebhookEvent::query()->find($this->webhookEventId);
-
-        if ($event === null) {
-            return null;
-        }
-
         $driver = app(PaymentManager::class)->webhookDriver($event->gateway, $event->mode);
 
         $subscriptionReference = $driver->subscriptionReference($event);

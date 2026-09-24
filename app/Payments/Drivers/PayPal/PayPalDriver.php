@@ -366,7 +366,7 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
      * place -- keeping its id, and so every delivery already in flight --
      * rather than replaced.
      */
-    public function registerWebhook(string $url): string
+    public function registerWebhook(string $url, \Closure $remember): void
     {
         $eventTypes = array_map(fn (string $name): array => ['name' => $name], self::WEBHOOK_EVENTS);
 
@@ -376,13 +376,15 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
                     ['op' => 'replace', 'path' => '/event_types', 'value' => $eventTypes],
                 ]);
 
-                return (string) $webhook['id'];
+                $remember((string) $webhook['id']);
+
+                return;
             }
         }
 
         $created = $this->client->post('/v1/notifications/webhooks', ['url' => $url, 'event_types' => $eventTypes]);
 
-        return (string) ($created['id'] ?? throw new GatewayException('PayPal did not return the webhook.'));
+        $remember((string) ($created['id'] ?? throw new GatewayException('PayPal did not return the webhook.')));
     }
 
     public function disputeReference(WebhookEvent $event): ?string

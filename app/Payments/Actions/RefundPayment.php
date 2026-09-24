@@ -5,6 +5,7 @@ namespace App\Payments\Actions;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\User;
+use App\Payments\Enums\DisputeStatus;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
 use App\Payments\Enums\TransactionSource;
@@ -101,6 +102,12 @@ class RefundPayment
 
                 if (! in_array($locked->status, [PaymentStatus::Succeeded, PaymentStatus::PartiallyRefunded], true)) {
                     throw new PaymentNotAllowed(__('Only a paid payment can be refunded.'));
+                }
+
+                // Open, the customer's bank is already claiming the money back;
+                // lost, it has taken it. A refund on top would pay twice.
+                if ($locked->disputes()->whereIn('status', [DisputeStatus::NeedsResponse->value, DisputeStatus::UnderReview->value, DisputeStatus::Lost->value])->exists()) {
+                    throw new PaymentNotAllowed(__('This payment is disputed. Respond to the dispute in the gateway\'s dashboard instead of refunding it.'));
                 }
 
                 if ($amount->currency !== $locked->currency || ! $amount->isPositive()) {

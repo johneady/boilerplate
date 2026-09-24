@@ -12,11 +12,17 @@ interface RegistersWebhooks
 {
     /**
      * Make sure the gateway has exactly one endpoint at this URL, subscribed
-     * to every event this application acts on, and return what verifying its
-     * deliveries needs (a Stripe signing secret, a PayPal webhook id).
+     * to every event this application acts on.
+     *
+     * What verifying its deliveries needs (a Stripe signing secret, a PayPal
+     * webhook id) is handed to $remember the moment the endpoint exists --
+     * before any old endpoint is removed -- so a failure part-way through
+     * never leaves the stored secret belonging to a deleted endpoint.
+     *
+     * @param  \Closure(string): void  $remember
      *
      * @throws GatewayException
      * @throws GatewayUnavailable
      */
-    public function registerWebhook(string $url): string;
+    public function registerWebhook(string $url, \Closure $remember): void;
 }

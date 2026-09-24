@@ -147,7 +147,7 @@ gateway-issued IDs are unique per gateway. Every gateway-facing row stores
 | `plan_prices` | `plan_id`, `amount`, `currency`, `interval` (month/year), `interval_count`, `is_active`, `gateway_refs` (Stripe Price / PayPal Plan per mode) |
 | `subscriptions` | `user_id`, `plan_id`, `plan_price_id`, `gateway`, `mode`, `gateway_subscription_id`, `status`, `trial_ends_at`, `current_period_start/end`, `cancel_at_period_end`, `canceled_at`, `ends_at`, `past_due_since`, `active_user_id` (unique, nullable: equals `user_id` while the subscription is live and is nulled when it ends. This enforces one live subscription per user on MySQL, MariaDB and SQLite alike, since MySQL has no partial unique index), `idempotency_key` (unique) |
 | `billing_customers` | `user_id`, `gateway`, `mode`, `gateway_customer_id` (a table rather than columns on `users`) |
-| `disputes` | `payment_id`, `gateway_dispute_id`, `amount`, `reason`, `status`, `evidence_due_by`, `outcome`, `dashboard_url` |
+| `disputes` | `payment_id`, `gateway`, `mode`, `gateway_dispute_id`, `currency`, `amount`, `reason`, `status` (won/lost is the outcome), `evidence_due_by`, `closed_at`, `opened_notified_at`. The dashboard link is derived, not stored. A dispute is **not** entered on the ledger: the payment was not refunded, and a won dispute returns the money. |
 
 Payment, Refund, PaymentLink, TaxRate, Plan, PlanPrice, Subscription and
 Dispute use `Auditable`. WebhookEvent does not, because its payloads carry
@@ -214,6 +214,7 @@ and plan-sync jobs are dispatched **after commit** (`afterCommit()` /
 | Path | Guard |
 | --- | --- |
 | Outgoing gateway calls | Deterministic keys (`{payment uuid}:{operation}`, the refund's `idempotency_key`) sent as Stripe `Idempotency-Key` / PayPal `PayPal-Request-Id`. A retried job or request gets the original result instead of a second charge or refund. |
+| Gateway catalogue objects (products, prices, tax rates, customers) | Keyed on the record's id **and creation time** (`App\Payments\CatalogueKey`), so two installations sharing a gateway account, or a rebuilt database, never replay each other's objects within the 24-hour idempotency window. |
 | Incoming webhooks | `insertOrIgnore` on unique (gateway, event_id); a replayed event is acknowledged and not processed again. |
 | Return URL and webhook racing | Both go through `ReconcilePayment` under the row lock. The ledger's unique (gateway, gateway_transaction_id) means the same capture seen twice records once. |
 | Pay form double-submit | The rendered form carries an idempotency token that becomes `payments.idempotency_key`. A second submit finds the existing pending payment and redirects to its existing checkout session. |

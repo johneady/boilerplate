@@ -173,7 +173,7 @@ test('a plan syncs to a real product, recurring price and tax rate, and a subscr
 
 test('a webhook endpoint is registered with its secret, and re-registering leaves one endpoint', function () {
     Sandbox::servePublicly();
-    $url = route('payments.webhook', ['gateway' => 'stripe', 'mode' => 'sandbox']);
+    $url = Sandbox::PUBLIC_ROOT.route('payments.webhook', ['gateway' => 'stripe', 'mode' => 'sandbox'], absolute: false);
     $endpointsAtUrl = fn (): array => array_values(array_filter(
         Sandbox::stripe()->webhookEndpoints->all(['limit' => 100])->data,
         fn ($endpoint): bool => $endpoint->url === $url,

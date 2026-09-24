@@ -4,7 +4,17 @@
          bootstrap="vendor/autoload.php"
          colors="true"
          defaultTestSuite="Unit,Feature,Browser"
+         enforceTimeLimit="true"
+         defaultTimeLimit="60"
+         failOnRisky="true"
 >
+    <!--
+        No test takes more than a few seconds, so one that runs for a minute is
+        stuck: most often a browser test whose Playwright server went away,
+        which pest-plugin-browser waits on forever at 100% CPU. The limit turns
+        that hang into a failure (a timed-out test is reported as risky, and
+        risky tests fail the run). Enforced only where ext-pcntl is loaded.
+    -->
     <testsuites>
         <testsuite name="Unit">
             <directory>tests/Unit</directory>

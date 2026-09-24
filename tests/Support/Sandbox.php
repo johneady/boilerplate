@@ -4,7 +4,6 @@ namespace Tests\Support;
 
 use App\Payments\Drivers\PayPal\PayPalClient;
 use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\URL;
 use Stripe\StripeClient;
 
 /**
@@ -65,12 +64,12 @@ class Sandbox
     }
 
     /**
-     * Generate URLs as a public HTTPS site would, for webhook registration.
+     * Publish the site at a public HTTPS address (APP_URL), for webhook
+     * registration.
      */
     public static function servePublicly(): void
     {
-        URL::forceRootUrl(static::PUBLIC_ROOT);
-        URL::forceScheme('https');
+        config()->set('app.url', static::PUBLIC_ROOT);
     }
 
     /**

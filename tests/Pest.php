@@ -45,6 +45,44 @@ pest()->tia()->defaultBranch('main')->locally();
 
 /*
 |--------------------------------------------------------------------------
+| One test run at a time per checkout
+|--------------------------------------------------------------------------
+|
+| Two Pest runs in this checkout at once break each other's browser tests.
+| pest-plugin-browser v5.0.1 keeps its Playwright server's address in ONE file
+| (vendor/pestphp/pest-plugin-browser/.temp/playwright-server.json), which
+| every run rewrites and deletes when it finishes -- even a run with no browser
+| tests in it -- and the teardown hook below kills every server started from
+| this checkout. So a second run finishing mid-way through a first takes the
+| first's server away, and the first's browser workers then busy-loop forever
+| at 100% CPU: Playwright\Client::execute() reads a closed WebSocket as an
+| empty message and loops again, with no timeout. That is what made a full
+| `composer test` appear to hang while another run (an editor, an agent, a
+| second terminal) came and went.
+|
+| So the run takes an exclusive lock for the checkout and holds it until it
+| exits; a second run waits for the first, saying so. Only the parent process
+| takes it: parallel workers belong to the run that already holds it. It is
+| taken here, while tests are loading -- before the plugin starts a server
+| for any browser test in the run, and long before its end-of-run cleanup.
+|
+*/
+
+if (! Parallel::isWorker()) {
+    $pestRunLock = fopen(sys_get_temp_dir().DIRECTORY_SEPARATOR.'pest-'.md5(dirname(__DIR__)).'.lock', 'c');
+
+    if ($pestRunLock !== false && ! flock($pestRunLock, LOCK_EX | LOCK_NB)) {
+        fwrite(STDERR, "Another test run is using this checkout; waiting for it to finish...\n");
+        flock($pestRunLock, LOCK_EX);
+    }
+
+    // Held for the life of the process: the lock is released when the handle
+    // is, which PHP does only at exit while this reference is alive.
+    $GLOBALS['pestRunLock'] = $pestRunLock;
+}
+
+/*
+|--------------------------------------------------------------------------
 | Playwright server teardown
 |--------------------------------------------------------------------------
 |

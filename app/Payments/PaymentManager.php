@@ -6,6 +6,7 @@ use App\Auth\DevLoginAccounts;
 use App\Models\Payment;
 use App\Payments\Contracts\DisputeDriver;
 use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Contracts\RegistersWebhooks;
 use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Contracts\WebhookDriver;
 use App\Payments\Drivers\DemoDriver;
@@ -122,8 +123,7 @@ class PaymentManager
     public function subscriptionDriver(Gateway $gateway, GatewayMode $mode): SubscriptionDriver
     {
         return match ($gateway) {
-            Gateway::Stripe => new StripeDriver($mode, $this->credentials->stripe($mode)),
-            Gateway::PayPal => new PayPalDriver($this->paypalClient($mode), $mode),
+            Gateway::Stripe, Gateway::PayPal => $this->gatewayDriver($gateway, $mode),
             Gateway::Demo => $this->demoDriver(),
             Gateway::Manual => throw new InvalidArgumentException('Manual payments cannot bill a subscription.'),
         };
@@ -135,8 +135,7 @@ class PaymentManager
     public function driver(Gateway $gateway, GatewayMode $mode): PaymentDriver
     {
         return match ($gateway) {
-            Gateway::Stripe => new StripeDriver($mode, $this->credentials->stripe($mode)),
-            Gateway::PayPal => new PayPalDriver($this->paypalClient($mode), $mode),
+            Gateway::Stripe, Gateway::PayPal => $this->gatewayDriver($gateway, $mode),
             Gateway::Demo => $this->demoDriver(),
             Gateway::Manual => new ManualDriver,
         };
@@ -154,8 +153,7 @@ class PaymentManager
     public function webhookDriver(Gateway $gateway, GatewayMode $mode): WebhookDriver
     {
         return match ($gateway) {
-            Gateway::Stripe => new StripeDriver($mode, $this->credentials->stripe($mode)),
-            Gateway::PayPal => new PayPalDriver($this->paypalClient($mode), $mode),
+            Gateway::Stripe, Gateway::PayPal => $this->gatewayDriver($gateway, $mode),
             Gateway::Demo, Gateway::Manual => throw new InvalidArgumentException("{$gateway->label()} does not send webhooks."),
         };
     }
@@ -163,10 +161,27 @@ class PaymentManager
     public function disputeDriver(Gateway $gateway, GatewayMode $mode): DisputeDriver
     {
         return match ($gateway) {
-            Gateway::Stripe => new StripeDriver($mode, $this->credentials->stripe($mode)),
-            Gateway::PayPal => new PayPalDriver($this->paypalClient($mode), $mode),
+            Gateway::Stripe, Gateway::PayPal => $this->gatewayDriver($gateway, $mode),
             Gateway::Demo, Gateway::Manual => throw new InvalidArgumentException("{$gateway->label()} payments cannot be disputed through the gateway."),
         };
+    }
+
+    public function webhookRegistrar(Gateway $gateway, GatewayMode $mode): RegistersWebhooks
+    {
+        return match ($gateway) {
+            Gateway::Stripe, Gateway::PayPal => $this->gatewayDriver($gateway, $mode),
+            Gateway::Demo, Gateway::Manual => throw new InvalidArgumentException("{$gateway->label()} does not send webhooks."),
+        };
+    }
+
+    /**
+     * A real gateway's driver, which is every kind of driver at once.
+     */
+    private function gatewayDriver(Gateway $gateway, GatewayMode $mode): StripeDriver|PayPalDriver
+    {
+        return $gateway === Gateway::Stripe
+            ? new StripeDriver($mode, $this->credentials->stripe($mode))
+            : new PayPalDriver($this->paypalClient($mode), $mode);
     }
 
     private function demoDriver(): DemoDriver

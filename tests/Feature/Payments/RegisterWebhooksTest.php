@@ -6,13 +6,13 @@ use App\Notifications\Payments\PaymentCredentialsChanged;
 use App\Payments\Actions\RegisterWebhooks;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
+use App\Payments\Exceptions\GatewayException;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Notification;
-use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Tests\Support\GatewayFakes;
 use Tests\Support\PaymentFixtures;
@@ -36,12 +36,11 @@ beforeEach(function () {
 });
 
 /**
- * Generate URLs as a site served from this address would.
+ * Publish the site at this address (APP_URL).
  */
 function servedFrom(string $root): void
 {
-    URL::forceRootUrl($root);
-    URL::forceScheme((string) parse_url($root, PHP_URL_SCHEME));
+    config()->set('app.url', $root);
 }
 
 function fakeStripeEndpoints(): void
@@ -127,4 +126,24 @@ test('the settings button needs the password and tells operators', function () {
 
     expect(app(Settings::class)->string(SettingKey::StripeSandboxWebhookSecret))->toBe('whsec_test_Registered');
     Notification::assertSentOnDemand(PaymentCredentialsChanged::class);
+});
+
+test('the endpoint is the published address, whatever host the administrator is using', function () {
+    fakeStripeEndpoints();
+    $this->get('http://admin.internal/');
+
+    app(RegisterWebhooks::class)->handle(Gateway::Stripe, GatewayMode::Sandbox);
+
+    Http::assertSent(fn (Request $request): bool => GatewayFakes::is($request, 'POST /v1/webhook_endpoints')
+        && GatewayFakes::stripeBody($request)['url'] === STRIPE_ENDPOINT);
+});
+
+test('the new Stripe secret is kept even when clearing out the old endpoint fails', function () {
+    GatewayFakes::stripe([
+        'POST /v1/webhook_endpoints' => PaymentFixtures::load('stripe/webhook_endpoint'),
+        'GET /v1/webhook_endpoints' => fn () => Http::response(['error' => ['message' => 'Rate limited']], 429),
+    ]);
+
+    expect(fn () => app(RegisterWebhooks::class)->handle(Gateway::Stripe, GatewayMode::Sandbox))->toThrow(GatewayException::class)
+        ->and(app(Settings::class)->string(SettingKey::StripeSandboxWebhookSecret))->toBe('whsec_test_Registered');
 });

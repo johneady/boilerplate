@@ -50,7 +50,9 @@ class ReconcileDispute
         [$dispute, $opened] = DB::transaction(function () use ($payment, $reported): array {
             Payment::query()->lockForUpdate()->findOrFail($payment->id);
 
-            $dispute = $payment->disputes()->where('gateway_dispute_id', $reported->id)->first()
+            // Found across every payment: the gateway's id is unique per
+            // gateway, and a later event may name the payment differently.
+            $dispute = Dispute::query()->where('gateway', $payment->gateway->value)->where('gateway_dispute_id', $reported->id)->first()
                 ?? $payment->disputes()->create([
                     'gateway' => $payment->gateway,
                     'mode' => $payment->mode,
@@ -64,7 +66,11 @@ class ReconcileDispute
 
             $this->apply($dispute, $reported);
 
-            $opened = Dispute::query()->whereKey($dispute->id)->whereNull('opened_notified_at')->update(['opened_notified_at' => CarbonImmutable::now()]) === 1;
+            // Only a dispute still open needs a response; one first seen
+            // already decided (an inquiry closed with no chargeback) does not
+            // merit an alert asking for evidence.
+            $opened = $dispute->status->isOpen()
+                && Dispute::query()->whereKey($dispute->id)->whereNull('opened_notified_at')->update(['opened_notified_at' => CarbonImmutable::now()]) === 1;
 
             return [$dispute, $opened];
         });
@@ -92,6 +98,7 @@ class ReconcileDispute
             $dispute->evidence_due_by = $reported->evidenceDueBy ?? $dispute->evidence_due_by;
         } else {
             $dispute->closed_at ??= CarbonImmutable::now();
+            $dispute->evidence_due_by = null;
         }
 
         if ($reported->amount !== null && $reported->amount->currency === $dispute->currency) {

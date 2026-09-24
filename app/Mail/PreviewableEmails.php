@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
+use App\Models\Dispute;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanPrice;
@@ -15,6 +16,7 @@ use App\Notifications\ContactSubmissionReceived;
 use App\Notifications\PasswordChanged;
 use App\Notifications\Payments\AbandonedSubscriptionCanceled;
 use App\Notifications\Payments\AuthorizationExpiring;
+use App\Notifications\Payments\DisputeOpened;
 use App\Notifications\Payments\DuplicatePaymentRefunded;
 use App\Notifications\Payments\PaymentCredentialsChanged;
 use App\Notifications\Payments\PaymentReceipt;
@@ -30,6 +32,7 @@ use App\Notifications\QueueJobFailed;
 use App\Payments\Enums\BillingInterval;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Currency;
+use App\Payments\Enums\DisputeStatus;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\PaymentStatus;
@@ -250,6 +253,24 @@ class PreviewableEmails
                 'mailable' => null,
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $abandonedCanceled->toMail($notifiable),
+            ],
+            'dispute-opened' => [
+                'description' => 'payment disputed alert',
+                'notification' => $disputeOpened = new DisputeOpened((new Dispute)->forceFill([
+                    'id' => 1,
+                    'payment_id' => 1,
+                    'gateway' => Gateway::Stripe,
+                    'mode' => GatewayMode::Live,
+                    'gateway_dispute_id' => 'dp_1Pxample0000000000000000',
+                    'currency' => Currency::CAD,
+                    'amount' => 56500,
+                    'reason' => 'fraudulent',
+                    'status' => DisputeStatus::NeedsResponse,
+                    'evidence_due_by' => now()->addDays(7),
+                ])->setRelation('payment', $payment)),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $disputeOpened->toMail($notifiable),
             ],
             'queue-failure' => [
                 'description' => 'queued job failure alert',

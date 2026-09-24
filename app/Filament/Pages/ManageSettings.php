@@ -724,7 +724,7 @@ class ManageSettings extends Page
             ->color('gray')
             ->authorize(fn (): bool => auth()->user()?->hasPermission(Permission::ManagePaymentSettings) ?? false)
             ->modalHeading(__('payments.settings.connect_webhooks'))
-            ->modalDescription(fn (): string => (string) __('payments.settings.connect_webhooks_help', ['mode' => app(PaymentManager::class)->mode()->label()]))
+            ->modalDescription(fn (): string => $this->connectWebhooksDescription())
             ->schema([
                 Select::make('gateway')
                     ->label(__('payments.fields.gateway'))
@@ -763,6 +763,16 @@ class ManageSettings extends Page
 
                 Notification::make()->success()->title(__('payments.settings.webhooks_connected', ['gateway' => $gateway->label()]))->send();
             });
+    }
+
+    /**
+     * The connect-webhooks modal's description, naming the current mode.
+     * Cast here because __() widens to string|array once replacements are
+     * passed; the array arm is unreachable for this key.
+     */
+    protected function connectWebhooksDescription(): string
+    {
+        return (string) __('payments.settings.connect_webhooks_help', ['mode' => app(PaymentManager::class)->mode()->label()]);
     }
 
     /**

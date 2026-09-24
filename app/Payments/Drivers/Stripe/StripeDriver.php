@@ -319,11 +319,12 @@ class StripeDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
     }
 
     /**
-     * The new endpoint is created before the old one at the same URL is
-     * deleted, so no delivery is missed in between; an event both send is
-     * stored once (webhook_events is unique on the event id).
+     * The new endpoint is created, and its secret stored, before the old one
+     * at the same URL is deleted, so no delivery is missed in between; an
+     * event both send is stored once (webhook_events is unique on the event
+     * id).
      */
-    public function registerWebhook(string $url): string
+    public function registerWebhook(string $url, Closure $remember): void
     {
         $created = $this->call(fn () => $this->client()->webhookEndpoints->create([
             'url' => $url,
@@ -340,13 +341,13 @@ class StripeDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
             'description' => mb_substr(app(Settings::class)->businessName().' payments', 0, 5000),
         ]));
 
+        $remember((string) $created->secret);
+
         foreach ($this->call(fn () => $this->client()->webhookEndpoints->all(['limit' => 100]))->data as $endpoint) {
             if ($endpoint->url === $url && $endpoint->id !== $created->id) {
                 $this->call(fn () => $this->client()->webhookEndpoints->delete((string) $endpoint->id));
             }
         }
-
-        return (string) $created->secret;
     }
 
     public function disputeReference(WebhookEvent $event): ?string

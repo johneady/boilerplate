@@ -2,7 +2,6 @@
 
 namespace App\Payments\Actions;
 
-use App\Payments\Contracts\RegistersWebhooks;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Exceptions\GatewayException;
@@ -34,7 +33,10 @@ class RegisterWebhooks
      */
     public function handle(Gateway $gateway, GatewayMode $mode): SettingKey
     {
-        $url = route('payments.webhook', ['gateway' => $gateway->value, 'mode' => $mode->value]);
+        // From APP_URL, not the request: the admin may be on another host
+        // (www or not, a preview domain) or behind an untrusted proxy, and the
+        // gateway must be given the address the site is published at.
+        $url = rtrim((string) config('app.url'), '/').route('payments.webhook', ['gateway' => $gateway->value, 'mode' => $mode->value], absolute: false);
         $host = (string) parse_url($url, PHP_URL_HOST);
 
         // Both gateways deliver only to a public HTTPS address; asking them
@@ -43,9 +45,7 @@ class RegisterWebhooks
             throw new PaymentNotAllowed(__('Webhooks can only be connected from a public HTTPS address (this site is :url). Set APP_URL, or forward webhooks with the Stripe CLI while developing.', ['url' => $url]));
         }
 
-        $driver = $gateway->sendsWebhooks() ? $this->payments->disputeDriver($gateway, $mode) : null;
-
-        if (! $driver instanceof RegistersWebhooks) {
+        if (! $gateway->sendsWebhooks()) {
             throw new PaymentNotAllowed(__('That gateway does not send webhooks.'));
         }
 
@@ -56,7 +56,10 @@ class RegisterWebhooks
             default => SettingKey::PayPalLiveWebhookId,
         };
 
-        $this->settings->set($key, $driver->registerWebhook($url));
+        $this->payments->webhookRegistrar($gateway, $mode)->registerWebhook(
+            $url,
+            fn (string $verification) => $this->settings->set($key, $verification),
+        );
 
         return $key;
     }
