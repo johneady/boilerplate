@@ -7,6 +7,8 @@ use App\Auth\DevLoginAccounts;
 use App\Models\Page;
 use App\Models\User;
 use App\Notifications\PasswordChanged;
+use App\Payments\PaymentCredentials;
+use App\Payments\PaymentManager;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
@@ -45,6 +47,12 @@ class AppServiceProvider extends ServiceProvider
         // the acting user, so a singleton on a long-lived worker would
         // attribute every entry to whoever was authenticated when it booted.
         $this->app->scoped(AuditLogger::class);
+
+        // Scoped with Settings, which they hold: a long-lived worker must read
+        // the payment switches and credentials an administrator has changed
+        // since it booted, not the ones it started with.
+        $this->app->scoped(PaymentManager::class);
+        $this->app->scoped(PaymentCredentials::class);
     }
 
     /**
@@ -107,6 +115,14 @@ class AppServiceProvider extends ServiceProvider
      */
     protected function configureRateLimiting(): void
     {
+        // Generous and keyed on the gateway rather than the caller: Stripe and
+        // PayPal deliver from many addresses, and a burst of legitimate events
+        // (a batch of dashboard refunds) must not be turned away. This bounds
+        // a flood of forged posts, each of which still has to fail a signature.
+        RateLimiter::for('payment-webhooks', fn (Request $request) => Limit::perMinute(600)->by(
+            'gateway:'.$request->route('gateway')
+        ));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by(
             // Namespaced so a user identifier can never collide with an IP.
             // Harmless while identifiers are integers and addresses are dotted,

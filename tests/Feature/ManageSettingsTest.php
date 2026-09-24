@@ -163,6 +163,13 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'locale',
         'date_format',
         'time_format',
+        'payments_enabled',
+        'payments_mode',
+        'payments_currency',
+        'stripe_enabled',
+        'paypal_enabled',
+        'demo_gateway_enabled',
+        'manual_payments_enabled',
     ]);
 });
 
@@ -310,7 +317,13 @@ test('each setting is edited on its declared tab', function () {
     // is edited through the mailer button's modal rather than tab fields.
     // The mailer group is edited through the mailer button's modal, and the
     // site icon through the Brand tab's buttons, rather than tab fields.
-    $editedInModal = ['mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'logo'];
+    // The gateway credentials through the Payments tab's two credential modals.
+    $editedInModal = [
+        'mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'logo',
+        'stripe_sandbox_secret_key', 'stripe_sandbox_webhook_secret', 'stripe_live_secret_key', 'stripe_live_webhook_secret',
+        'paypal_sandbox_client_id', 'paypal_sandbox_client_secret', 'paypal_sandbox_webhook_id',
+        'paypal_live_client_id', 'paypal_live_client_secret', 'paypal_live_webhook_id',
+    ];
 
     $flattener = function (array $components) use (&$flattener): array {
         $result = [];

@@ -52,6 +52,20 @@ enum Permission: string
 
     case AccessAdminPanel = 'admin-panel.access';
 
+    case ViewPayments = 'payments.view';
+
+    case RefundPayments = 'payments.refund';
+
+    /** Capturing and voiding authorized payments (holds). */
+    case CapturePayments = 'payments.capture';
+
+    case RecordManualPayments = 'payments.record-manual';
+
+    case ManagePaymentLinks = 'payment-links.manage';
+
+    /** The Payments settings tab, gateway credentials, tax rates and webhook events. */
+    case ManagePaymentSettings = 'payment-settings.manage';
+
     /**
      * The label shown wherever a permission is listed for a human.
      */
@@ -75,6 +89,12 @@ enum Permission: string
             self::DeleteMedia => 'Delete uploaded files',
             self::ViewAuditLog => 'View the audit log',
             self::AccessAdminPanel => 'Access the admin panel',
+            self::ViewPayments => 'View payments and refunds',
+            self::RefundPayments => 'Refund payments',
+            self::CapturePayments => 'Capture or void held payments',
+            self::RecordManualPayments => 'Record payments received outside the site',
+            self::ManagePaymentLinks => 'Create and edit payment links',
+            self::ManagePaymentSettings => 'Manage payment settings, credentials and tax rates',
         };
     }
 }

@@ -287,6 +287,67 @@ Sanctum is **not** installed. Token auth is a ten-minute addition when a project
 needs it, and an unused authentication surface until then; `routes/api/v1.php`
 carries a commented `auth:sanctum` group showing where it goes.
 
+### Payments
+
+Built in and **off until switched on** (Admin → Settings → Payments). While off,
+every payment route answers 404 and the payment screens are hidden, so an
+installation that never takes money looks like one without the module. The code
+lives in [`app/Payments`](app/Payments).
+
+| Gateway | What it is |
+| --- | --- |
+| Stripe | Stripe Checkout (hosted), for Canadian or US accounts. Cards, Apple Pay, Google Pay. |
+| PayPal | PayPal Checkout (Orders v2). Needs a **Business** account: PayPal only issues live API credentials to Business accounts (upgrading a Personal one is free and keeps its login). |
+| Demo | A pretend gateway with no credentials and no money, for client demos and tests. Refused in `production`, like the dev login. |
+| Manual | Money received outside the site (Interac e-Transfer, cheque, cash, PayPal.Me), recorded by an administrator. |
+
+Customers pay on the gateway's hosted page, so card data never touches this
+application. One-time payments, full and partial refunds, and holds
+(authorize now, capture or void later) work on every gateway.
+
+**What gets paid for.** Anything implementing
+[`Payable`](app/Payments/Contracts/Payable.php) -- the model computes the
+amount, so a price never comes from the browser. The boilerplate ships
+[`PaymentLink`](app/Models/PaymentLink.php) as its own payable (Admin →
+Payments → Payment links): a `/pay/{token}` page for a fixed or
+customer-entered amount, single-use (an invoice) or reusable. A project's own
+`Order` or `Booking` becomes payable by implementing the contract with
+`App\Concerns\IsPayable`, and gets the admin actions and receipts for free;
+[`RecordManualPaymentAction`](app/Filament/Actions/RecordManualPaymentAction.php)
+adds manual payments to its resource.
+
+**Tax.** Admin → Payments → Tax rates. Every active rate is added on top of a
+taxable item's price, each rounded on its own (so GST 5% + PST 7% print as two
+lines, as a Canadian receipt does). The lines charged are snapshotted onto the
+payment, so editing a rate never changes a past receipt.
+
+**Credentials** are entered in the panel, one set for sandbox and one for
+live, and are encrypted with `APP_KEY`, never sent back to the browser, and
+changed only with the administrator's password; every change emails the ops
+alert address. **Rotating `APP_KEY` makes them unreadable** unless the old key
+is listed in `APP_PREVIOUS_KEYS` -- Diagnostics reports it if that happens.
+
+**Webhooks.** Register one endpoint per gateway and mode at the gateway,
+pointing at `/webhooks/{stripe|paypal}/{sandbox|live}` (the credentials modal
+shows the exact URLs), and save its signing secret (Stripe) or webhook ID
+(PayPal). Payments still complete without webhooks -- the customer's return and
+the scheduled reconciliation record them -- but dashboard refunds, and customers
+who close the tab after paying, are only picked up promptly with them.
+
+**Integrity.** Money is integer minor units throughout. Every movement is an
+append-only row in `payment_transactions`; a payment's amounts, currency and
+customer are write-once and payments are never deleted, by the panel or by
+code. Every gateway call carries an idempotency key, webhook events are stored
+once per id, and a payment is re-read from the gateway rather than trusted from
+a webhook payload, so retries, duplicate deliveries and out-of-order events are
+harmless. State changes run in short transactions under a row lock that is
+never held across a gateway call; the scheduled tasks (`payments:*` in
+[`routes/console.php`](routes/console.php)) expire abandoned checkouts, warn
+about holds nearing expiry and finish any operation whose result was lost.
+
+Emails (receipts, refunds, operator alerts) are queued, sent only after the
+change commits, and previewable at `/dev/mails`.
+
 ### Error pages
 
 `resources/views/errors/` styles 403, 404, 419, 429, 500 and 503 with the

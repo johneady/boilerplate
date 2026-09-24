@@ -1,0 +1,18 @@
+{
+    "id": "5O190127TN364715T",
+    "status": "COMPLETED",
+    "intent": "AUTHORIZE",
+    "purchase_units": [{
+        "reference_id": "default",
+        "amount": {"currency_code": "CAD", "value": "113.00"},
+        "payments": {
+            "authorizations": [{
+                "id": "0VF52814937998046",
+                "status": "CREATED",
+                "amount": {"currency_code": "CAD", "value": "113.00"},
+                "expiration_time": "2026-10-22T12:01:00Z",
+                "create_time": "2026-09-23T12:01:00Z"
+            }]
+        }
+    }]
+}

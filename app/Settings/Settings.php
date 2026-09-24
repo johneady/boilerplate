@@ -8,9 +8,11 @@ use App\Media\MediaCollection;
 use App\Models\Media;
 use App\Models\Setting;
 use Carbon\CarbonInterface;
+use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\LostConnectionException;
 use Illuminate\Database\QueryException;
 use Illuminate\Database\SQLiteDatabaseDoesNotExistException;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -48,6 +50,17 @@ class Settings
     private Media|false|null $resolvedLogoMedia = false;
 
     /**
+     * Encrypted settings whose stored value would not decrypt, keyed by value.
+     *
+     * Recorded rather than rethrown so a rotated APP_KEY degrades to "not
+     * configured" -- and is reported once and surfaced by the payment
+     * diagnostics -- instead of taking every page that reads a setting down.
+     *
+     * @var array<string, true>
+     */
+    private array $undecryptable = [];
+
+    /**
      * Read a setting, falling back to the key's declared default.
      */
     public function get(SettingKey $key): mixed
@@ -58,7 +71,53 @@ class Settings
             return $key->default();
         }
 
-        return $key->cast($stored[$key->value]);
+        $value = $stored[$key->value];
+
+        if ($key->isEncrypted()) {
+            $value = $this->decrypt($key, $value);
+        }
+
+        return $key->cast($value);
+    }
+
+    /**
+     * An encrypted setting as it may be shown: "sk_live_…a1b2", or '' if unset.
+     *
+     * Only the last four characters are revealed, plus a known non-secret
+     * prefix (Stripe's key type), which is enough to tell a sandbox key from
+     * a live one and to confirm which key is stored.
+     */
+    public function masked(SettingKey $key): string
+    {
+        $value = $this->string($key);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $prefix = preg_match('/^(sk_test_|sk_live_|rk_test_|rk_live_|whsec_)/', $value, $matches) === 1 ? $matches[1] : '';
+
+        return $prefix.'…'.substr($value, -4);
+    }
+
+    /**
+     * The encrypted settings that are stored but cannot be decrypted.
+     *
+     * Non-empty after APP_KEY is rotated without the old key listed in
+     * APP_PREVIOUS_KEYS: the credentials are still in the table, but nothing
+     * can read them.
+     *
+     * @return list<SettingKey>
+     */
+    public function undecryptableKeys(): array
+    {
+        $keys = array_filter(SettingKey::cases(), fn (SettingKey $key): bool => $key->isEncrypted());
+
+        foreach ($keys as $key) {
+            $this->get($key);
+        }
+
+        return array_values(array_filter($keys, fn (SettingKey $key): bool => isset($this->undecryptable[$key->value])));
     }
 
     /**
@@ -348,7 +407,7 @@ class Settings
 
                 Setting::updateOrCreate(
                     ['key' => $key->value],
-                    ['value' => $cast],
+                    ['value' => $this->encryptForStorage($key, $cast)],
                 );
 
                 if ($previous !== $cast) {
@@ -377,10 +436,53 @@ class Settings
         $values = [];
 
         foreach (SettingKey::cases() as $key) {
+            // Encrypted settings are read one at a time, by name, never in
+            // bulk: this array fills the admin form, so anything in it ends
+            // up in the Livewire payload in the browser.
+            if ($key->isEncrypted()) {
+                continue;
+            }
+
             $values[$key->value] = $this->get($key);
         }
 
         return $values;
+    }
+
+    /**
+     * The value to write for a setting: ciphertext for an encrypted one.
+     *
+     * A blank stays blank, so "not configured" remains distinguishable from a
+     * configured value without decrypting anything.
+     */
+    private function encryptForStorage(SettingKey $key, mixed $value): mixed
+    {
+        if (! $key->isEncrypted() || ! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        return Crypt::encryptString($value);
+    }
+
+    /**
+     * Decrypt a stored value, degrading to blank when it cannot be.
+     */
+    private function decrypt(SettingKey $key, mixed $value): mixed
+    {
+        if (! is_string($value) || $value === '') {
+            return $value;
+        }
+
+        try {
+            return Crypt::decryptString($value);
+        } catch (DecryptException $e) {
+            if (! isset($this->undecryptable[$key->value])) {
+                $this->undecryptable[$key->value] = true;
+                report($e);
+            }
+
+            return '';
+        }
     }
 
     /**
@@ -410,6 +512,7 @@ class Settings
     private function flush(): void
     {
         $this->cache = null;
+        $this->undecryptable = [];
     }
 
     /**

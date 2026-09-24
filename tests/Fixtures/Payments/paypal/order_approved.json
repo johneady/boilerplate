@@ -1,0 +1,6 @@
+{
+    "id": "5O190127TN364715T",
+    "status": "APPROVED",
+    "intent": "CAPTURE",
+    "purchase_units": [{"reference_id": "default", "amount": {"currency_code": "CAD", "value": "113.00"}}]
+}

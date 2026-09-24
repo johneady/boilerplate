@@ -44,6 +44,10 @@ test('the housekeeping tasks every project needs are scheduled', function (strin
     'app:adopt-page-body-images',
     'app:prune-orphaned-media',
     'queue:restart',
+    'payments:reconcile-stale',
+    'payments:expire-checkouts',
+    'payments:check-authorizations',
+    'payments:prune-webhook-events',
 ]);
 
 /**
@@ -65,6 +69,10 @@ test('recurring maintenance tasks cannot overlap or double-run', function (strin
     'app:adopt-page-body-images',
     'app:prune-orphaned-media',
     'queue:restart',
+    'payments:reconcile-stale',
+    'payments:expire-checkouts',
+    'payments:check-authorizations',
+    'payments:prune-webhook-events',
 ]);
 
 /**
@@ -72,11 +80,15 @@ test('recurring maintenance tasks cannot overlap or double-run', function (strin
  * never releases its lock, so an hourly task taking the default would stay
  * blocked for a day after a single hard restart.
  */
-test('overlap locks expire well inside a day', function () {
-    $event = scheduledEventFor('app:prune-expired-storage');
-
-    expect($event->expiresAt)->toBeLessThan(1440);
-});
+test('overlap locks expire well inside a day', function (string $command) {
+    expect(scheduledEventFor($command)->expiresAt)->toBeLessThan(1440);
+})->with([
+    'app:prune-expired-storage',
+    'payments:reconcile-stale',
+    'payments:expire-checkouts',
+    'payments:check-authorizations',
+    'payments:prune-webhook-events',
+]);
 
 test('queued jobs retry a bounded number of times and then stop', function () {
     $job = new class extends Job

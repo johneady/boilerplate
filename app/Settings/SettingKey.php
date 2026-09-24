@@ -150,6 +150,45 @@ enum SettingKey: string
 
     case TimeFormat = 'time_format';
 
+    case PaymentsEnabled = 'payments_enabled';
+
+    case PaymentsMode = 'payments_mode';
+
+    case PaymentsCurrency = 'payments_currency';
+
+    case StripeEnabled = 'stripe_enabled';
+
+    case PayPalEnabled = 'paypal_enabled';
+
+    case DemoGatewayEnabled = 'demo_gateway_enabled';
+
+    case ManualPaymentsEnabled = 'manual_payments_enabled';
+
+    /*
+     * Gateway credentials: a sandbox and a live set for each gateway, edited
+     * through the credential modals on the Payments tab (never the tab's own
+     * form) and encrypted at rest where isEncrypted() says so.
+     */
+    case StripeSandboxSecretKey = 'stripe_sandbox_secret_key';
+
+    case StripeSandboxWebhookSecret = 'stripe_sandbox_webhook_secret';
+
+    case StripeLiveSecretKey = 'stripe_live_secret_key';
+
+    case StripeLiveWebhookSecret = 'stripe_live_webhook_secret';
+
+    case PayPalSandboxClientId = 'paypal_sandbox_client_id';
+
+    case PayPalSandboxClientSecret = 'paypal_sandbox_client_secret';
+
+    case PayPalSandboxWebhookId = 'paypal_sandbox_webhook_id';
+
+    case PayPalLiveClientId = 'paypal_live_client_id';
+
+    case PayPalLiveClientSecret = 'paypal_live_client_secret';
+
+    case PayPalLiveWebhookId = 'paypal_live_webhook_id';
+
     /**
      * The settings-page tab this key is edited on.
      */
@@ -161,6 +200,9 @@ enum SettingKey: string
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => SettingsTab::Mail,
             self::Timezone, self::Locale, self::DateFormat, self::TimeFormat => SettingsTab::LocaleTime,
+            self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled,
+            self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
+            self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => SettingsTab::Payments,
         };
     }
 
@@ -184,6 +226,13 @@ enum SettingKey: string
             self::Locale => 'en',
             self::DateFormat => array_key_first(self::DATE_FORMATS),
             self::TimeFormat => self::DEFAULT_TIME_FORMAT,
+            // Off until an administrator turns payments on: every installation
+            // inherits this module, and most never take a payment.
+            self::PaymentsEnabled, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled => false,
+            self::PaymentsMode => 'sandbox',
+            self::PaymentsCurrency => 'CAD',
+            self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
+            self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => '',
         };
     }
 
@@ -207,6 +256,14 @@ enum SettingKey: string
             self::Locale => self::toOneOf($value, array_keys(self::LOCALES), 'en'),
             self::DateFormat => self::toOneOf($value, array_keys(self::DATE_FORMATS), array_key_first(self::DATE_FORMATS)),
             self::TimeFormat => self::toOneOf($value, array_keys(self::TIME_FORMATS), self::DEFAULT_TIME_FORMAT),
+            // Each switch gates taking real money, so each fails closed.
+            self::PaymentsEnabled, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled => self::toBoolean($value),
+            // Fails closed to sandbox: a hand-edited typo must never be what
+            // points an installation at live credentials.
+            self::PaymentsMode => self::toOneOf($value, ['sandbox', 'live'], 'sandbox'),
+            self::PaymentsCurrency => self::toOneOf($value, ['CAD', 'USD'], 'CAD'),
+            self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
+            self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => self::toFilledString($value, ''),
         };
     }
 
@@ -285,13 +342,40 @@ enum SettingKey: string
     public function isSecret(): bool
     {
         return match ($this) {
-            self::MailPassword => true,
+            self::MailPassword, self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
             self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
-            self::TimeFormat => false,
+            self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled,
+            self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,
+        };
+    }
+
+    /**
+     * Whether this setting is encrypted at rest and never read back in bulk.
+     *
+     * Payment credentials can move money, so they are stored encrypted with
+     * the application key, are left out of Settings::toArray() (and so out of
+     * every form fill and Livewire payload), and are shown in the panel only
+     * masked. MailPassword predates this and is not encrypted: it is
+     * redacted from the audit trail by isSecret() but otherwise stored as is.
+     *
+     * A match rather than a list, like isSecret(), so a new case must be
+     * classified here.
+     */
+    public function isEncrypted(): bool
+    {
+        return match ($this) {
+            self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
+            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
+            self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
+            self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
+            self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress,
+            self::MailFromName, self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
+            self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled,
+            self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,
         };
     }
 
@@ -323,6 +407,23 @@ enum SettingKey: string
             self::Locale => 'Locale',
             self::DateFormat => 'Date format',
             self::TimeFormat => 'Time format',
+            self::PaymentsEnabled => 'Accept payments',
+            self::PaymentsMode => 'Mode',
+            self::PaymentsCurrency => 'Currency',
+            self::StripeEnabled => 'Offer Stripe',
+            self::PayPalEnabled => 'Offer PayPal',
+            self::DemoGatewayEnabled => 'Offer the demo gateway',
+            self::ManualPaymentsEnabled => 'Record manual payments',
+            self::StripeSandboxSecretKey => 'Sandbox secret key',
+            self::StripeSandboxWebhookSecret => 'Sandbox webhook signing secret',
+            self::StripeLiveSecretKey => 'Live secret key',
+            self::StripeLiveWebhookSecret => 'Live webhook signing secret',
+            self::PayPalSandboxClientId => 'Sandbox client ID',
+            self::PayPalSandboxClientSecret => 'Sandbox client secret',
+            self::PayPalSandboxWebhookId => 'Sandbox webhook ID',
+            self::PayPalLiveClientId => 'Live client ID',
+            self::PayPalLiveClientSecret => 'Live client secret',
+            self::PayPalLiveWebhookId => 'Live webhook ID',
         };
     }
 
@@ -354,6 +455,18 @@ enum SettingKey: string
             self::Locale => 'Localises month and day names and relative times such as "2 hours ago". Interface text stays in English until translation files are added to the application.',
             self::DateFormat => 'How dates are shown. Each option names the convention it belongs to; month and day names follow the locale chosen above.',
             self::TimeFormat => 'Shown beside the date wherever a full date and time appears.',
+            self::PaymentsEnabled => 'When off, no new payment can be started: payment links answer 404 and the payment screens are hidden from the admin panel. Receipts already sent keep working, and webhooks still complete refunds and holds already in flight.',
+            self::PaymentsMode => 'Sandbox uses each gateway\'s test credentials and moves no real money. Every payment records the mode it was made in, so test payments never mix with real ones.',
+            self::PaymentsCurrency => 'The currency new payments are charged in. Changing it never re-prices a payment already made.',
+            self::StripeEnabled => 'Offer card payments (and Apple Pay / Google Pay) through Stripe Checkout. Needs a secret key for the current mode.',
+            self::PayPalEnabled => 'Offer PayPal checkout. Needs a PayPal Business account; a Personal account can be upgraded free and keeps its login.',
+            self::DemoGatewayEnabled => 'A pretend gateway that takes no money and needs no credentials, for demonstrations. Never available in production.',
+            self::ManualPaymentsEnabled => 'Let administrators record money received outside the site, such as an Interac e-Transfer, a cheque or cash.',
+            self::StripeSandboxSecretKey, self::StripeLiveSecretKey => 'From the Stripe dashboard under Developers -> API keys (sk_test_... or sk_live_...). A restricted key works if it can write Checkout Sessions, PaymentIntents and Refunds.',
+            self::StripeSandboxWebhookSecret, self::StripeLiveWebhookSecret => 'The signing secret (whsec_...) of the webhook endpoint pointing at this site.',
+            self::PayPalSandboxClientId, self::PayPalLiveClientId => 'From the PayPal developer dashboard under Apps & Credentials.',
+            self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => 'The secret shown beside the client ID.',
+            self::PayPalSandboxWebhookId, self::PayPalLiveWebhookId => 'The ID of the webhook pointing at this site, used to verify that deliveries really come from PayPal.',
         };
     }
 }

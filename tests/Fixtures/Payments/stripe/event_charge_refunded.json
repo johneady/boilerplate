@@ -1,0 +1,15 @@
+{
+    "id": "evt_test_R8e",
+    "object": "event",
+    "api_version": "2026-08-26.dahlia",
+    "created": 1790000950,
+    "livemode": false,
+    "type": "charge.refunded",
+    "data": {
+        "object": {
+            "id": "ch_test_C5h",
+            "object": "charge",
+            "payment_intent": "pi_test_P4y"
+        }
+    }
+}

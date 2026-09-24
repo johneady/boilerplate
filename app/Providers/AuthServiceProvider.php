@@ -7,12 +7,22 @@ use App\Models\AuditLog;
 use App\Models\ContactSubmission;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\Payment;
+use App\Models\PaymentLink;
+use App\Models\PaymentTransaction;
+use App\Models\Refund;
+use App\Models\TaxRate;
 use App\Models\User;
+use App\Models\WebhookEvent;
 use App\Policies\AuditLogPolicy;
 use App\Policies\ContactSubmissionPolicy;
 use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
+use App\Policies\PaymentLinkPolicy;
+use App\Policies\PaymentPolicy;
+use App\Policies\TaxRatePolicy;
 use App\Policies\UserPolicy;
+use App\Policies\WebhookEventPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -101,7 +111,35 @@ class AuthServiceProvider extends ServiceProvider
         ContactSubmission::class => ContactSubmissionPolicy::class,
         Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
+        Payment::class => PaymentPolicy::class,
+        PaymentLink::class => PaymentLinkPolicy::class,
+        // Refunds and ledger rows are read under the same rules as the
+        // payment they belong to, and written by nobody through the Gate.
+        PaymentTransaction::class => PaymentPolicy::class,
+        Refund::class => PaymentPolicy::class,
+        TaxRate::class => TaxRatePolicy::class,
         User::class => UserPolicy::class,
+        WebhookEvent::class => WebhookEventPolicy::class,
+    ];
+
+    /**
+     * Records no one may create, edit or delete through the Gate,
+     * administrators included.
+     *
+     * The audit trail, and the payment records: money that moved is recorded
+     * by the payment actions and the ledger, and a hand-edited payment would
+     * be a financial record that no longer matches the gateway. The models
+     * enforce the same rule themselves (App\Concerns\GuardsFinancialRecord);
+     * this is what makes the panel agree.
+     *
+     * @var list<class-string>
+     */
+    private const array IMMUTABLE_MODELS = [
+        AuditLog::class,
+        Payment::class,
+        PaymentTransaction::class,
+        Refund::class,
+        WebhookEvent::class,
     ];
 
     /**
@@ -196,6 +234,13 @@ class AuthServiceProvider extends ServiceProvider
             return in_array($ability, self::CODE_WRITTEN_RECORD_ABILITIES, true);
         }
 
+        // A payment link that has taken money must not be deleted -- its
+        // payments name it as what they paid for -- so the bypass lets
+        // PaymentLinkPolicy::delete() decide, for administrators too.
+        if ($target instanceof PaymentLink) {
+            return in_array($ability, ['delete', 'forceDelete'], true);
+        }
+
         if (! in_array($ability, self::SELF_PROTECTED_ABILITIES, true)) {
             return false;
         }
@@ -236,10 +281,12 @@ class AuthServiceProvider extends ServiceProvider
      */
     private function isImmutableRecord(mixed $target): bool
     {
-        if ($target instanceof AuditLog) {
-            return true;
+        foreach (self::IMMUTABLE_MODELS as $model) {
+            if ($target instanceof $model || (is_string($target) && is_a($target, $model, true))) {
+                return true;
+            }
         }
 
-        return is_string($target) && is_a($target, AuditLog::class, true);
+        return false;
     }
 }

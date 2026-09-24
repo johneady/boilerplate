@@ -1,0 +1,16 @@
+{
+    "id": "evt_test_E7v",
+    "object": "event",
+    "api_version": "2026-08-26.dahlia",
+    "created": 1790000100,
+    "livemode": false,
+    "type": "checkout.session.completed",
+    "data": {
+        "object": {
+            "id": "cs_test_a1B2c3",
+            "object": "checkout.session",
+            "payment_intent": "pi_test_P4y",
+            "metadata": {}
+        }
+    }
+}

@@ -4,10 +4,27 @@ namespace App\Mail;
 
 use App\Jobs\ProcessUploadedImage;
 use App\Models\ContactSubmission;
+use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\User;
+use App\Models\WebhookEvent;
 use App\Notifications\ContactSubmissionReceived;
 use App\Notifications\PasswordChanged;
+use App\Notifications\Payments\AuthorizationExpiring;
+use App\Notifications\Payments\DuplicatePaymentRefunded;
+use App\Notifications\Payments\PaymentCredentialsChanged;
+use App\Notifications\Payments\PaymentReceipt;
+use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\WebhookProcessingFailed;
+use App\Notifications\Payments\WebhookSignatureRejected;
 use App\Notifications\QueueJobFailed;
+use App\Payments\Enums\CaptureMethod;
+use App\Payments\Enums\Currency;
+use App\Payments\Enums\Gateway;
+use App\Payments\Enums\GatewayMode;
+use App\Payments\Enums\PaymentStatus;
+use App\Payments\Enums\RefundStatus;
+use App\Payments\Enums\WebhookEventStatus;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Mail\Mailable;
@@ -107,6 +124,73 @@ class PreviewableEmails
                 'onDemand' => false,
                 'render' => fn (): MailMessage => $passwordChanged->toMail($notifiable),
             ],
+            // The payment emails. Every model is made in memory, never saved:
+            // a preview must leave nothing behind in the payments tables.
+            'payment-receipt' => [
+                'description' => 'payment receipt',
+                'notification' => $paymentReceipt = new PaymentReceipt($payment = $this->samplePayment()),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $paymentReceipt->toMail($notifiable),
+            ],
+            'refund-issued' => [
+                'description' => 'refund confirmation',
+                'notification' => $refundIssued = new RefundIssued($this->sampleRefund($payment)),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $refundIssued->toMail($notifiable),
+            ],
+            'payment-credentials-changed' => [
+                'description' => 'payment credentials changed alert',
+                'notification' => $credentialsChanged = new PaymentCredentialsChanged(
+                    gateway: 'Stripe',
+                    changedFields: ['Live secret key', 'Live webhook signing secret'],
+                    changedBy: 'Alex Admin <admin@example.com>',
+                    ipAddress: '203.0.113.42',
+                ),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $credentialsChanged->toMail($notifiable),
+            ],
+            'authorization-expiring' => [
+                'description' => 'payment hold expiring alert',
+                'notification' => $authorizationExpiring = new AuthorizationExpiring($this->samplePayment(PaymentStatus::Authorized)),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $authorizationExpiring->toMail($notifiable),
+            ],
+            'duplicate-payment-refunded' => [
+                'description' => 'duplicate payment refunded alert',
+                'notification' => $duplicateRefunded = new DuplicatePaymentRefunded($payment),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $duplicateRefunded->toMail($notifiable),
+            ],
+            'webhook-processing-failed' => [
+                'description' => 'payment webhook failure alert',
+                'notification' => $webhookFailed = new WebhookProcessingFailed(
+                    (new WebhookEvent)->forceFill([
+                        'gateway' => Gateway::Stripe,
+                        'mode' => GatewayMode::Live,
+                        'event_id' => 'evt_1Pxample0000000000000000',
+                        'type' => 'charge.refunded',
+                        'payload' => [],
+                        'status' => WebhookEventStatus::Failed,
+                        'attempts' => 5,
+                    ]),
+                    'Stripe could not be reached: cURL error 28: Operation timed out',
+                ),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $webhookFailed->toMail($notifiable),
+            ],
+            'webhook-signature-rejected' => [
+                'description' => 'payment webhook rejected alert',
+                'notification' => $signatureRejected = new WebhookSignatureRejected('PayPal', 'PayPal webhook signature verification failed.'),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $signatureRejected->toMail($notifiable),
+            ],
             'queue-failure' => [
                 'description' => 'queued job failure alert',
                 // Routed on demand rather than to the factory user: the real
@@ -148,6 +232,49 @@ class PreviewableEmails
             'id' => 1,
             'email' => $recipient,
         ]);
+    }
+
+    /**
+     * A paid, taxed payment made in memory for the payment emails.
+     */
+    private function samplePayment(PaymentStatus $status = PaymentStatus::Succeeded): Payment
+    {
+        return (new Payment)->forceFill([
+            'id' => 1,
+            'uuid' => '9c3b6f2e-1d4a-4c8b-9e2f-7a5d3c1b0e9f',
+            'customer_name' => 'Sam Customer',
+            'customer_email' => 'sam@example.test',
+            'description' => 'Website design deposit',
+            'gateway' => Gateway::Stripe,
+            'mode' => GatewayMode::Live,
+            'status' => $status,
+            'capture_method' => $status === PaymentStatus::Authorized ? CaptureMethod::Manual : CaptureMethod::Automatic,
+            'currency' => Currency::CAD,
+            'subtotal' => 50000,
+            'tax_total' => 6500,
+            'amount' => 56500,
+            'amount_captured' => $status === PaymentStatus::Authorized ? 0 : 56500,
+            'amount_refunded' => 0,
+            'tax_lines' => [['name' => 'HST', 'percentage' => '13.000', 'amount' => 6500]],
+            'authorization_expires_at' => now()->addHours(20),
+        ]);
+    }
+
+    /**
+     * A partial refund of the sample payment, made in memory.
+     */
+    private function sampleRefund(Payment $payment): Refund
+    {
+        return (new Refund)->forceFill([
+            'id' => 1,
+            'uuid' => '5e8d2c1a-7b3f-4a6e-8d9c-0f1e2d3c4b5a',
+            'payment_id' => $payment->id,
+            'gateway' => $payment->gateway,
+            'currency' => $payment->currency,
+            'amount' => 11300,
+            'tax_amount' => 1300,
+            'status' => RefundStatus::Succeeded,
+        ])->setRelation('payment', $payment);
     }
 
     /**
