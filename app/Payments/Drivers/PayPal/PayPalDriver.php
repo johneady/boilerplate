@@ -5,11 +5,14 @@ namespace App\Payments\Drivers\PayPal;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\WebhookEvent;
+use App\Payments\Contracts\DisputeDriver;
 use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Contracts\RegistersWebhooks;
 use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Contracts\WebhookDriver;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
+use App\Payments\Data\GatewayDispute;
 use App\Payments\Data\GatewayPaymentState;
 use App\Payments\Data\GatewayRefund;
 use App\Payments\Data\GatewayStatus;
@@ -18,6 +21,7 @@ use App\Payments\Data\PaymentReference;
 use App\Payments\Data\VerifiedWebhook;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Currency;
+use App\Payments\Enums\DisputeStatus;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
@@ -41,9 +45,37 @@ use Illuminate\Http\Request;
  * Requires a PayPal Business account: PayPal issues live REST credentials to
  * Business accounts only.
  */
-class PayPalDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
+class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, SubscriptionDriver, WebhookDriver
 {
     use ManagesPayPalSubscriptions;
+
+    /**
+     * Every event this application acts on.
+     */
+    private const array WEBHOOK_EVENTS = [
+        'CHECKOUT.ORDER.APPROVED',
+        'PAYMENT.CAPTURE.COMPLETED',
+        'PAYMENT.CAPTURE.DENIED',
+        'PAYMENT.CAPTURE.PENDING',
+        'PAYMENT.CAPTURE.REFUNDED',
+        'PAYMENT.CAPTURE.REVERSED',
+        'PAYMENT.AUTHORIZATION.CREATED',
+        'PAYMENT.AUTHORIZATION.VOIDED',
+        'BILLING.SUBSCRIPTION.ACTIVATED',
+        'BILLING.SUBSCRIPTION.UPDATED',
+        'BILLING.SUBSCRIPTION.SUSPENDED',
+        'BILLING.SUBSCRIPTION.CANCELLED',
+        'BILLING.SUBSCRIPTION.EXPIRED',
+        'BILLING.SUBSCRIPTION.PAYMENT.FAILED',
+        'PAYMENT.SALE.COMPLETED',
+        'PAYMENT.SALE.DENIED',
+        'PAYMENT.SALE.PENDING',
+        'PAYMENT.SALE.REFUNDED',
+        'PAYMENT.SALE.REVERSED',
+        'CUSTOMER.DISPUTE.CREATED',
+        'CUSTOMER.DISPUTE.UPDATED',
+        'CUSTOMER.DISPUTE.RESOLVED',
+    ];
 
     public function __construct(
         private readonly PayPalClient $client,
@@ -327,6 +359,62 @@ class PayPalDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
     public function completesCheckout(WebhookEvent $event): bool
     {
         return $event->type === 'CHECKOUT.ORDER.APPROVED';
+    }
+
+    /**
+     * PayPal allows one webhook per URL, so an existing one is updated in
+     * place -- keeping its id, and so every delivery already in flight --
+     * rather than replaced.
+     */
+    public function registerWebhook(string $url): string
+    {
+        $eventTypes = array_map(fn (string $name): array => ['name' => $name], self::WEBHOOK_EVENTS);
+
+        foreach ($this->client->get('/v1/notifications/webhooks')['webhooks'] ?? [] as $webhook) {
+            if (($webhook['url'] ?? null) === $url && isset($webhook['id'])) {
+                $this->client->patch("/v1/notifications/webhooks/{$webhook['id']}", [
+                    ['op' => 'replace', 'path' => '/event_types', 'value' => $eventTypes],
+                ]);
+
+                return (string) $webhook['id'];
+            }
+        }
+
+        $created = $this->client->post('/v1/notifications/webhooks', ['url' => $url, 'event_types' => $eventTypes]);
+
+        return (string) ($created['id'] ?? throw new GatewayException('PayPal did not return the webhook.'));
+    }
+
+    public function disputeReference(WebhookEvent $event): ?string
+    {
+        $id = $event->payload['resource']['dispute_id'] ?? null;
+
+        return str_starts_with($event->type, 'CUSTOMER.DISPUTE.') && is_string($id) ? $id : null;
+    }
+
+    public function fetchDispute(string $disputeId): GatewayDispute
+    {
+        $dispute = $this->client->get("/v1/customer/disputes/{$disputeId}");
+        $currency = Currency::tryFrom((string) ($dispute['dispute_amount']['currency_code'] ?? ''));
+        $amount = $dispute['dispute_amount']['value'] ?? null;
+        $transaction = $dispute['disputed_transactions'][0]['seller_transaction_id'] ?? null;
+        $dueBy = $dispute['seller_response_due_date'] ?? null;
+
+        return new GatewayDispute(
+            id: (string) ($dispute['dispute_id'] ?? $disputeId),
+            status: match ($dispute['status'] ?? null) {
+                'OPEN', 'WAITING_FOR_SELLER_RESPONSE' => DisputeStatus::NeedsResponse,
+                'RESOLVED' => in_array($dispute['dispute_outcome']['outcome_code'] ?? null, ['RESOLVED_SELLER_FAVOUR', 'CANCELED_BY_BUYER', 'DENIED'], true)
+                    ? DisputeStatus::Won
+                    : DisputeStatus::Lost,
+                default => DisputeStatus::UnderReview,
+            },
+            // The capture (or subscription sale) disputed, which is on the ledger.
+            payment: new PaymentReference(transactionId: is_string($transaction) ? $transaction : null),
+            amount: $currency !== null && (is_string($amount) || is_numeric($amount)) ? Money::fromDecimal((string) $amount, $currency) : null,
+            reason: isset($dispute['reason']) ? (string) $dispute['reason'] : null,
+            evidenceDueBy: is_string($dueBy) ? CarbonImmutable::parse($dueBy) : null,
+        );
     }
 
     /**

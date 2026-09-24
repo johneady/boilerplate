@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Payments;
 
 use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Payments\Pages\ViewPayment;
+use App\Filament\Resources\Payments\RelationManagers\DisputesRelationManager;
 use App\Filament\Resources\Payments\RelationManagers\RefundsRelationManager;
 use App\Filament\Resources\Payments\RelationManagers\TransactionsRelationManager;
 use App\Models\Payment;
@@ -231,6 +232,7 @@ class PaymentResource extends Resource
         return [
             TransactionsRelationManager::class,
             RefundsRelationManager::class,
+            DisputesRelationManager::class,
         ];
     }
 

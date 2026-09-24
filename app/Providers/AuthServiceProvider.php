@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Auth\Permission;
 use App\Models\AuditLog;
 use App\Models\ContactSubmission;
+use App\Models\Dispute;
 use App\Models\Media;
 use App\Models\Page;
 use App\Models\Payment;
@@ -122,6 +123,7 @@ class AuthServiceProvider extends ServiceProvider
         // payment they belong to, and written by nobody through the Gate.
         PaymentTransaction::class => PaymentPolicy::class,
         Refund::class => PaymentPolicy::class,
+        Dispute::class => PaymentPolicy::class,
         // A price is managed as part of its plan.
         Plan::class => PlanPolicy::class,
         PlanPrice::class => PlanPolicy::class,
@@ -145,6 +147,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     private const array IMMUTABLE_MODELS = [
         AuditLog::class,
+        Dispute::class,
         Payment::class,
         PaymentTransaction::class,
         Refund::class,

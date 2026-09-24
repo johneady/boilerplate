@@ -46,6 +46,11 @@ return [
         'plural_label' => 'Subscriptions',
     ],
 
+    'dispute' => [
+        'label' => 'Dispute',
+        'plural_label' => 'Disputes',
+    ],
+
     'fields' => [
         'reference' => 'Reference',
         'created' => 'Created',
@@ -159,6 +164,10 @@ return [
     ],
 
     'settings' => [
+        'connect_webhooks' => 'Connect webhooks',
+        'connect_webhooks_help' => 'Registers this site\'s webhook endpoint at the gateway for :mode mode, subscribed to every event this site uses, and stores its signing secret or webhook ID. Running it again replaces or updates the endpoint. The site must be reachable on a public HTTPS address.',
+        'connect_webhooks_failed' => 'Webhooks could not be connected',
+        'webhooks_connected' => ':gateway webhooks are connected.',
         'stripe_button' => 'Stripe credentials',
         'paypal_button' => 'PayPal credentials',
         'credentials_heading' => ':gateway credentials',
@@ -231,6 +240,14 @@ return [
         'renewal_failed' => 'The demo renewal failed; the subscription is past due.',
         'action_failed' => 'That could not be done',
         'open_payment' => 'Open',
+    ],
+
+    'disputes' => [
+        'evidence_due_by' => 'Evidence due',
+        'payment' => 'Payment',
+        'opened' => 'Opened',
+        'gateway_dispute_id' => 'Gateway dispute ID',
+        'respond' => 'Respond at the gateway',
     ],
 
 ];

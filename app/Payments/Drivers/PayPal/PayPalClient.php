@@ -60,6 +60,27 @@ class PayPalClient
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    public function delete(string $path): array
+    {
+        return $this->send(fn (PendingRequest $request): Response => $request->delete($this->baseUrl.$path));
+    }
+
+    /**
+     * PATCH a JSON Patch document (a list of operations).
+     *
+     * @param  list<array<string, mixed>>  $operations
+     * @return array<string, mixed>
+     */
+    public function patch(string $path, array $operations): array
+    {
+        return $this->send(fn (PendingRequest $request): Response => $request
+            ->withBody((string) json_encode($operations), 'application/json')
+            ->patch($this->baseUrl.$path));
+    }
+
+    /**
      * @param  \Closure(PendingRequest): Response  $send
      * @return array<string, mixed>
      */

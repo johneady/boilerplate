@@ -10,9 +10,12 @@ use App\Media\MediaManager;
 use App\Media\StagedUpload;
 use App\Models\User;
 use App\Notifications\Payments\PaymentCredentialsChanged;
+use App\Payments\Actions\RegisterWebhooks;
 use App\Payments\Enums\Currency;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
+use App\Payments\Exceptions\GatewayException;
+use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Payments\OpsAlerts;
 use App\Payments\PaymentCredentials;
 use App\Payments\PaymentDiagnostics;
@@ -259,6 +262,7 @@ class ManageSettings extends Page
             array_unshift($components, Actions::make([
                 $this->stripeCredentialsAction(),
                 $this->paypalCredentialsAction(),
+                $this->connectWebhooksAction(),
             ]));
         }
 
@@ -702,6 +706,62 @@ class ManageSettings extends Page
                 ));
 
                 Notification::make()->success()->title(__('payments.settings.credentials_saved'))->send();
+            });
+    }
+
+    /**
+     * Register this site's webhook endpoint at a gateway, for the current
+     * mode, and store the signing secret or webhook id it returns.
+     *
+     * Held to the credentials' standard -- password confirmation and an ops
+     * alert -- since it replaces a stored credential.
+     */
+    public function connectWebhooksAction(): Action
+    {
+        return Action::make('connectWebhooks')
+            ->label(__('payments.settings.connect_webhooks'))
+            ->icon(Heroicon::OutlinedSignal)
+            ->color('gray')
+            ->authorize(fn (): bool => auth()->user()?->hasPermission(Permission::ManagePaymentSettings) ?? false)
+            ->modalHeading(__('payments.settings.connect_webhooks'))
+            ->modalDescription(fn (): string => (string) __('payments.settings.connect_webhooks_help', ['mode' => app(PaymentManager::class)->mode()->label()]))
+            ->schema([
+                Select::make('gateway')
+                    ->label(__('payments.fields.gateway'))
+                    ->options(fn (): array => collect([Gateway::Stripe, Gateway::PayPal])
+                        ->filter(fn (Gateway $gateway): bool => app(PaymentCredentials::class)->isConfigured($gateway, app(PaymentManager::class)->mode()))
+                        ->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => $gateway->label()])
+                        ->all())
+                    ->required(),
+                TextInput::make('current_password')
+                    ->label(__('payments.settings.current_password'))
+                    ->helperText(__('payments.settings.current_password_help'))
+                    ->password()
+                    ->currentPassword()
+                    ->required()
+                    ->dehydrated(false),
+            ])
+            ->action(function (array $data): void {
+                $gateway = Gateway::from((string) $data['gateway']);
+
+                try {
+                    $key = app(RegisterWebhooks::class)->handle($gateway, app(PaymentManager::class)->mode());
+                } catch (PaymentNotAllowed|GatewayException $e) {
+                    Notification::make()->danger()->title(__('payments.settings.connect_webhooks_failed'))->body($e->getMessage())->send();
+
+                    return;
+                }
+
+                $user = auth()->user();
+
+                app(OpsAlerts::class)->send(new PaymentCredentialsChanged(
+                    gateway: $gateway->label(),
+                    changedFields: [$key->label()],
+                    changedBy: $user instanceof User ? "{$user->name} <{$user->email}>" : 'Unknown',
+                    ipAddress: request()->ip(),
+                ));
+
+                Notification::make()->success()->title(__('payments.settings.webhooks_connected', ['gateway' => $gateway->label()]))->send();
             });
     }
 

@@ -9,6 +9,7 @@ use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\TaxRate;
 use App\Models\WebhookEvent;
+use App\Payments\CatalogueKey;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
 use App\Payments\Data\GatewayInvoice;
@@ -65,7 +66,7 @@ trait ManagesStripeSubscriptions
         ], fn (mixed $value): bool => $value !== null);
 
         if ($productId === null) {
-            $created = $this->call(fn () => $this->client()->products->create($product, ['idempotency_key' => "plan:{$plan->id}:{$this->mode->value}:product"]));
+            $created = $this->call(fn () => $this->client()->products->create($product, ['idempotency_key' => CatalogueKey::for('plan', $plan, $this->mode, 'product')]));
             $plan->recordGatewayRef(Gateway::Stripe, $this->mode, (string) $created->id);
             $productId = (string) $created->id;
         } else {
@@ -310,7 +311,7 @@ trait ManagesStripeSubscriptions
                 'recurring' => ['interval' => $price->interval->value, 'interval_count' => $price->interval_count],
                 'tax_behavior' => 'exclusive',
                 'metadata' => ['plan_price_id' => (string) $price->id],
-            ], ['idempotency_key' => "plan-price:{$price->id}:{$this->mode->value}"]));
+            ], ['idempotency_key' => CatalogueKey::for('plan-price', $price, $this->mode)]));
 
             $price->recordGatewayRef(Gateway::Stripe, $this->mode, ['id' => (string) $created->id, 'signature' => $signature]);
 
@@ -361,7 +362,7 @@ trait ManagesStripeSubscriptions
                 // The rate it replaces is part of the key, so going back to an
                 // earlier value creates a new rate rather than replaying the
                 // creation of one archived since.
-            ], ['idempotency_key' => "tax-rate:{$rate->id}:{$this->mode->value}:".sha1($signature.'|'.($ref['id'] ?? 'none'))]));
+            ], ['idempotency_key' => CatalogueKey::for('tax-rate', $rate, $this->mode, sha1($signature.'|'.($ref['id'] ?? 'none')))]));
 
             if (is_array($ref) && isset($ref['id'])) {
                 $this->call(fn () => $this->client()->taxRates->update((string) $ref['id'], ['active' => false]));
@@ -405,7 +406,7 @@ trait ManagesStripeSubscriptions
             'email' => $user->email,
             'name' => $user->name,
             'metadata' => ['user_id' => (string) $user->id],
-        ], ['idempotency_key' => "customer:{$user->id}:{$this->mode->value}"]));
+        ], ['idempotency_key' => CatalogueKey::for('customer', $user, $this->mode)]));
 
         try {
             BillingCustomer::query()->create([

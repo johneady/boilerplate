@@ -144,7 +144,7 @@ test('a plan is synced to Stripe once: its product, its price and the tax rates'
     }
 
     Http::assertSent(fn (Request $request): bool => GatewayFakes::is($request, 'POST /v1/prices')
-        && $request->hasHeader('Idempotency-Key', "plan-price:{$price->id}:sandbox")
+        && $request->hasHeader('Idempotency-Key', "plan-price:{$price->id}.{$price->created_at->getTimestamp()}:sandbox")
         && GatewayFakes::stripeBody($request)['unit_amount'] === '2900'
         && GatewayFakes::stripeBody($request)['recurring'] === ['interval' => 'month', 'interval_count' => '1']
         && GatewayFakes::stripeBody($request)['tax_behavior'] === 'exclusive');
@@ -383,4 +383,23 @@ test('a tax rate changed and changed back gets a new Stripe rate each time', fun
         ->map(fn (array $pair): string => $pair[0]->header('Idempotency-Key')[0]);
 
     expect($keys)->toHaveCount(3)->and($keys->unique())->toHaveCount(3);
+});
+
+test('catalogue objects are created under keys another installation cannot share', function () {
+    $stripe = [];
+    fakeStripeBilling($stripe);
+    $price = stripePro();
+
+    // The same plan and price ids, created at another moment: what a second
+    // installation on the same Stripe account, or a rebuilt database, holds.
+    $keys = fn (): array => collect(Http::recorded(fn (Request $request): bool => in_array($request->method().' '.parse_url($request->url(), PHP_URL_PATH), ['POST /v1/products', 'POST /v1/prices'], true)))
+        ->map(fn (array $pair): string => $pair[0]->header('Idempotency-Key')[0])
+        ->all();
+    $first = $keys();
+
+    $price->plan->forceFill(['gateway_refs' => null, 'created_at' => now()->addHour()])->saveQuietly();
+    $price->forceFill(['gateway_refs' => null, 'created_at' => now()->addHour()])->saveQuietly();
+    app(SyncPlan::class)->handle($price->plan->fresh(), Gateway::Stripe, GatewayMode::Sandbox);
+
+    expect(array_diff($keys(), $first))->toHaveCount(2);
 });

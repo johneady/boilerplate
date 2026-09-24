@@ -1,0 +1,9 @@
+{
+    "id": "we_test_New",
+    "object": "webhook_endpoint",
+    "livemode": false,
+    "status": "enabled",
+    "url": "https://shop.example.com/webhooks/stripe/sandbox",
+    "secret": "whsec_test_Registered",
+    "enabled_events": ["checkout.session.completed"]
+}

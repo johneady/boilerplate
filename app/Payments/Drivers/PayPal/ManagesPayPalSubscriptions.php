@@ -9,6 +9,7 @@ use App\Models\Refund;
 use App\Models\Subscription;
 use App\Models\TaxRate;
 use App\Models\WebhookEvent;
+use App\Payments\CatalogueKey;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
 use App\Payments\Data\GatewayInvoice;
@@ -59,7 +60,7 @@ trait ManagesPayPalSubscriptions
                 'name' => mb_substr($plan->name, 0, 127),
                 'type' => 'SERVICE',
                 'description' => filled($plan->description) ? mb_substr((string) $plan->description, 0, 256) : null,
-            ], fn (mixed $value): bool => $value !== null), "plan:{$plan->id}:{$this->mode->value}:product");
+            ], fn (mixed $value): bool => $value !== null), CatalogueKey::for('plan', $plan, $this->mode, 'product'));
 
             $productId = (string) ($product['id'] ?? throw new GatewayException('PayPal did not return the product.'));
             $plan->recordGatewayRef(Gateway::PayPal, $this->mode, $productId);
@@ -415,7 +416,7 @@ trait ManagesPayPalSubscriptions
         // The plan it replaces is part of the key, so returning to an earlier
         // trial or tax creates a new plan rather than replaying the creation
         // of one deactivated since.
-        $created = $this->client->post('/v1/billing/plans', $body, "plan-price:{$price->id}:{$this->mode->value}:".sha1($signature.'|'.($ref['id'] ?? 'none')));
+        $created = $this->client->post('/v1/billing/plans', $body, CatalogueKey::for('plan-price', $price, $this->mode, sha1($signature.'|'.($ref['id'] ?? 'none'))));
         $createdId = (string) ($created['id'] ?? throw new GatewayException('PayPal did not return the billing plan.'));
 
         $price->recordGatewayRef(Gateway::PayPal, $this->mode, array_filter([

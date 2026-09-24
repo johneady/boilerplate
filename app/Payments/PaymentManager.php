@@ -4,6 +4,7 @@ namespace App\Payments;
 
 use App\Auth\DevLoginAccounts;
 use App\Models\Payment;
+use App\Payments\Contracts\DisputeDriver;
 use App\Payments\Contracts\PaymentDriver;
 use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Contracts\WebhookDriver;
@@ -156,6 +157,15 @@ class PaymentManager
             Gateway::Stripe => new StripeDriver($mode, $this->credentials->stripe($mode)),
             Gateway::PayPal => new PayPalDriver($this->paypalClient($mode), $mode),
             Gateway::Demo, Gateway::Manual => throw new InvalidArgumentException("{$gateway->label()} does not send webhooks."),
+        };
+    }
+
+    public function disputeDriver(Gateway $gateway, GatewayMode $mode): DisputeDriver
+    {
+        return match ($gateway) {
+            Gateway::Stripe => new StripeDriver($mode, $this->credentials->stripe($mode)),
+            Gateway::PayPal => new PayPalDriver($this->paypalClient($mode), $mode),
+            Gateway::Demo, Gateway::Manual => throw new InvalidArgumentException("{$gateway->label()} payments cannot be disputed through the gateway."),
         };
     }
 

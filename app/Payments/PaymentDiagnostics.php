@@ -3,9 +3,11 @@
 namespace App\Payments;
 
 use App\Models\Plan;
+use App\Models\WebhookEvent;
 use App\Payments\Actions\SyncPlan;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
+use App\Payments\Enums\WebhookEventStatus;
 use App\Settings\DiagnosticResult;
 use App\Settings\DiagnosticSeverity;
 use App\Settings\SettingKey;
@@ -82,6 +84,19 @@ class PaymentDiagnostics
                 "{$gateway->label()} webhooks can be verified.",
             );
         }
+
+        $failedWebhooks = WebhookEvent::query()
+            ->where('status', WebhookEventStatus::Failed->value)
+            ->where('updated_at', '>=', now()->subDay())
+            ->count();
+
+        $results[] = $this->check(
+            'Webhook processing',
+            $failedWebhooks === 0,
+            DiagnosticSeverity::Warning,
+            "{$failedWebhooks} webhook ".str('event')->plural($failedWebhooks).' failed in the last 24 hours after every retry, so what '.($failedWebhooks === 1 ? 'it' : 'they').' reported may be missing. Retry '.($failedWebhooks === 1 ? 'it' : 'them').' from Payments -> Webhook events once the cause is fixed.',
+            'No webhook event has failed in the last 24 hours.',
+        );
 
         $plans = Plan::query()->where('is_active', true)->whereHas('prices', fn ($prices) => $prices->where('is_active', true))->get();
 

@@ -15,11 +15,19 @@
             @endif
 
             @if ($status !== '')
-                <flux:callout variant="success" icon="check-circle" data-test="billing-status">{{ $status }}</flux:callout>
+                <flux:callout
+                    variant="success"
+                    icon="check-circle"
+                    data-test="billing-status"
+                >{{ $status }}</flux:callout>
             @endif
 
             @error('billing')
-                <flux:callout variant="danger" icon="exclamation-triangle" data-test="billing-error">{{ $message }}</flux:callout>
+                <flux:callout
+                    variant="danger"
+                    icon="exclamation-triangle"
+                    data-test="billing-error"
+                >{{ $message }}</flux:callout>
             @enderror
 
             @if ($subscription === null && ! (session('subscription_returned') && $this->settingUp))
@@ -27,7 +35,11 @@
                     <flux:text>{{ __('You do not have a subscription.') }}</flux:text>
 
                     @if (app(\App\Payments\PaymentManager::class)->enabled())
-                        <flux:button class="mt-4" variant="primary" :href="route('payments.pricing')">{{ __('See the plans') }}</flux:button>
+                        <flux:button
+                            class="mt-4"
+                            variant="primary"
+                            :href="route('payments.pricing')"
+                        >{{ __('See the plans') }}</flux:button>
                     @endif
                 </div>
             @elseif ($subscription !== null)
@@ -35,8 +47,8 @@
                     <flux:heading size="lg">{{ $subscription->plan?->name }}</flux:heading>
 
                     <flux:text>
-                        {{ $subscription->price?->label() }}
-                        · <span data-test="subscription-status">{{ __($subscription->status->label()) }}</span>
+                        {{ $subscription->price?->label() }} ·
+                        <span data-test="subscription-status">{{ __($subscription->status->label()) }}</span>
                     </flux:text>
 
                     @if ($subscription->status === \App\Payments\Enums\SubscriptionStatus::Trialing && $subscription->trial_ends_at !== null)
@@ -69,7 +81,11 @@
                 @if (in_array($subscription->status, [\App\Payments\Enums\SubscriptionStatus::Trialing, \App\Payments\Enums\SubscriptionStatus::Active, \App\Payments\Enums\SubscriptionStatus::PastDue], true))
                     <div class="flex flex-wrap gap-3">
                         @if ($subscription->isCancelScheduled())
-                            <flux:button wire:click="resume" variant="primary" data-test="resume">{{ __('Keep my subscription') }}</flux:button>
+                            <flux:button
+                                wire:click="resume"
+                                variant="primary"
+                                data-test="resume"
+                            >{{ __('Keep my subscription') }}</flux:button>
                         @else
                             <flux:button
                                 wire:click="cancel"
@@ -79,13 +95,20 @@
                         @endif
 
                         @if ($subscription->gateway !== \App\Payments\Enums\Gateway::Demo)
-                            <flux:button wire:click="updatePaymentMethod" data-test="payment-method">{{ __('Update payment method') }}</flux:button>
+                            <flux:button
+                                wire:click="updatePaymentMethod"
+                                data-test="payment-method"
+                            >{{ __('Update payment method') }}</flux:button>
                         @endif
                     </div>
 
                     @if ($this->swapOptions->isNotEmpty())
                         <form wire:submit="swap" class="space-y-3" data-test="swap">
-                            <flux:select wire:model="newPriceId" :label="__('Change plan')" :placeholder="__('Choose a plan...')">
+                            <flux:select
+                                wire:model="newPriceId"
+                                :label="__('Change plan')"
+                                :placeholder="__('Choose a plan...')"
+                            >
                                 @foreach ($this->swapOptions as $option)
                                     <flux:select.option wire:key="swap-{{ $option->id }}" :value="$option->id">
                                         {{ $option->plan?->name }} — {{ $option->label() }}
@@ -113,7 +136,10 @@
 
                     <ul class="divide-y divide-zinc-200 dark:divide-zinc-700">
                         @foreach ($this->payments as $payment)
-                            <li class="flex items-center justify-between gap-3 py-2 text-sm" wire:key="payment-{{ $payment->id }}">
+                            <li
+                                class="flex items-center justify-between gap-3 py-2 text-sm"
+                                wire:key="payment-{{ $payment->id }}"
+                            >
                                 <span>{{ $settings->formatDate($payment->paid_at) }} · {{ $payment->description }}</span>
                                 <span class="flex items-center gap-3">
                                     <span>{{ $payment->total()->format() }}</span>

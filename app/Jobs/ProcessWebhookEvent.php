@@ -6,6 +6,7 @@ use App\Models\Payment;
 use App\Models\Subscription;
 use App\Models\WebhookEvent;
 use App\Notifications\Payments\WebhookProcessingFailed;
+use App\Payments\Actions\ReconcileDispute;
 use App\Payments\Actions\ReconcilePayment;
 use App\Payments\Actions\ReconcileSubscription;
 use App\Payments\Enums\PaymentStatus;
@@ -61,8 +62,10 @@ class ProcessWebhookEvent extends Job
      */
     public function middleware(): array
     {
-        $subject = $this->subject();
+        $dispute = $this->disputeId();
+        $subject = $dispute === null ? $this->subject() : null;
         $key = match (true) {
+            $dispute !== null => "dispute:{$dispute}",
             $subject instanceof Subscription => "subscription:{$subject->id}",
             $subject instanceof Payment => "payment:{$subject->id}",
             default => "event-{$this->webhookEventId}",
@@ -84,6 +87,16 @@ class ProcessWebhookEvent extends Job
         }
 
         $event->increment('attempts');
+
+        if (($disputeId = $this->disputeId()) !== null) {
+            $recorded = app(ReconcileDispute::class)->handle($event->gateway, $event->mode, $disputeId);
+
+            $recorded === null
+                ? $this->finish($event, WebhookEventStatus::Ignored, 'The disputed payment was not made by this application.')
+                : $this->finish($event, WebhookEventStatus::Processed);
+
+            return;
+        }
 
         $subject = $this->subject();
 
@@ -138,6 +151,18 @@ class ProcessWebhookEvent extends Job
         $this->finish($event, WebhookEventStatus::Failed, $error);
 
         app(OpsAlerts::class)->send(new WebhookProcessingFailed($event, $error));
+    }
+
+    /**
+     * The gateway's id for the dispute the event is about, if it is one.
+     */
+    private function disputeId(): ?string
+    {
+        $event = WebhookEvent::query()->find($this->webhookEventId);
+
+        return $event === null
+            ? null
+            : app(PaymentManager::class)->disputeDriver($event->gateway, $event->mode)->disputeReference($event);
     }
 
     /**

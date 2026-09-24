@@ -221,6 +221,16 @@ class Payment extends Model
         return $this->hasMany(Refund::class);
     }
 
+    /**
+     * Chargebacks and PayPal claims against this payment.
+     *
+     * @return HasMany<Dispute, $this>
+     */
+    public function disputes(): HasMany
+    {
+        return $this->hasMany(Dispute::class);
+    }
+
     public function total(): Money
     {
         return Money::of($this->amount, $this->currency);

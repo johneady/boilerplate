@@ -137,7 +137,7 @@ test('a plan is synced to PayPal as a product and a billing plan carrying the tr
 
         return GatewayFakes::is($request, 'POST /v1/billing/plans')
             && $request->hasHeader('PayPal-Request-Id')
-            && str_starts_with($request->header('PayPal-Request-Id')[0], "plan-price:{$price->id}:sandbox:")
+            && str_starts_with($request->header('PayPal-Request-Id')[0], "plan-price:{$price->id}.{$price->created_at->getTimestamp()}:sandbox:")
             && $body['product_id'] === 'PROD-5FD60555F23244316'
             && $body['billing_cycles'][0]['tenure_type'] === 'TRIAL'
             && $body['billing_cycles'][0]['frequency'] === ['interval_unit' => 'DAY', 'interval_count' => 14]

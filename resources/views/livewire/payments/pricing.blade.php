@@ -27,9 +27,16 @@
         @enderror
 
         @if ($this->currentSubscription !== null)
-            <div class="mt-8 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300" data-test="already-subscribed">
+            <div
+                class="mt-8 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300"
+                data-test="already-subscribed"
+            >
                 {{ __('You are subscribed to :plan.', ['plan' => $this->currentSubscription->plan?->name]) }}
-                <a href="{{ route('billing.edit') }}" class="font-medium underline" wire:navigate>{{ __('Manage your subscription') }}</a>
+                <a
+                    href="{{ route('billing.edit') }}"
+                    class="font-medium underline"
+                    wire:navigate
+                >{{ __('Manage your subscription') }}</a>
             </div>
         @endif
 

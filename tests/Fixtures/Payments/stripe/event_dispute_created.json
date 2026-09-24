@@ -1,0 +1,11 @@
+{
+    "id": "evt_test_Dsp1",
+    "object": "event",
+    "api_version": "2026-08-26.dahlia",
+    "created": 1790100001,
+    "livemode": false,
+    "type": "charge.dispute.created",
+    "data": {
+        "object": {"id": "dp_test_D1", "object": "dispute", "status": "needs_response", "charge": "ch_test_C5h"}
+    }
+}

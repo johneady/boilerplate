@@ -26,7 +26,11 @@
                 <form method="POST" action="{{ route('subscriptions.demo.store', $subscription) }}">
                     @csrf
                     <input type="hidden" name="outcome" value="approve" />
-                    <flux:button type="submit" variant="primary" data-test="demo-subscribe">{{ __('Subscribe') }}</flux:button>
+                    <flux:button
+                        type="submit"
+                        variant="primary"
+                        data-test="demo-subscribe"
+                    >{{ __('Subscribe') }}</flux:button>
                 </form>
 
                 <form method="POST" action="{{ route('subscriptions.demo.store', $subscription) }}">

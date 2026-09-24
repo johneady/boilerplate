@@ -5,11 +5,14 @@ namespace App\Payments\Drivers\Stripe;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\WebhookEvent;
+use App\Payments\Contracts\DisputeDriver;
 use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Contracts\RegistersWebhooks;
 use App\Payments\Contracts\SubscriptionDriver;
 use App\Payments\Contracts\WebhookDriver;
 use App\Payments\Data\CheckoutSession;
 use App\Payments\Data\CheckoutUrls;
+use App\Payments\Data\GatewayDispute;
 use App\Payments\Data\GatewayPaymentState;
 use App\Payments\Data\GatewayRefund;
 use App\Payments\Data\GatewayStatus;
@@ -18,12 +21,14 @@ use App\Payments\Data\PaymentReference;
 use App\Payments\Data\VerifiedWebhook;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Currency;
+use App\Payments\Enums\DisputeStatus;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\RefundStatus;
 use App\Payments\Exceptions\GatewayException;
 use App\Payments\Exceptions\GatewayUnavailable;
 use App\Payments\Exceptions\InvalidWebhook;
 use App\Payments\Money;
+use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Http\Request;
@@ -48,7 +53,7 @@ use UnexpectedValueException;
  * rather than Stripe TaxRate objects, so the amount charged is exactly the
  * amount this application calculated and showed the customer, to the cent.
  */
-class StripeDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
+class StripeDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, SubscriptionDriver, WebhookDriver
 {
     use ManagesStripeSubscriptions;
 
@@ -78,6 +83,14 @@ class StripeDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
         'refund.created',
         'refund.updated',
         'refund.failed',
+    ];
+
+    private const array DISPUTE_EVENTS = [
+        'charge.dispute.created',
+        'charge.dispute.updated',
+        'charge.dispute.closed',
+        'charge.dispute.funds_withdrawn',
+        'charge.dispute.funds_reinstated',
     ];
 
     private ?StripeClient $client = null;
@@ -303,6 +316,71 @@ class StripeDriver implements PaymentDriver, SubscriptionDriver, WebhookDriver
     public function completesCheckout(WebhookEvent $event): bool
     {
         return false;
+    }
+
+    /**
+     * The new endpoint is created before the old one at the same URL is
+     * deleted, so no delivery is missed in between; an event both send is
+     * stored once (webhook_events is unique on the event id).
+     */
+    public function registerWebhook(string $url): string
+    {
+        $created = $this->call(fn () => $this->client()->webhookEndpoints->create([
+            'url' => $url,
+            'enabled_events' => [
+                ...self::CHECKOUT_EVENTS,
+                ...self::PAYMENT_INTENT_EVENTS,
+                ...self::CHARGE_EVENTS,
+                ...self::SUBSCRIPTION_EVENTS,
+                ...self::INVOICE_EVENTS,
+                ...self::DISPUTE_EVENTS,
+            ],
+            // Events arrive in the shape the rest of this driver reads.
+            'api_version' => (string) config('payments.stripe.api_version'),
+            'description' => mb_substr(app(Settings::class)->businessName().' payments', 0, 5000),
+        ]));
+
+        foreach ($this->call(fn () => $this->client()->webhookEndpoints->all(['limit' => 100]))->data as $endpoint) {
+            if ($endpoint->url === $url && $endpoint->id !== $created->id) {
+                $this->call(fn () => $this->client()->webhookEndpoints->delete((string) $endpoint->id));
+            }
+        }
+
+        return (string) $created->secret;
+    }
+
+    public function disputeReference(WebhookEvent $event): ?string
+    {
+        $id = $event->payload['data']['object']['id'] ?? null;
+
+        return str_starts_with($event->type, 'charge.dispute.') && is_string($id) ? $id : null;
+    }
+
+    public function fetchDispute(string $disputeId): GatewayDispute
+    {
+        $dispute = $this->call(fn () => $this->client()->disputes->retrieve($disputeId))->toArray();
+        $currency = Currency::tryFrom(strtoupper((string) ($dispute['currency'] ?? '')));
+        $dueBy = $dispute['evidence_details']['due_by'] ?? null;
+
+        return new GatewayDispute(
+            id: (string) $dispute['id'],
+            status: match ($dispute['status'] ?? null) {
+                'needs_response', 'warning_needs_response' => DisputeStatus::NeedsResponse,
+                'under_review', 'warning_under_review' => DisputeStatus::UnderReview,
+                // An inquiry closed without a chargeback, or one prevented
+                // before it became one, cost nothing.
+                'won', 'warning_closed', 'prevented' => DisputeStatus::Won,
+                'lost' => DisputeStatus::Lost,
+                default => DisputeStatus::UnderReview,
+            },
+            payment: new PaymentReference(
+                paymentId: is_string($dispute['payment_intent'] ?? null) ? $dispute['payment_intent'] : null,
+                transactionId: is_string($dispute['charge'] ?? null) ? $dispute['charge'] : null,
+            ),
+            amount: $currency !== null ? Money::of((int) ($dispute['amount'] ?? 0), $currency) : null,
+            reason: isset($dispute['reason']) ? (string) $dispute['reason'] : null,
+            evidenceDueBy: is_numeric($dueBy) ? CarbonImmutable::createFromTimestamp((int) $dueBy) : null,
+        );
     }
 
     /**
