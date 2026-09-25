@@ -68,12 +68,68 @@ pest()->tia()->defaultBranch('main')->locally();
 |
 */
 
-if (! Parallel::isWorker()) {
-    $pestRunLock = fopen(sys_get_temp_dir().DIRECTORY_SEPARATOR.'pest-'.md5(dirname(__DIR__)).'.lock', 'c');
+/*
+| A run can also re-execute itself: with TIA on, Pest's PcovRestarter starts a
+| child PHP process (to set pcov.directory) after this file has already taken
+| the lock in the parent, then waits for that child. The child is not a
+| parallel worker, so without this it would wait on its own parent forever.
+| The holder names itself in the environment, which the child inherits, and a
+| process descended from the holder runs under the lock its ancestor holds.
+*/
+
+$pestRunLockHolder = (int) getenv('PEST_RUN_LOCK_HOLDER');
+
+$pestRunIsUnderHeldLock = (static function (int $holder): bool {
+    if ($holder <= 0) {
+        return false;
+    }
+
+    // Walk up the process tree: the holder must be an ancestor, not merely
+    // named in an environment copied into an unrelated shell.
+    for ($pid = getmypid(), $depth = 0; $pid > 1 && $depth < 16; $depth++) {
+        if ($pid === $holder) {
+            return true;
+        }
+
+        $stat = @file_get_contents("/proc/{$pid}/stat");
+
+        if ($stat === false) {
+            // No /proc (not Linux): trust the inherited name.
+            return true;
+        }
+
+        // The ppid is the second field after the ")" closing the command name.
+        $pid = (int) (explode(' ', substr($stat, strrpos($stat, ')') + 2))[1] ?? 0);
+    }
+
+    return false;
+})($pestRunLockHolder);
+
+if (! Parallel::isWorker() && ! $pestRunIsUnderHeldLock) {
+    $pestRunLock = fopen(sys_get_temp_dir().DIRECTORY_SEPARATOR.'pest-'.md5(dirname(__DIR__)).'.lock', 'c+');
 
     if ($pestRunLock !== false && ! flock($pestRunLock, LOCK_EX | LOCK_NB)) {
-        fwrite(STDERR, "Another test run is using this checkout; waiting for it to finish...\n");
+        // The holder writes its pid and command line into the file (below),
+        // so the wait names the run it is waiting for instead of leaving the
+        // developer to go looking for it.
+        $holder = trim((string) stream_get_contents($pestRunLock, offset: 0));
+
+        fwrite(STDERR, 'Another test run is using this checkout; waiting for it to finish...'
+            .($holder !== '' ? "\n  Held by: {$holder}\n  (stop it with: kill ".strtok($holder, ' ').')' : '')
+            ."\n");
         flock($pestRunLock, LOCK_EX);
+    }
+
+    if ($pestRunLock !== false) {
+        $command = is_readable('/proc/self/cmdline')
+            ? trim(str_replace("\0", ' ', (string) file_get_contents('/proc/self/cmdline')))
+            : implode(' ', $_SERVER['argv'] ?? []);
+
+        ftruncate($pestRunLock, 0);
+        fwrite($pestRunLock, getmypid().' '.$command);
+        fflush($pestRunLock);
+
+        putenv('PEST_RUN_LOCK_HOLDER='.getmypid());
     }
 
     // Held for the life of the process: the lock is released when the handle
