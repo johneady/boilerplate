@@ -34,4 +34,12 @@ class PlanPriceFactory extends Factory
     {
         return $this->state(fn (array $attributes): array => ['interval' => BillingInterval::Year, 'amount' => $amount]);
     }
+
+    /**
+     * Retired: no longer offered, though existing subscribers keep it.
+     */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes): array => ['is_active' => false]);
+    }
 }

@@ -25,9 +25,9 @@ use Livewire\Component;
  * The public plan list, and where a signed-in customer subscribes.
  *
  * Anyone can compare plans; subscribing needs a verified account, because a
- * subscription belongs to a user (plan.md, "Customers"). Only prices in the
- * installation's currency are offered, and the price charged is always the
- * PlanPrice's own -- nothing about the amount comes from the browser.
+ * subscription belongs to a user. Only prices in the installation's currency
+ * are offered, and the price charged is always the PlanPrice's own -- nothing
+ * about the amount comes from the browser.
  */
 class Pricing extends Component
 {

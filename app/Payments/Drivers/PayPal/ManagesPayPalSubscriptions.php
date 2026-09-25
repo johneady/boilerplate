@@ -41,8 +41,7 @@ use Carbon\CarbonImmutable;
  *
  * PayPal has no cancel-at-period-end. Scheduling one suspends the
  * subscription (so nothing more is billed) and payments:end-subscriptions
- * cancels it when the paid period runs out; resuming re-activates it
- * (plan.md, assumption 8).
+ * cancels it when the paid period runs out; resuming re-activates it.
  *
  * Subscription payments are PayPal "sales", read and refunded through the v1
  * payments API; one-time payments use Orders v2.

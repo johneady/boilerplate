@@ -301,7 +301,7 @@ test('a plan cannot be changed to one in another currency, or while a cancellati
 })->with([
     'another currency' => fn (Subscription $subscription): array => [$subscription, PlanPrice::factory()->create(['currency' => Currency::USD])],
     'the same price' => fn (Subscription $subscription): array => [$subscription, $subscription->price],
-    'a retired price' => fn (Subscription $subscription): array => [$subscription, PlanPrice::factory()->create(['is_active' => false])],
+    'a retired price' => fn (Subscription $subscription): array => [$subscription, PlanPrice::factory()->inactive()->create()],
     'cancellation scheduled' => fn (Subscription $subscription): array => [app(CancelSubscription::class)->handle($subscription), PlanPrice::factory()->create()],
 ])->throws(PaymentNotAllowed::class);
 

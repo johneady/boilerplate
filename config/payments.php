@@ -41,7 +41,9 @@ return [
      * before payments:reconcile-stale re-reads it from the gateway, in minutes.
      *
      * This is the recovery path for a process that died between calling the
-     * gateway and recording the result (see plan.md, "Integrity").
+     * gateway and recording the result. No database transaction is held across
+     * a gateway call (it could not roll back a charge the gateway already
+     * made), so re-reading the gateway is what settles such a record.
      */
     'stale_after_minutes' => 15,
 

@@ -44,6 +44,11 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
+        // Sample plans for the pricing page, behind the same gate: a demo
+        // instance should show a working subscription flow the moment
+        // payments are switched on, and production should start with none.
+        $this->call(PlanSeeder::class);
+
         // Skipped when the admin address is also the test address, so this
         // non-admin user cannot land on top of the admin just seeded.
         if (config('first.user.email') === self::TEST_USER_EMAIL) {

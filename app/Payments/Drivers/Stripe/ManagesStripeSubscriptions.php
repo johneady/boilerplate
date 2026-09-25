@@ -32,7 +32,7 @@ use Stripe\StripeObject;
  * subscription lifecycle.
  *
  * Tax on subscriptions is charged by Stripe from TaxRate objects synced from
- * the configured rates (assumption 5 in plan.md), because Stripe computes
+ * the configured rates, because Stripe computes
  * every renewal invoice itself. Stripe TaxRates cannot change percentage, so
  * an edited rate becomes a new Stripe TaxRate and the old one is archived;
  * existing subscriptions keep the rates they started with.

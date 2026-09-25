@@ -42,7 +42,7 @@ class TaxRate extends Model
     protected static function booted(): void
     {
         // Subscription tax is charged by the gateways from copies of these
-        // rates, so a change re-syncs the plans (plan.md, assumption 5).
+        // rates, so a change re-syncs the plans.
         // gateway_refs is excluded: the sync itself writes it.
         static::created(fn () => SyncPlans::dispatchForCurrentMode());
 
