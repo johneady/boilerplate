@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Vite;
 use Pest\Plugins\Parallel;
 use Tests\TestCase;
 
@@ -18,6 +19,32 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature', 'Browser', 'Sandbox');
+
+/*
+|--------------------------------------------------------------------------
+| Browser tests use the built assets, never the Vite dev server
+|--------------------------------------------------------------------------
+|
+| While `npm run dev` is running, public/hot points @vite at the dev server,
+| and every page a browser test opens would load @vite/client and hold a live
+| HMR connection to it. Vite then reloads that page whenever a watched file
+| changes -- a save in resources/views, app/Livewire, lang or routes, by an
+| editor or an agent, while the suite runs -- and a reload during an
+| assertion fails it with "Execution context was destroyed, most likely
+| because of a navigation". Verified: touching a view mid-test reloads the
+| page under test.
+|
+| So the hot file is pointed somewhere that never exists, and the pages load
+| public/build exactly as they do in CI. That needs a build: run `npm run
+| build` after changing CSS or JS, or the browser tests check the old assets.
+| Only the Browser directory: feature tests render @vite without loading
+| anything, and should not start requiring a build.
+|
+*/
+
+pest()->in('Browser')->beforeEach(function (): void {
+    Vite::useHotFile(storage_path('framework/testing/vite-dev-server-not-used'));
+});
 
 /*
 |--------------------------------------------------------------------------
