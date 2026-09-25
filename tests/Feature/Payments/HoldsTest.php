@@ -15,7 +15,6 @@ use Tests\Support\Payments;
 
 beforeEach(function () {
     Payments::enable();
-    HeldBooking::createTable();
 });
 
 function heldPayment(int $price = 10000): Payment

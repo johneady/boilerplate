@@ -229,32 +229,47 @@ jobs:
     timeout-minutes: 30
 
     # The sqlite job above is the fast feedback loop; this one is the honest
-    # one. Production runs MySQL or MariaDB (the Dockerfile installs
-    # pdo_mysql), and sqlite silently tolerates things a real server rejects:
-    # looser typing, no strict-mode errors on overlong or invalid values, and
-    # different behaviour around transactional DDL and index name limits. A
-    # green sqlite suite is not evidence the deployed database agrees.
+    # one. The Dockerfile installs pdo_mysql and the deployments run MySQL or
+    # MariaDB, and PostgreSQL is a supported target too -- and sqlite silently
+    # tolerates things a real server rejects: looser typing, no strict-mode
+    # errors on overlong or invalid values, different behaviour around
+    # transactional DDL (MySQL and MariaDB commit a CREATE or DROP implicitly),
+    # PostgreSQL's native uuid type and case-sensitive comparisons, and its
+    # aborting of a whole transaction on one failed statement. A green sqlite
+    # suite is not evidence the deployed database agrees.
     strategy:
       fail-fast: false
       matrix:
         include:
           - database: mysql
             image: mysql:8.4
+            port: 3306
+            health: healthcheck.sh --connect --innodb_initialized || mysqladmin ping -h localhost -uroot -proot
           - database: mariadb
             image: mariadb:11
+            port: 3306
+            health: healthcheck.sh --connect --innodb_initialized || mysqladmin ping -h localhost -uroot -proot
+          - database: pgsql
+            image: postgres:17-alpine
+            port: 5432
+            health: pg_isready -h 127.0.0.1 -U root -d testing
 
     services:
       database:
         image: ${{ matrix.image }}
+        # Each image reads only its own names and ignores the others. MariaDB
+        # accepts the MYSQL_* names as aliases for its MARIADB_* variables;
+        # POSTGRES_USER=root lets every leg connect with the same credentials.
         env:
-          # Both images read the MYSQL_* names; MariaDB accepts them as
-          # aliases for its own MARIADB_* variables.
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: testing
+          POSTGRES_USER: root
+          POSTGRES_PASSWORD: root
+          POSTGRES_DB: testing
         ports:
-          - 3306:3306
+          - ${{ matrix.port }}:${{ matrix.port }}
         options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized || mysqladmin ping -h localhost -uroot -proot"
+          --health-cmd="${{ matrix.health }}"
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
@@ -268,7 +283,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
-          extensions: intl, zip, gd, mysqli, pdo_mysql
+          extensions: intl, zip, gd, mysqli, pdo_mysql, pgsql, pdo_pgsql
           coverage: pcov
           tools: composer:v2
 
@@ -302,7 +317,7 @@ jobs:
         env:
           DB_CONNECTION: ${{ matrix.database }}
           DB_HOST: 127.0.0.1
-          DB_PORT: 3306
+          DB_PORT: ${{ matrix.port }}
           DB_DATABASE: testing
           DB_USERNAME: root
           DB_PASSWORD: root
@@ -312,8 +327,9 @@ jobs:
         # a real database server -- which the Unit and Feature suites cover.
         #
         # --parallel works here because Laravel's TestDatabases concern gives
-        # each worker its own schema (testing_test_1, testing_test_2, ...) and
-        # migrates it, rather than the workers sharing `testing`.
+        # each worker its own database (testing_test_1, testing_test_2, ...)
+        # and migrates it, rather than the workers sharing `testing`. The
+        # PostgreSQL user is a superuser, so it may create them too.
         #
         # Capped at 4 to match the runner's core count: a standard ubuntu-latest
         # runner is 4 CPU, and Pest's default is already one process per core,

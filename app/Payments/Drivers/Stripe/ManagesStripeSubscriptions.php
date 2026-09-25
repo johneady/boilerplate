@@ -25,6 +25,7 @@ use App\Payments\Money;
 use App\Payments\Tax\TaxLine;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\UniqueConstraintViolationException;
+use Illuminate\Support\Facades\DB;
 use Stripe\StripeObject;
 
 /**
@@ -412,15 +413,24 @@ trait ManagesStripeSubscriptions
         ], ['idempotency_key' => CatalogueKey::for('customer', $user, $this->mode)]));
 
         try {
-            BillingCustomer::query()->create([
+            // In its own transaction, like every insert here that may lose a
+            // race: a savepoint when the caller holds one open, so PostgreSQL
+            // does not abort the caller's transaction along with the insert.
+            DB::transaction(fn () => BillingCustomer::query()->create([
                 'user_id' => $user->id,
                 'gateway' => Gateway::Stripe,
                 'mode' => $this->mode,
                 'gateway_customer_id' => (string) $customer->id,
-            ]);
+            ]));
         } catch (UniqueConstraintViolationException) {
-            // A concurrent checkout recorded the same customer first (the
-            // idempotency key returned the same one to both).
+            // A concurrent checkout recorded a customer first. Usually the
+            // same one (the idempotency key returned it to both), but not
+            // once the key has expired, so the recorded one is what is used.
+            return (string) BillingCustomer::query()
+                ->where('user_id', $user->id)
+                ->where('gateway', Gateway::Stripe->value)
+                ->where('mode', $this->mode->value)
+                ->value('gateway_customer_id');
         }
 
         return (string) $customer->id;

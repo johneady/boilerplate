@@ -21,8 +21,9 @@ return new class extends Migration
             // Equal to user_id while the subscription is live (incomplete,
             // trialing, active or past due) and null once it has ended. The
             // unique index is what enforces one live subscription per user on
-            // MySQL, MariaDB and SQLite alike -- MySQL has no partial unique
-            // index -- so two concurrent subscribe attempts cannot both win.
+            // MySQL, MariaDB, PostgreSQL and SQLite alike -- MySQL has no
+            // partial unique index -- so two concurrent subscribe attempts
+            // cannot both win.
             $table->foreignId('active_user_id')->nullable()->unique()->constrained('users')->nullOnDelete();
             $table->foreignId('plan_id')->constrained()->restrictOnDelete();
             $table->foreignId('plan_price_id')->constrained()->restrictOnDelete();

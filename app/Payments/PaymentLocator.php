@@ -7,6 +7,7 @@ use App\Models\PaymentTransaction;
 use App\Payments\Data\PaymentReference;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
+use Illuminate\Support\Str;
 
 /**
  * Find the payment a webhook event is about.
@@ -21,7 +22,11 @@ class PaymentLocator
     {
         $query = fn () => Payment::query()->where('gateway', $gateway->value)->where('mode', $mode->value);
 
-        if ($reference->uuid !== null && ($payment = $query()->where('uuid', $reference->uuid)->first()) !== null) {
+        // Checked for shape before it reaches the query: the metadata it
+        // comes from may have been set by another integration sharing the
+        // gateway account (PayPal's custom_id is free text), and PostgreSQL
+        // rejects a comparison between its uuid column and a non-UUID.
+        if (Str::isUuid($reference->uuid) && ($payment = $query()->where('uuid', $reference->uuid)->first()) !== null) {
             return $payment;
         }
 

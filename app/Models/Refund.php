@@ -11,10 +11,10 @@ use App\Payments\Money;
 use Carbon\CarbonImmutable;
 use Database\Factories\RefundFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Str;
 
 /**
  * A request to return money on a payment, and what came of it.
@@ -45,15 +45,16 @@ use Illuminate\Support\Str;
 class Refund extends Model
 {
     /** @use HasFactory<RefundFactory> */
-    use Auditable, GuardsFinancialRecord, HasFactory;
+    use Auditable, GuardsFinancialRecord, HasFactory, HasUuids;
 
-    protected static function booted(): void
+    /**
+     * The columns given a UUID when a row is created without one.
+     *
+     * @return list<string>
+     */
+    public function uniqueIds(): array
     {
-        static::creating(function (Refund $refund): void {
-            if (blank($refund->uuid)) {
-                $refund->uuid = (string) Str::uuid();
-            }
-        });
+        return ['uuid'];
     }
 
     /**

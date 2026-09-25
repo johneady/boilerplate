@@ -104,6 +104,17 @@ test('the return and cancel URLs only work as issued, signed', function () {
     $this->get($payment->returnUrl())->assertRedirect($payment->receiptUrl());
 });
 
+test('a return or cancel URL naming something that is not a uuid is not found', function (string $url) {
+    // Not a database error: PostgreSQL stores the uuid natively and would
+    // reject the lookup if it were ever sent.
+    $this->get($url)->assertNotFound();
+})->with([
+    'payment return' => '/payments/not-a-uuid/return',
+    'payment cancelled' => '/payments/not-a-uuid/cancelled',
+    'subscription return' => '/subscriptions/not-a-uuid/return',
+    'subscription cancelled' => '/subscriptions/not-a-uuid/cancelled',
+]);
+
 test('the return URL still works with the parameters a gateway appends', function () {
     $payment = Payments::payWithDemo(PaymentLink::factory()->create());
 

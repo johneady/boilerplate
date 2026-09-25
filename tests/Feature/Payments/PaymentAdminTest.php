@@ -82,7 +82,6 @@ test('the refund modal reports an amount over what is refundable instead of refu
 });
 
 test('refund is offered only on a paid payment, capture and void only on a hold', function () {
-    HeldBooking::createTable();
     $paid = Payments::payWithDemo(PaymentLink::factory()->create());
     $held = Payments::payWithDemo(HeldBooking::query()->create(['price' => 5000]));
 
@@ -97,7 +96,6 @@ test('refund is offered only on a paid payment, capture and void only on a hold'
 });
 
 test('an administrator can capture a hold from the list', function () {
-    HeldBooking::createTable();
     $held = Payments::payWithDemo(HeldBooking::query()->create(['price' => 5000]));
 
     $this->actingAs($this->admin);

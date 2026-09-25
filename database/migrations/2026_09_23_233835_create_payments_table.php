@@ -77,8 +77,8 @@ return new class extends Migration
             $table->timestamps();
 
             // Unique per gateway: a webhook or return naming a gateway id
-            // resolves to exactly one payment. MySQL, MariaDB and SQLite all
-            // allow any number of NULLs in a unique index.
+            // resolves to exactly one payment. MySQL, MariaDB, PostgreSQL and
+            // SQLite all allow any number of NULLs in a unique index.
             $table->unique(['gateway', 'gateway_checkout_id']);
             $table->unique(['gateway', 'gateway_payment_id']);
             $table->index(['status', 'created_at']);

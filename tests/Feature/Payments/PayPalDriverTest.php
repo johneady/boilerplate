@@ -146,7 +146,6 @@ test('an expired payment\'s approval is never captured', function () {
 });
 
 test('a hold is authorized on return and captured later from its authorization', function () {
-    HeldBooking::createTable();
     TaxRate::factory()->rate('HST', '13')->create();
     $state = 'paypal/order_approved';
 

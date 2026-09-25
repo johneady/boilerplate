@@ -10,8 +10,6 @@ use App\Payments\Enums\Currency;
 use App\Payments\Enums\PaymentAcceptance;
 use App\Payments\Money;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use RuntimeException;
 
 /**
@@ -23,6 +21,9 @@ use RuntimeException;
  * acceptPayment() call, and can be told to throw from it, which is how the
  * tests prove the payable is told exactly once and that a failure there rolls
  * the whole reconcile back.
+ *
+ * Its table is a test-only migration (tests/Fixtures/migrations), created with
+ * the rest of the schema rather than by the tests that use it.
  *
  * @property int $id
  * @property int $price
@@ -38,24 +39,6 @@ class HeldBooking extends Model implements Payable
     protected $guarded = [];
 
     public $timestamps = false;
-
-    public static function createTable(): void
-    {
-        // Dropped and recreated per test rather than created once: the table
-        // is test-only, so it is not in the migrations, and on the MySQL and
-        // MariaDB CI matrix the CREATE's implicit commit ends the test's
-        // transaction -- both making a second CREATE fatal and leaving this
-        // test's rows where the rollback cannot reach them. Dropping first
-        // clears those rows for whichever test runs next in the worker.
-        Schema::dropIfExists('held_bookings');
-
-        Schema::create('held_bookings', function (Blueprint $table): void {
-            $table->id();
-            $table->unsignedBigInteger('price');
-            $table->unsignedInteger('accepted_count')->default(0);
-            $table->boolean('fail_on_accept')->default(false);
-        });
-    }
 
     protected function casts(): array
     {

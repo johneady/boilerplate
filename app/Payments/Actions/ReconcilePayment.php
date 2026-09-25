@@ -29,6 +29,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Str;
 use LogicException;
 
 /**
@@ -249,7 +250,10 @@ class ReconcilePayment
     {
         $byGatewayId = $payment->refunds()->where('gateway_refund_id', $gatewayRefund->id)->first();
 
-        if ($byGatewayId !== null || $gatewayRefund->reference === null) {
+        // A refund made in the gateway's dashboard can carry a reference
+        // this application did not set; PostgreSQL rejects comparing one
+        // that is not a UUID with the uuid column.
+        if ($byGatewayId !== null || ! Str::isUuid($gatewayRefund->reference)) {
             return $byGatewayId;
         }
 

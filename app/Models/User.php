@@ -22,6 +22,7 @@ use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -141,6 +142,22 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             'role' => Role::class,
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * The email address, always stored lowercase.
+     *
+     * Fortify lowercases the address typed at sign-in (lowercase_usernames),
+     * so a stored "Jane@Example.com" could never sign in on PostgreSQL or
+     * SQLite, which compare case-sensitively -- only MySQL's case-insensitive
+     * collation hid it. Lowercasing here covers every path that writes the
+     * address, the profile page and the admin panel included.
+     *
+     * @return Attribute<string, string>
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (string $value): string => Str::lower($value));
     }
 
     /**

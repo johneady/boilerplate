@@ -202,6 +202,19 @@ test('an event this application does not act on is stored and marked ignored', f
     expect(WebhookEvent::sole()->status)->toBe(WebhookEventStatus::Ignored);
 });
 
+test('an event from another integration whose reference is not a payment uuid is marked ignored', function () {
+    // PostgreSQL rejects comparing its uuid column with such a reference, so
+    // the lookup must not send it: the event would fail and alert operators
+    // instead of being ignored.
+    deliverStripe(PaymentFixtures::load('stripe/event_checkout_session_completed', [
+        'data' => ['object' => ['id' => 'cs_test_Other', 'metadata' => ['payment_uuid' => 'order-1234']]],
+    ]))->assertOk();
+
+    expect(WebhookEvent::sole())
+        ->status->toBe(WebhookEventStatus::Ignored)
+        ->error->toBe('No payment or subscription in this application matches the event.');
+});
+
 test('a sandbox event can never touch a live payment', function () {
     $live = Payment::factory()->gateway(Gateway::Stripe)->live()->create(['gateway_checkout_id' => 'cs_test_a1B2c3']);
 

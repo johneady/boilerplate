@@ -6,6 +6,7 @@ use App\Models\Subscription;
 use App\Payments\Data\SubscriptionReference;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
+use Illuminate\Support\Str;
 
 /**
  * Find the subscription a webhook event is about.
@@ -19,7 +20,8 @@ class SubscriptionLocator
     {
         $query = fn () => Subscription::query()->where('gateway', $gateway->value)->where('mode', $mode->value);
 
-        if ($reference->uuid !== null && ($subscription = $query()->where('uuid', $reference->uuid)->first()) !== null) {
+        // Shape-checked first, for the reason PaymentLocator gives.
+        if (Str::isUuid($reference->uuid) && ($subscription = $query()->where('uuid', $reference->uuid)->first()) !== null) {
             return $subscription;
         }
 

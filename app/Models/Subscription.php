@@ -11,12 +11,12 @@ use App\Payments\Enums\SubscriptionStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Support\Facades\URL;
-use Illuminate\Support\Str;
 
 /**
  * A user's subscription to a plan, billed by one gateway.
@@ -77,15 +77,20 @@ use Illuminate\Support\Str;
 class Subscription extends Model
 {
     /** @use HasFactory<SubscriptionFactory> */
-    use Auditable, GuardsFinancialRecord, HasFactory;
+    use Auditable, GuardsFinancialRecord, HasFactory, HasUuids;
 
-    protected static function booted(): void
+    /**
+     * The columns given a UUID when a row is created without one.
+     *
+     * Also what makes route binding answer 404, before any query, for a
+     * reference that is not a UUID at all: PostgreSQL stores the column as a
+     * native uuid, and would otherwise reject the comparison with an error.
+     *
+     * @return list<string>
+     */
+    public function uniqueIds(): array
     {
-        static::creating(function (Subscription $subscription): void {
-            if (blank($subscription->uuid)) {
-                $subscription->uuid = (string) Str::uuid();
-            }
-        });
+        return ['uuid'];
     }
 
     /**

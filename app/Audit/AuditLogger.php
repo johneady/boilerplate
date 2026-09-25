@@ -123,10 +123,15 @@ class AuditLogger
 
         $actor ??= $this->currentActor();
 
-        try {
-            $entry = new AuditLog;
+        $entry = new AuditLog;
 
-            $entry->forceFill([
+        try {
+            // Its own transaction -- a savepoint when the caller is already in
+            // one -- so a failed insert is rolled back alone. On PostgreSQL a
+            // failed statement aborts the whole enclosing transaction, and
+            // swallowing the exception would not save the caller's work: its
+            // next query, or its commit, would fail instead.
+            $entry->getConnection()->transaction(fn () => $entry->forceFill([
                 'event' => $event,
                 'user_id' => $actor?->getKey(),
                 // Copied, not joined: the foreign key goes null when the
@@ -137,7 +142,7 @@ class AuditLogger
                 'ip_address' => $this->requestIp(),
                 'user_agent' => $this->requestUserAgent(),
                 ...$attributes,
-            ])->save();
+            ])->save());
 
             return $entry;
         } catch (Throwable $e) {

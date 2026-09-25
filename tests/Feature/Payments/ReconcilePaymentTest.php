@@ -63,7 +63,6 @@ test('the same gateway state applied again and again records one charge and send
 });
 
 test('the payable is told about a payment exactly once', function () {
-    HeldBooking::createTable();
     $booking = HeldBooking::query()->create(['price' => 10000]);
     $payment = Payments::checkout($booking);
 
@@ -84,7 +83,6 @@ test('a late event cannot move a paid payment backwards', function () {
 
 test('money that settles after a checkout was expired records the payment as paid, tells the payable and sends a receipt', function () {
     Notification::fake();
-    HeldBooking::createTable();
     $booking = HeldBooking::query()->create(['price' => 10000]);
     $payment = Payments::checkout($booking);
     app(ReconcilePayment::class)->apply($payment, new GatewayPaymentState(GatewayStatus::Expired), TransactionSource::Scheduler);
@@ -125,7 +123,6 @@ test('a refund that fails after succeeding is reversed on the ledger and operato
 
 test('a failure while telling the payable rolls the whole reconcile back and sends nothing', function () {
     Notification::fake();
-    HeldBooking::createTable();
     $booking = HeldBooking::query()->create(['price' => 10000, 'fail_on_accept' => true]);
     $payment = Payments::checkout($booking);
 

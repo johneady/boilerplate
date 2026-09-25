@@ -10,6 +10,7 @@ use App\Media\MediaCollection;
 use App\Media\MediaManager;
 use Flux\Flux;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
@@ -46,6 +47,10 @@ class Profile extends Component
     public function updateProfileInformation(): void
     {
         $user = $this->authenticatedUser();
+
+        // Lowercased before validating, as the model stores it, so the unique
+        // rule compares like with like on case-sensitive databases.
+        $this->email = Str::lower($this->email);
 
         $validated = $this->validate($this->profileRules($user->id));
 
