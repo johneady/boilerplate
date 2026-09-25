@@ -61,6 +61,17 @@ $user->can('update', $otherUser);                // through UserPolicy
 User::withRole(Role::Admin)->get();
 ```
 
+| Role | Admin panel | Can do |
+| --- | --- | --- |
+| User | no | Their own account, billing and subscription |
+| Editor | yes | Pages, media library, contact messages |
+| Bookkeeper | yes | Read payments, refunds, subscriptions, disputes and tax rates |
+| Manager | yes | Editor + Bookkeeper, plus refunds, capture/void, manual payments, payment links, cancelling subscriptions, and reading the user list |
+| Administrator | yes | Everything, including settings, payment credentials, plans, users and roles, the audit trail and logs |
+
+Staff roles land on the panel after signing in, and each sees only the screens
+its permissions reach.
+
 Check permissions rather than role names. `Role::Admin->permissions()` returns
 `Permission::cases()` by enumeration, so a permission added later is granted to
 administrators rather than silently denied.
@@ -139,18 +150,23 @@ captured, else the admin panel for admins and the dashboard for everyone else.
 php artisan migrate:fresh --seed
 ```
 
-Two demo accounts, with **fixed credentials** defined in
-[`config/first.php`](config/first.php) — no environment variables, so a fresh
-clone and a fresh deployment both come up usable with nothing to configure:
+Demo accounts with **fixed credentials** — the admin's in
+[`config/first.php`](config/first.php), the rest (with their roles) in
+[`config/dev-login.php`](config/dev-login.php) — no environment
+variables, so a fresh clone and a fresh deployment both come up usable with
+nothing to configure:
 
 | Account | Email | Password | Access |
 | --- | --- | --- | --- |
 | Admin | `admin@example.com` | `password` | Filament panel at `/admin` |
 | User | `test@example.com` | `password` | `/dashboard` only |
+| Editor | `editor@example.com` | `password` | Panel: pages, media, contact messages |
+| Bookkeeper | `bookkeeper@example.com` | `password` | Panel: payments, subscriptions, disputes, tax rates (read-only) |
+| Manager | `manager@example.com` | `password` | Panel: editor + bookkeeper, plus refunds, holds, payment links, subscriptions, users (read-only) |
 
 `AdminUserSeeder` is idempotent: an existing account is promoted to admin but
 its name and password are left alone, so a password you change is never reset by
-a redeploy. `DatabaseSeeder` adds the non-admin user wherever the quick logins
+a redeploy. `DatabaseSeeder` adds the other accounts wherever the quick logins
 are offered — every environment except `production`.
 
 `SettingsSeeder` adds placeholder business contact details (address, phone,

@@ -3,6 +3,7 @@
 namespace App\Auth;
 
 use App\Models\User;
+use Filament\Facades\Filament;
 
 class DevLoginAccounts
 {
@@ -54,12 +55,14 @@ class DevLoginAccounts
     /**
      * Describe the accounts offered as quick dev logins.
      *
-     * Each entry reports the account's real is_admin flag rather than assuming
-     * the seeded first user is an admin. A first user created by the factory
-     * instead of AdminUserSeeder is not promoted, and labelling it "Admin
-     * panel" regardless would hide why the login lands on the dashboard.
+     * Each entry reports the account's real role rather than assuming the
+     * seeded first user is an admin. A first user created by the factory
+     * instead of AdminUserSeeder is not promoted, and badging it as an
+     * administrator regardless would hide why the login lands on the
+     * dashboard. `panel` is whether that role works in the admin panel, which
+     * is where the login will land.
      *
-     * @return list<array{index: int, email: string, name: string, exists: bool, admin: bool}>
+     * @return list<array{index: int, email: string, name: string, exists: bool, role: ?Role, panel: bool}>
      */
     public function all(): array
     {
@@ -68,6 +71,10 @@ class DevLoginAccounts
         $users = User::whereIn('email', array_column($accounts, 'email'))
             ->get()
             ->keyBy('email');
+
+        // Looked up rather than getPanel('admin'), which throws for an
+        // unregistered id -- see ResolvesLoginRedirect::adminPanel().
+        $panel = Filament::getPanels()['admin'] ?? null;
 
         $described = [];
 
@@ -79,7 +86,8 @@ class DevLoginAccounts
                 'email' => $account['email'],
                 'name' => $user->name ?? $account['name'],
                 'exists' => $user !== null,
-                'admin' => (bool) $user?->is_admin,
+                'role' => $user?->role,
+                'panel' => $user !== null && $panel !== null && $user->canAccessPanel($panel),
             ];
         }
 

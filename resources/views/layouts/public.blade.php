@@ -60,7 +60,7 @@
 
                     @if (Route::has('login'))
                         @auth
-                            @if (auth()->user()->is_admin)
+                            @if (auth()->user()->canAccessPanel(filament()->getPanel('admin')))
                                 <flux:button
                                     :href="filament()->getPanel('admin')->getUrl()"
                                     size="sm"

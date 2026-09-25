@@ -1,5 +1,7 @@
 <?php
 
+use App\Auth\DevLoginAccounts;
+use App\Auth\Role;
 use App\Models\User;
 use Database\Seeders\AdminUserSeeder;
 use Database\Seeders\DatabaseSeeder;
@@ -147,6 +149,26 @@ test('the non-admin demo user is seeded wherever quick logins are offered', func
 
     expect(User::where('email', 'test@example.com')->exists())->toBeTrue();
 })->with(['local', 'staging', 'demo']);
+
+test('each staff demo account is seeded with its role', function (string $email, Role $role) {
+    $this->seed(DatabaseSeeder::class);
+
+    expect(User::where('email', $email)->sole()->role)->toBe($role);
+})->with([
+    ['editor@example.com', Role::Editor],
+    ['bookkeeper@example.com', Role::Bookkeeper],
+    ['manager@example.com', Role::Manager],
+]);
+
+test('every quick login is backed by a seeded account', function () {
+    // The login page offers config('dev-login.accounts'); an entry the
+    // seeder does not create renders as "Not seeded" on every demo instance.
+    $this->seed(DatabaseSeeder::class);
+
+    foreach (app(DevLoginAccounts::class)->all() as $account) {
+        expect($account['exists'])->toBeTrue("{$account['email']} is offered but not seeded");
+    }
+});
 
 test('the non-admin demo user is not seeded in production', function () {
     app()->detectEnvironment(fn () => 'production');

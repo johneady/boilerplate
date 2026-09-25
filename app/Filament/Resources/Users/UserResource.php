@@ -78,7 +78,7 @@ class UserResource extends Resource
                 Select::make('role')
                     ->label(__('users.fields.role'))
                     ->options(fn (): array => collect(Role::cases())
-                        ->mapWithKeys(fn (Role $role): array => [$role->value => $role->label()])
+                        ->mapWithKeys(fn (Role $role): array => [$role->value => __($role->label())])
                         ->all())
                     ->default(Role::DEFAULT->value)
                     ->selectablePlaceholder(false)
@@ -132,7 +132,7 @@ class UserResource extends Resource
                 TextColumn::make('role')
                     ->label(__('users.fields.role'))
                     ->badge()
-                    ->formatStateUsing(fn (Role $state): string => $state->label())
+                    ->formatStateUsing(fn (Role $state): string => __($state->label()))
                     ->color(fn (Role $state): string => $state->color())
                     ->sortable(),
                 IconColumn::make('email_verified_at')
@@ -154,7 +154,7 @@ class UserResource extends Resource
                 SelectFilter::make('role')
                     ->label(__('users.fields.role'))
                     ->options(fn (): array => collect(Role::cases())
-                        ->mapWithKeys(fn (Role $role): array => [$role->value => $role->label()])
+                        ->mapWithKeys(fn (Role $role): array => [$role->value => __($role->label())])
                         ->all()),
                 TernaryFilter::make('email_verified_at')
                     ->label(__('users.fields.email_verified'))
@@ -217,7 +217,7 @@ class UserResource extends Resource
         // usable; creation has no record at all, so that falls to the default.
         $role ??= $record instanceof User ? $record->role : Role::DEFAULT;
 
-        return $role->description();
+        return __($role->description());
     }
 
     /**

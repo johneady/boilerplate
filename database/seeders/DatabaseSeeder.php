@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Auth\DevLoginAccounts;
+use App\Auth\Role;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -12,17 +13,12 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * The address of the non-admin convenience account seeded locally.
-     */
-    private const TEST_USER_EMAIL = 'test@example.com';
-
-    /**
-     * The password for that account.
+     * The password for the demo accounts declared in config/dev-login.php.
      *
-     * Public and fixed, like the admin's: this account exists to be logged
+     * Public and fixed, like the admin's: these accounts exist to be logged
      * into with one click on any non-production instance.
      */
-    private const TEST_USER_PASSWORD = 'password';
+    private const DEMO_ACCOUNT_PASSWORD = 'password';
 
     /**
      * Seed the application's database.
@@ -37,9 +33,9 @@ class DatabaseSeeder extends Seeder
 
         // Seeded wherever the quick dev logins are offered -- which is every
         // environment but production -- so a deployed demo instance has the
-        // non-admin account its login page advertises. Without this the button
-        // renders as "Not seeded" and there is no way to see the app as an
-        // ordinary user.
+        // accounts its login page advertises. Without this the buttons render
+        // as "Not seeded" and there is no way to see the app as an ordinary
+        // user or a staff role.
         if (! app(DevLoginAccounts::class)->enabled()) {
             return;
         }
@@ -49,25 +45,43 @@ class DatabaseSeeder extends Seeder
         // payments are switched on, and production should start with none.
         $this->call(PlanSeeder::class);
 
-        // Skipped when the admin address is also the test address, so this
-        // non-admin user cannot land on top of the admin just seeded.
-        if (config('first.user.email') === self::TEST_USER_EMAIL) {
-            return;
-        }
+        // The quick-login list is the single declaration of the demo
+        // accounts: an entry with a role is one this seeder creates, so the
+        // login page can never offer an account nothing seeds.
+        foreach ((array) config('dev-login.accounts') as $account) {
+            $role = Role::tryFrom((string) ($account['role'] ?? ''));
+            $email = trim((string) ($account['email'] ?? ''));
 
-        // Guarded so a second `db:seed` against an already-seeded database
-        // doesn't fail on the users.email unique index.
-        if (User::where('email', self::TEST_USER_EMAIL)->exists()) {
+            if ($role !== null && $email !== '') {
+                $this->seedDemoAccount($email, trim((string) ($account['name'] ?? '')) ?: $email, $role);
+            }
+        }
+    }
+
+    /**
+     * Create one demo account unless its address is already taken.
+     */
+    private function seedDemoAccount(string $email, string $name, Role $role): void
+    {
+        // Skipped when the admin address is also this address, so a
+        // lesser-privileged account cannot land on top of the admin just
+        // seeded -- and, guarded on existence generally, so a second
+        // `db:seed` doesn't fail on the users.email unique index or reset an
+        // account someone has since changed.
+        if (config('first.user.email') === $email
+            || User::where('email', $email)->exists()) {
             return;
         }
 
         // Built without the factory: factories call fake(), and fakerphp/faker
         // is a dev dependency absent from the --no-dev production image this
-        // now runs in. See .ai/rules/seeders.md.
+        // now runs in. See .ai/rules/seeders.md. The role is not
+        // mass-assignable, so it is set as a property like the rest.
         $user = new User;
-        $user->name = 'Test User';
-        $user->email = self::TEST_USER_EMAIL;
-        $user->password = self::TEST_USER_PASSWORD;
+        $user->name = $name;
+        $user->email = $email;
+        $user->password = self::DEMO_ACCOUNT_PASSWORD;
+        $user->role = $role;
         $user->email_verified_at = now();
         $user->save();
     }

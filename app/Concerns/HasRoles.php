@@ -55,7 +55,10 @@ trait HasRoles
     }
 
     /**
-     * Whether this user's role is at least as privileged as the given one.
+     * Whether this user's role can do everything the given one can.
+     *
+     * See Role::atLeast(): compared by grants, since the staff roles are
+     * parallel rather than a chain.
      */
     public function hasRoleAtLeast(Role $role): bool
     {
@@ -84,9 +87,11 @@ trait HasRoles
      * `$user->is_admin = true` assignment still works -- it sets the role
      * instead, so there is no second place for the truth to live and drift.
      *
-     * Assigning false demotes to the default role rather than to "not admin",
-     * which is only well-defined while there are two roles. Once a third
-     * exists, set the role explicitly instead of assigning this.
+     * Assigning false demotes an administrator to the default role and leaves
+     * any other role alone: "not an admin" says nothing about which staff role
+     * someone should hold, so a Manager assigned false stays a Manager rather
+     * than silently losing their grants. Set the role explicitly to move
+     * someone between the non-admin roles.
      *
      * @return Attribute<bool, bool>
      */
@@ -95,7 +100,11 @@ trait HasRoles
         return Attribute::make(
             get: fn (): bool => $this->role === Role::Admin,
             set: fn (bool $value): array => [
-                'role' => $value ? Role::Admin->value : Role::DEFAULT->value,
+                'role' => match (true) {
+                    $value => Role::Admin->value,
+                    $this->role === Role::Admin => Role::DEFAULT->value,
+                    default => $this->role->value,
+                },
             ],
         );
     }

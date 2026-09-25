@@ -38,6 +38,10 @@ return [
     | admin account described in one place. Resolving it here rather than
     | calling config() from this file avoids depending on config load order.
     |
+    | An entry with a `role` (an App\Auth\Role value) is also the account
+    | DatabaseSeeder creates, so this list is the one place a demo account is
+    | declared. The admin entry has none: AdminUserSeeder owns that account.
+    |
     */
 
     'accounts' => [
@@ -48,6 +52,22 @@ return [
         [
             'email' => 'test@example.com',
             'name' => 'Test User',
+            'role' => 'user',
+        ],
+        [
+            'email' => 'editor@example.com',
+            'name' => 'Demo Editor',
+            'role' => 'editor',
+        ],
+        [
+            'email' => 'bookkeeper@example.com',
+            'name' => 'Demo Bookkeeper',
+            'role' => 'bookkeeper',
+        ],
+        [
+            'email' => 'manager@example.com',
+            'name' => 'Demo Manager',
+            'role' => 'manager',
         ],
     ],
 
