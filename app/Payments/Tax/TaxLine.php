@@ -6,7 +6,7 @@ use App\Payments\Enums\Currency;
 use App\Payments\Money;
 
 /**
- * One tax charged on a payment, e.g. "HST 13%: $13.00".
+ * One tax charged on a payment, e.g. "Sales Tax 13%: $13.00".
  *
  * Snapshotted onto the payment as JSON when checkout starts, so a receipt
  * always shows the rate that was actually charged, whatever the configured
@@ -15,7 +15,7 @@ use App\Payments\Money;
 final readonly class TaxLine
 {
     /**
-     * @param  string  $percentage  Decimal string, e.g. "9.975". Never a float.
+     * @param  string  $percentage  Decimal string, e.g. "8.875". Never a float.
      */
     public function __construct(
         public string $name,
@@ -24,7 +24,7 @@ final readonly class TaxLine
     ) {}
 
     /**
-     * "HST (13%)" or "QST (9.975%)": the percentage without trailing zeros.
+     * "GST (5%)" or "Sales Tax (8.875%)": the percentage without trailing zeros.
      */
     public function label(): string
     {

@@ -129,10 +129,10 @@ return [
 
     'tax_rates' => [
         'name' => 'Name',
-        'name_help' => 'As it should appear on a receipt, e.g. HST, GST, PST or QST.',
+        'name_help' => 'As it should appear on a receipt, e.g. Sales Tax, State Tax, GST or HST.',
         'delete_synced' => 'This rate has been sent to the payment provider, where subscriptions started with it keep charging it. Switch it off instead.',
         'percentage' => 'Rate (%)',
-        'percentage_help' => 'Up to three decimal places, e.g. 13 or 9.975.',
+        'percentage_help' => 'Up to three decimal places, e.g. 13 or 8.875.',
         'is_active' => 'Active',
         'none_active' => 'No active tax rates: taxable items are charged no tax.',
     ],

@@ -37,7 +37,7 @@ use Carbon\CarbonImmutable;
  * can be changed on a plan in use, so a change to either creates a new
  * billing plan and deactivates the old one; existing subscribers stay on the
  * plan they approved. PayPal takes one tax percentage, so the configured
- * rates are combined into one line ("GST + PST", 12%).
+ * rates are combined into one line ("State Tax + City Tax", 8.875%).
  *
  * PayPal has no cancel-at-period-end. Scheduling one suspends the
  * subscription (so nothing more is billed) and payments:end-subscriptions

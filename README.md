@@ -317,9 +317,10 @@ customer-entered amount, single-use (an invoice) or reusable. A project's own
 adds manual payments to its resource.
 
 **Tax.** Admin → Payments → Tax rates. Every active rate is added on top of a
-taxable item's price, each rounded on its own (so GST 5% + PST 7% print as two
-lines, as a Canadian receipt does). The lines charged are snapshotted onto the
-payment, so editing a rate never changes a past receipt.
+taxable item's price, each rounded on its own (so a 5% and a 7% tax, such as
+GST + PST or state + city sales tax, print as two lines on the receipt). The
+lines charged are snapshotted onto the payment, so editing a rate never
+changes a past receipt.
 
 **Credentials** are entered in the panel, one set for sandbox and one for
 live, and are encrypted with `APP_KEY`, never sent back to the browser, and

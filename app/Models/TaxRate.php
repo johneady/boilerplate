@@ -17,7 +17,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 /**
- * One configured tax, e.g. "HST" at 13%.
+ * One configured tax, e.g. "GST" at 5% or "Sales Tax" at 8.875%.
  *
  * Every active rate applies to every taxable item, in sort order, each on the
  * pre-tax subtotal (App\Payments\Tax\TaxCalculator). Editing a rate never
@@ -101,7 +101,7 @@ class TaxRate extends Model
     }
 
     /**
-     * "HST (13%)": how this rate reads on a receipt.
+     * "Sales Tax (8.875%)": how this rate reads on a receipt.
      */
     public function label(): string
     {
@@ -110,8 +110,8 @@ class TaxRate extends Model
 
     /**
      * The active rates as one line, for a gateway that takes a single tax
-     * percentage on a subscription (PayPal): "GST + PST" at 12%. Null when no
-     * rate is active.
+     * percentage on a subscription (PayPal): "State Tax + City Tax" at
+     * 8.875%. Null when no rate is active.
      *
      * @return array{name: string, percentage: string}|null
      */

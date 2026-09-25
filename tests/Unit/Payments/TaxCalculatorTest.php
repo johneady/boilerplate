@@ -20,7 +20,7 @@ test('a single rate is added on top of the subtotal', function () {
         ->toBe(['lines' => [1300], 'tax' => 1300, 'total' => 11300]);
 });
 
-test('each tax is rounded on its own, the way a Canadian receipt shows GST and PST', function () {
+test('each tax is rounded on its own, the way a receipt shows stacked taxes', function () {
     // 5% and 7% of $10.05 are $0.5025 and $0.7035: 50 and 70 cents. Taking
     // 12% of the total and splitting it afterwards would give a different pair.
     expect(taxOn(1005, [['name' => 'GST', 'percentage' => '5'], ['name' => 'PST', 'percentage' => '7']]))

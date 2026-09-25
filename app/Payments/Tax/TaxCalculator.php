@@ -9,12 +9,12 @@ use InvalidArgumentException;
  * Work out the taxes on a tax-exclusive subtotal.
  *
  * Each tax is calculated on the subtotal separately and rounded half-up to
- * the cent, which is how Canadian GST/PST/QST are shown on a receipt: BC's
- * GST 5% and PST 7% on $10.05 are $0.50 and $0.70, not 12% of $10.05 split
- * afterwards. Taxes do not compound (QST has been charged on the pre-GST
- * price since 2013).
+ * the cent, which is how stacked taxes (federal + provincial, or state + local
+ * sales tax) are shown on a receipt: 5% and 7% on $10.05 are $0.50 and $0.70,
+ * not 12% of $10.05 split afterwards. Taxes do not compound: each is charged
+ * on the pre-tax price.
  *
- * Percentages arrive as decimal strings ("9.975") and are turned into integer
+ * Percentages arrive as decimal strings ("8.875") and are turned into integer
  * thousandths of a percent before any arithmetic, so no float is involved at
  * any point between the configured rate and the cents charged.
  */

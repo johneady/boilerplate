@@ -355,7 +355,7 @@ class PreviewableEmails
             'amount' => 56500,
             'amount_captured' => $status === PaymentStatus::Authorized ? 0 : 56500,
             'amount_refunded' => 0,
-            'tax_lines' => [['name' => 'HST', 'percentage' => '13.000', 'amount' => 6500]],
+            'tax_lines' => [['name' => 'Sales Tax', 'percentage' => '13.000', 'amount' => 6500]],
             'authorization_expires_at' => now()->addHours(20),
         ]);
     }
