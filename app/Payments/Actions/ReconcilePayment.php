@@ -24,6 +24,7 @@ use App\Payments\Enums\TransactionSource;
 use App\Payments\Enums\TransactionType;
 use App\Payments\OpsAlerts;
 use App\Payments\PaymentManager;
+use App\Payments\ReceiptNumbers;
 use App\Payments\Tax\RefundTax;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -61,6 +62,7 @@ class ReconcilePayment
     public function __construct(
         private readonly PaymentManager $payments,
         private readonly OpsAlerts $opsAlerts,
+        private readonly ReceiptNumbers $receiptNumbers,
     ) {}
 
     /**
@@ -421,6 +423,10 @@ class ReconcilePayment
      * move paid_at from null, so the payable hears about each payment once
      * however many reconciles race to it. Runs inside the transaction, so
      * the payable's own writes commit or roll back with the payment's.
+     *
+     * The receipt number is taken only after the claim succeeds, and in the
+     * same transaction: a reconcile that loses the race takes none, and one
+     * that rolls back hands its number back, so the sequence has no gaps.
      */
     private function claimPaid(Payment $payment): ?PaymentAcceptance
     {
@@ -436,6 +442,10 @@ class ReconcilePayment
         if ($claimed !== 1) {
             return null;
         }
+
+        Payment::query()
+            ->whereKey($payment->id)
+            ->update(['receipt_number' => $this->receiptNumbers->next($payment->mode)]);
 
         $payment->refresh();
         $payable = $payment->payable;

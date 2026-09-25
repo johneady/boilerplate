@@ -60,6 +60,9 @@ return [
 
     'fields' => [
         'reference' => 'Reference',
+        'receipt_number' => 'Receipt number',
+        'tax_line' => ':tax: :amount',
+        'tax_line_registered' => ':tax: :amount (registration no. :number)',
         'created' => 'Created',
         'customer' => 'Customer',
         'customer_name' => 'Customer name',
@@ -133,6 +136,8 @@ return [
         'delete_synced' => 'This rate has been sent to the payment provider, where subscriptions started with it keep charging it. Switch it off instead.',
         'percentage' => 'Rate (%)',
         'percentage_help' => 'Up to three decimal places, e.g. 13 or 8.875.',
+        'registration_number' => 'Registration number',
+        'registration_number_help' => 'Your business\'s registration for this tax, printed beside it on receipts, e.g. a GST/HST number like 123456789 RT0001. Leave blank if you are not registered.',
         'is_active' => 'Active',
         'none_active' => 'No active tax rates: taxable items are charged no tax.',
     ],

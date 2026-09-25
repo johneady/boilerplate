@@ -140,7 +140,12 @@
                                 class="flex items-center justify-between gap-3 py-2 text-sm"
                                 wire:key="payment-{{ $payment->id }}"
                             >
-                                <span>{{ $settings->formatDate($payment->paid_at) }} · {{ $payment->description }}</span>
+                                <span>
+                                    {{ $settings->formatDate($payment->paid_at) }} · {{ $payment->description }}
+                                    @if ($payment->receiptNumber() !== null)
+                                        <span class="font-mono text-xs text-zinc-500">{{ $payment->receiptNumber() }}</span>
+                                    @endif
+                                </span>
                                 <span class="flex items-center gap-3">
                                     <span>{{ $payment->total()->format() }}</span>
                                     <a href="{{ $payment->receiptUrl() }}" class="underline">{{ __('Receipt') }}</a>

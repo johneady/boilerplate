@@ -61,8 +61,15 @@
                     </div>
 
                     @foreach ($payment->taxLines() as $line)
-                        <div class="flex justify-between text-neutral-600 dark:text-neutral-400">
-                            <dt>{{ $line->label() }}</dt>
+                        <div class="flex justify-between gap-4 text-neutral-600 dark:text-neutral-400">
+                            <dt>
+                                {{ $line->label() }}
+                                @if ($line->registrationNumber !== null)
+                                    <span class="block text-xs text-neutral-500" data-test="tax-registration">
+                                        {{ __('Registration no. :number', ['number' => $line->registrationNumber]) }}
+                                    </span>
+                                @endif
+                            </dt>
                             <dd>{{ $line->amount->format() }}</dd>
                         </div>
                     @endforeach
@@ -81,6 +88,13 @@
                         <dd>-{{ $refund->money()->format() }}</dd>
                     </div>
                 @endforeach
+
+                @if ($payment->receiptNumber() !== null)
+                    <div class="flex justify-between gap-4 pt-2 text-xs text-neutral-500">
+                        <dt>{{ __('Receipt number') }}</dt>
+                        <dd class="font-mono" data-test="receipt-number">{{ $payment->receiptNumber() }}</dd>
+                    </div>
+                @endif
 
                 <div class="flex justify-between gap-4 pt-2 text-xs text-neutral-500">
                     <dt>{{ __('Reference') }}</dt>

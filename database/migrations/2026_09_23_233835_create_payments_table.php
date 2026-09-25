@@ -56,6 +56,12 @@ return new class extends Migration
             // payment is reconciled. receipt_sent_at is the same for the email,
             // and expiry_alerted_at for the authorization-expiry warning.
             $table->timestamp('paid_at')->nullable();
+            // The sequential, gap-free receipt number, assigned in the same
+            // transaction that claims paid_at. Null until then, so unpaid,
+            // failed and expired checkouts take no number. Counted per mode
+            // (unique with it, below), so sandbox payments never punch holes
+            // in the live series an accountant reads.
+            $table->unsignedBigInteger('receipt_number')->nullable();
             $table->timestamp('receipt_sent_at')->nullable();
             $table->timestamp('expiry_alerted_at')->nullable();
             $table->timestamp('failed_at')->nullable();
@@ -75,6 +81,8 @@ return new class extends Migration
             // is written here.
             $table->json('metadata')->nullable();
             $table->timestamps();
+
+            $table->unique(['mode', 'receipt_number']);
 
             // Unique per gateway: a webhook or return naming a gateway id
             // resolves to exactly one payment. MySQL, MariaDB, PostgreSQL and

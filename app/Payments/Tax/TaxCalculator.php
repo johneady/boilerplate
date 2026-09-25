@@ -26,7 +26,7 @@ class TaxCalculator
     private const int SCALE = 100_000;
 
     /**
-     * @param  iterable<array{name: string, percentage: string}>  $rates
+     * @param  iterable<array{name: string, percentage: string, registration_number?: string|null}>  $rates
      */
     public function calculate(Money $subtotal, iterable $rates): TaxBreakdown
     {
@@ -44,6 +44,7 @@ class TaxCalculator
                     $this->roundHalfUp($subtotal->amount * self::thousandths($rate['percentage'])),
                     $subtotal->currency,
                 ),
+                registrationNumber: $rate['registration_number'] ?? null,
             );
         }
 

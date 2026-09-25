@@ -573,6 +573,11 @@ trait ManagesPayPalSubscriptions
         $end = CarbonImmutable::now()->addDay();
         $start = $this->transactionsSince($subscription);
 
+        // PayPal charges one combined tax, so its receipt line carries the
+        // registration number of every rate the plan charges -- named in the
+        // tax_name recorded when the plan was synced.
+        $registrationNumber = isset($tax['tax_name']) ? TaxRate::registrationNumbersFor($tax['tax_name']) : null;
+
         while ($start < $end) {
             $windowEnd = min($start->addDays(31), $end);
 
@@ -603,7 +608,7 @@ trait ManagesPayPalSubscriptions
                     paymentId: (string) $transaction['id'],
                     total: Money::fromDecimal((string) $gross, $currency),
                     taxLines: $taxAmount->isPositive()
-                        ? [new TaxLine($tax['tax_name'] ?? 'Tax', $tax['tax_percentage'] ?? '0', $taxAmount)]
+                        ? [new TaxLine($tax['tax_name'] ?? 'Tax', $tax['tax_percentage'] ?? '0', $taxAmount, $registrationNumber)]
                         : [],
                     paidAt: CarbonImmutable::parse((string) ($transaction['time'] ?? 'now')),
                 );

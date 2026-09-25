@@ -12,6 +12,7 @@ use App\Payments\Enums\ManualPaymentMethod;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
 use App\Payments\Money;
+use App\Payments\ReceiptNumbers;
 use App\Payments\Tax\TaxLine;
 use Carbon\CarbonImmutable;
 use Database\Factories\PaymentFactory;
@@ -55,7 +56,7 @@ use Illuminate\Support\Facades\URL;
  * @property int $amount
  * @property int $amount_captured
  * @property int $amount_refunded
- * @property list<array{name: string, percentage: string, amount: int}> $tax_lines
+ * @property list<array{name: string, percentage: string, amount: int, registration_number?: string}> $tax_lines
  * @property string|null $gateway_checkout_id
  * @property string|null $gateway_payment_id
  * @property string|null $gateway_authorization_id
@@ -64,6 +65,7 @@ use Illuminate\Support\Facades\URL;
  * @property CarbonImmutable|null $authorization_expires_at
  * @property CarbonImmutable|null $captured_at
  * @property CarbonImmutable|null $paid_at
+ * @property int|null $receipt_number
  * @property CarbonImmutable|null $receipt_sent_at
  * @property CarbonImmutable|null $expiry_alerted_at
  * @property CarbonImmutable|null $failed_at
@@ -129,6 +131,7 @@ class Payment extends Model
             'authorization_expires_at' => 'immutable_datetime',
             'captured_at' => 'immutable_datetime',
             'paid_at' => 'immutable_datetime',
+            'receipt_number' => 'integer',
             'receipt_sent_at' => 'immutable_datetime',
             'expiry_alerted_at' => 'immutable_datetime',
             'failed_at' => 'immutable_datetime',
@@ -157,7 +160,7 @@ class Payment extends Model
      */
     protected function setOnceAttributes(): array
     {
-        return ['gateway_checkout_id', 'gateway_payment_id', 'gateway_authorization_id'];
+        return ['gateway_checkout_id', 'gateway_payment_id', 'gateway_authorization_id', 'receipt_number'];
     }
 
     /**
@@ -284,6 +287,17 @@ class Payment extends Model
     public function taxLines(): array
     {
         return array_map(fn (array $line): TaxLine => TaxLine::fromArray($line, $this->currency), $this->tax_lines);
+    }
+
+    /**
+     * The formatted receipt number, e.g. "R-000123", or null until paid.
+     *
+     * Numbered per mode (see ReceiptNumbers), so a sandbox payment and a live
+     * one can share a number; the mode tells them apart.
+     */
+    public function receiptNumber(): ?string
+    {
+        return $this->receipt_number === null ? null : ReceiptNumbers::format($this->receipt_number);
     }
 
     /**

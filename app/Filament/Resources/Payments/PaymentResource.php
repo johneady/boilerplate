@@ -14,6 +14,8 @@ use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\ManualPaymentMethod;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\PaymentManager;
+use App\Payments\ReceiptNumbers;
+use App\Payments\Tax\TaxLine;
 use App\Settings\Settings;
 use BackedEnum;
 use Filament\Actions\ViewAction;
@@ -25,6 +27,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 /**
@@ -108,7 +111,9 @@ class PaymentResource extends Resource
                             ->label(__('payments.fields.tax'))
                             ->state(fn (Payment $record): string => $record->tax_lines === []
                                 ? '—'
-                                : collect($record->taxLines())->map(fn ($line): string => $line->label().': '.$line->amount->format())->implode(', ')),
+                                : collect($record->taxLines())->map(fn (TaxLine $line): string => $line->registrationNumber === null
+                                    ? __('payments.fields.tax_line', ['tax' => $line->label(), 'amount' => $line->amount->format()])
+                                    : __('payments.fields.tax_line_registered', ['tax' => $line->label(), 'amount' => $line->amount->format(), 'number' => $line->registrationNumber]))->implode(', ')),
                         TextEntry::make('amount')
                             ->label(__('payments.fields.total'))
                             ->state(fn (Payment $record): string => $record->total()->format())
@@ -156,6 +161,12 @@ class PaymentResource extends Resource
                             // The foreign key goes null when the account is deleted.
                             ->placeholder('—')
                             ->visible(fn (Payment $record): bool => $record->gateway === Gateway::Manual),
+                        TextEntry::make('receipt_number')
+                            ->label(__('payments.fields.receipt_number'))
+                            ->state(fn (Payment $record): ?string => $record->receiptNumber())
+                            ->fontFamily('mono')
+                            ->placeholder('—')
+                            ->copyable(),
                         TextEntry::make('uuid')
                             ->label(__('payments.fields.reference'))
                             ->fontFamily('mono')
@@ -182,6 +193,20 @@ class PaymentResource extends Resource
                     ->label(__('payments.fields.created'))
                     ->formatStateUsing(fn ($state): string => $settings->formatDateTime($state))
                     ->sortable(),
+                TextColumn::make('receipt_number')
+                    ->label(__('payments.fields.receipt_number'))
+                    ->formatStateUsing(fn (int $state): string => ReceiptNumbers::format($state))
+                    ->placeholder('—')
+                    ->fontFamily('mono')
+                    // "R-000123", "000123" and "123" all find receipt 123 (see
+                    // ReceiptNumbers::parse()). Filament wraps this in its own
+                    // OR group, so a search that is not a receipt number must
+                    // match nothing here rather than every row.
+                    ->searchable(query: fn (Builder $query, string $search): Builder => ($number = ReceiptNumbers::parse($search)) === null
+                        ? $query->whereRaw('1 = 0')
+                        : $query->where('receipt_number', $number))
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('customer_name')
                     ->label(__('payments.fields.customer'))
                     ->description(fn (Payment $record): string => $record->customer_email)

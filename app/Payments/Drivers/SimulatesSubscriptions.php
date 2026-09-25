@@ -185,6 +185,7 @@ trait SimulatesSubscriptions
                     (string) $line['name'],
                     (string) $line['percentage'],
                     Money::of((int) $line['amount'], $currency),
+                    $line['registration_number'] ?? null,
                 ), $invoice['tax_lines'])),
                 paidAt: CarbonImmutable::parse($invoice['at']),
             ), $state['invoices'] ?? [])),

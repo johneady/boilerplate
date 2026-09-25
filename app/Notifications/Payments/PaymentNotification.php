@@ -3,6 +3,7 @@
 namespace App\Notifications\Payments;
 
 use App\Notifications\BaseNotification;
+use App\Payments\Tax\TaxLine;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 
@@ -42,5 +43,16 @@ abstract class PaymentNotification extends BaseNotification implements ShouldQue
     public function __construct()
     {
         $this->afterCommit();
+    }
+
+    /**
+     * One tax line as an email prints it, with the business's registration
+     * number for that tax when it has one.
+     */
+    protected function taxLineText(TaxLine $line): string
+    {
+        return $line->registrationNumber === null
+            ? __(':tax: :amount', ['tax' => $line->label(), 'amount' => $line->amount->format()])
+            : __(':tax: :amount (registration no. :number)', ['tax' => $line->label(), 'amount' => $line->amount->format(), 'number' => $line->registrationNumber]);
     }
 }

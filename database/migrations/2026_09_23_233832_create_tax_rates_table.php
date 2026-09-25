@@ -14,6 +14,10 @@ return new class extends Migration
         Schema::create('tax_rates', function (Blueprint $table): void {
             $table->id();
             $table->string('name', 50);
+            // The business's registration for this tax (a GST/HST, QST or
+            // VAT number), printed beside the line on receipts. Per rate,
+            // because a business can hold several: GST and QST in Quebec.
+            $table->string('registration_number', 50)->nullable();
             // A decimal, never a float column: 9.975 has no exact binary
             // form and must come back as exactly "9.975". TaxCalculator turns
             // it into integer thousandths of a percent before any arithmetic.

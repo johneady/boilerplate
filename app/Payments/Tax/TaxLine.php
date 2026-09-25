@@ -16,11 +16,13 @@ final readonly class TaxLine
 {
     /**
      * @param  string  $percentage  Decimal string, e.g. "8.875". Never a float.
+     * @param  string|null  $registrationNumber  The business's registration for this tax, printed beside it on receipts.
      */
     public function __construct(
         public string $name,
         public string $percentage,
         public Money $amount,
+        public ?string $registrationNumber = null,
     ) {}
 
     /**
@@ -36,22 +38,36 @@ final readonly class TaxLine
     }
 
     /**
-     * @return array{name: string, percentage: string, amount: int}
+     * The registration number is included only when there is one, so a line
+     * without it snapshots exactly as lines always have.
+     *
+     * @return array{name: string, percentage: string, amount: int, registration_number?: string}
      */
     public function toArray(): array
     {
-        return [
+        $line = [
             'name' => $this->name,
             'percentage' => $this->percentage,
             'amount' => $this->amount->amount,
         ];
+
+        if ($this->registrationNumber !== null) {
+            $line['registration_number'] = $this->registrationNumber;
+        }
+
+        return $line;
     }
 
     /**
-     * @param  array{name: string, percentage: string, amount: int}  $line
+     * @param  array{name: string, percentage: string, amount: int, registration_number?: string|null}  $line
      */
     public static function fromArray(array $line, Currency $currency): self
     {
-        return new self($line['name'], $line['percentage'], Money::of((int) $line['amount'], $currency));
+        return new self(
+            $line['name'],
+            $line['percentage'],
+            Money::of((int) $line['amount'], $currency),
+            $line['registration_number'] ?? null,
+        );
     }
 }

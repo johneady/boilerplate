@@ -355,7 +355,8 @@ class PreviewableEmails
             'amount' => 56500,
             'amount_captured' => $status === PaymentStatus::Authorized ? 0 : 56500,
             'amount_refunded' => 0,
-            'tax_lines' => [['name' => 'Sales Tax', 'percentage' => '13.000', 'amount' => 6500]],
+            'tax_lines' => [['name' => 'Sales Tax', 'percentage' => '13.000', 'amount' => 6500, 'registration_number' => '123456789 RT0001']],
+            'receipt_number' => $status->isPaid() ? 123 : null,
             'authorization_expires_at' => now()->addHours(20),
         ]);
     }

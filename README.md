@@ -336,7 +336,14 @@ adds manual payments to its resource.
 taxable item's price, each rounded on its own (so a 5% and a 7% tax, such as
 GST + PST or state + city sales tax, print as two lines on the receipt). The
 lines charged are snapshotted onto the payment, so editing a rate never
-changes a past receipt.
+changes a past receipt. Each rate takes an optional **registration number**
+(a GST/HST, QST or VAT number), printed beside its line on receipts.
+
+**Receipt numbers.** Every payment is numbered `R-000123` when it is first
+seen paid, in the same transaction, from a locked counter in the `sequences`
+table — so the series is gap-free (a rolled-back payment hands its number
+back) and never shared. Sandbox and live count separately. The prefix is
+`payments.receipt_prefix`; the UUID stays the internal reference.
 
 **Credentials** are entered in the panel, one set for sandbox and one for
 live, and are encrypted with `APP_KEY`, never sent back to the browser, and

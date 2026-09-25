@@ -499,7 +499,7 @@ trait ManagesStripeSubscriptions
      * Every Stripe TaxRate this installation has created in this mode, with
      * the name and percentage it was created with.
      *
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string, 2: ?string}>
      */
     private function knownTaxRates(): array
     {
@@ -508,7 +508,10 @@ trait ManagesStripeSubscriptions
         foreach (TaxRate::query()->whereNotNull('gateway_refs')->get() as $rate) {
             foreach ($rate->gateway_refs[Gateway::Stripe->value][$this->mode->value]['known'] ?? [] as $id => $signature) {
                 $parts = explode('|', (string) $signature, 2);
-                $known[(string) $id] = [$parts[0], $parts[1] ?? '0'];
+                // The registration number is the rate's current one: Stripe's
+                // copy carries no such field, and it is the business's
+                // registration for the tax, not a term of the charge.
+                $known[(string) $id] = [$parts[0], $parts[1] ?? '0', $rate->registration_number];
             }
         }
 
@@ -520,7 +523,7 @@ trait ManagesStripeSubscriptions
      * when charged.
      *
      * @param  array<string, mixed>  $invoice
-     * @param  array<string, array{0: string, 1: string}>  $known
+     * @param  array<string, array{0: string, 1: string, 2: ?string}>  $known
      * @return list<TaxLine>
      */
     private function invoiceTaxLines(array $invoice, Currency $currency, array $known): array
@@ -554,8 +557,8 @@ trait ManagesStripeSubscriptions
         $lines = [];
 
         foreach ($shares as $id => $share) {
-            [$name, $percentage] = $known[$id] ?? ['Tax', '0'];
-            $lines[] = new TaxLine($name, $percentage, $share);
+            [$name, $percentage, $registrationNumber] = $known[$id] ?? ['Tax', '0', null];
+            $lines[] = new TaxLine($name, $percentage, $share, $registrationNumber);
         }
 
         return $lines;
