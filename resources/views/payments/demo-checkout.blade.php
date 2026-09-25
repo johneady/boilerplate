@@ -17,7 +17,7 @@
             <p class="mt-4 text-2xl" data-test="demo-amount">{{ $payment->total()->format() }}</p>
 
             <div class="mt-8 flex flex-wrap gap-3">
-                <form method="POST" action="{{ route('payments.demo.store', $payment) }}">
+                <form method="POST" action="{{ URL::signedRoute('payments.demo.store', $payment) }}">
                     @csrf
                     <input type="hidden" name="outcome" value="approve" />
                     <flux:button type="submit" variant="primary" data-test="demo-approve">
@@ -25,13 +25,13 @@
                     </flux:button>
                 </form>
 
-                <form method="POST" action="{{ route('payments.demo.store', $payment) }}">
+                <form method="POST" action="{{ URL::signedRoute('payments.demo.store', $payment) }}">
                     @csrf
                     <input type="hidden" name="outcome" value="decline" />
                     <flux:button type="submit" variant="danger">{{ __('Decline card') }}</flux:button>
                 </form>
 
-                <form method="POST" action="{{ route('payments.demo.store', $payment) }}">
+                <form method="POST" action="{{ URL::signedRoute('payments.demo.store', $payment) }}">
                     @csrf
                     <input type="hidden" name="outcome" value="cancel" />
                     <flux:button type="submit" variant="ghost">{{ __('Cancel and go back') }}</flux:button>

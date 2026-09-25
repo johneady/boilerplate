@@ -124,6 +124,7 @@ return [
     'tax_rates' => [
         'name' => 'Name',
         'name_help' => 'As it should appear on a receipt, e.g. HST, GST, PST or QST.',
+        'delete_synced' => 'This rate has been sent to the payment provider, where subscriptions started with it keep charging it. Switch it off instead.',
         'percentage' => 'Rate (%)',
         'percentage_help' => 'Up to three decimal places, e.g. 13 or 9.975.',
         'is_active' => 'Active',

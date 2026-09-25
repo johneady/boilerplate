@@ -2,6 +2,7 @@
 
 use App\Models\Subscription;
 use App\Models\User;
+use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
@@ -47,6 +48,22 @@ test('a grace period cannot be stretched past its bounds by a hand-edited settin
     ['soon', 7],
     [14, 14],
 ]);
+
+test('a sandbox subscription stops giving access once the site is live', function () {
+    $user = User::factory()->create();
+    Subscription::factory()->for($user)->create(['mode' => GatewayMode::Sandbox]);
+
+    app(Settings::class)->set(SettingKey::PaymentsMode, 'live');
+
+    expect($user->subscribed())->toBeFalse();
+});
+
+test('a live subscription keeps giving access while the site is switched to sandbox', function () {
+    $user = User::factory()->create();
+    Subscription::factory()->for($user)->create(['mode' => GatewayMode::Live]);
+
+    expect($user->subscribed())->toBeTrue();
+});
 
 test('one user\'s subscription gives nobody else access', function () {
     Subscription::factory()->create();

@@ -7,6 +7,8 @@ use App\Models\Subscription;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Notifications\Payments\AbandonedSubscriptionCanceled;
+use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\SubscriptionRenewed;
 use App\Payments\Actions\CancelSubscription;
 use App\Payments\Actions\ReconcileSubscription;
 use App\Payments\Actions\RefundPayment;
@@ -154,8 +156,47 @@ test('a plan is synced to PayPal as a product and a billing plan carrying the tr
 
     app(SyncPlan::class)->handle($price->plan, Gateway::PayPal, GatewayMode::Sandbox);
 
-    expect($paypal['plans'])->toBe(1);
+    // The price's own billing plan, and its no-trial variant; neither again.
+    expect($paypal['plans'])->toBe(2);
 });
+
+test('a plan with a trial also gets a billing plan without one, for returning customers', function () {
+    $paypal = [];
+    fakePayPalBilling($paypal);
+
+    $price = paypalPro(trialDays: 14);
+
+    Http::assertSent(fn (Request $request): bool => GatewayFakes::is($request, 'POST /v1/billing/plans')
+        && count($request->data()['billing_cycles']) === 1
+        && $request->data()['billing_cycles'][0]['tenure_type'] === 'REGULAR'
+        && $request->data()['taxes'] === ['percentage' => '13.000', 'inclusive' => false]);
+    expect($price->fresh()->gatewayRef(Gateway::PayPal, GatewayMode::Sandbox)['no_trial'])
+        ->id->toBe('P-NEW2')
+        ->and(PlanPrice::findByGatewayRef(Gateway::PayPal, GatewayMode::Sandbox, 'P-NEW2')?->id)->toBe($price->id);
+});
+
+test('a customer who has had a trial subscribes on the billing plan without one', function (bool $subscribedBefore, int $trialDays, bool $withoutTrial) {
+    $paypal = [];
+    fakePayPalBilling($paypal);
+    $user = User::factory()->create();
+
+    if ($subscribedBefore) {
+        Subscription::factory()->for($user)->status(SubscriptionStatus::Canceled)->create();
+    }
+
+    $subscription = Payments::subscribe($user, $price = paypalPro(trialDays: 14), Gateway::PayPal);
+
+    $ref = $price->fresh()->gatewayRef(Gateway::PayPal, GatewayMode::Sandbox);
+    $billingPlan = $withoutTrial ? $ref['no_trial']['id'] : $ref['id'];
+
+    expect($subscription->trial_days)->toBe($trialDays)
+        ->and($ref['no_trial']['id'])->not->toBe($ref['id']);
+    Http::assertSent(fn (Request $request): bool => GatewayFakes::is($request, 'POST /v1/billing/subscriptions')
+        && $request->data()['plan_id'] === $billingPlan);
+})->with([
+    'a new customer' => [false, 14, false],
+    'a returning customer' => [true, 0, true],
+]);
 
 test('a tax change replaces the billing plan, and subscribers on the old one are still recognised', function () {
     $paypal = [];
@@ -352,4 +393,7 @@ test('a checkout given up on here but approved at PayPal later is cancelled ther
     expect($subscription->fresh()->status)->toBe(SubscriptionStatus::Expired)
         ->and($subscription->payments()->sole()->fresh()->status)->toBe(PaymentStatus::Refunded);
     Notification::assertSentOnDemandTimes(AbandonedSubscriptionCanceled::class, 1);
+    // The customer hears about the refund, not about a renewal.
+    Notification::assertSentOnDemandTimes(RefundIssued::class, 1);
+    Notification::assertSentOnDemandTimes(SubscriptionRenewed::class, 0);
 });

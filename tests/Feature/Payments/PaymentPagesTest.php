@@ -6,6 +6,7 @@ use App\Payments\Enums\Gateway;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Payments\PaymentManager;
+use Illuminate\Support\Facades\URL;
 use Tests\Support\Payments;
 
 beforeEach(function () {
@@ -15,9 +16,9 @@ beforeEach(function () {
 test('the demo checkout approves and returns the customer to their receipt', function () {
     $payment = Payments::checkout(PaymentLink::factory()->costing(4200)->create());
 
-    $this->get(route('payments.demo.show', $payment))->assertOk()->assertSee('CA$42.00');
+    $this->get(URL::signedRoute('payments.demo.show', $payment))->assertOk()->assertSee('CA$42.00');
 
-    $return = $this->post(route('payments.demo.store', $payment), ['outcome' => 'approve']);
+    $return = $this->post(URL::signedRoute('payments.demo.store', $payment), ['outcome' => 'approve']);
     $return->assertRedirect($payment->returnUrl());
 
     $this->get($payment->returnUrl())->assertRedirect($payment->receiptUrl());
@@ -34,7 +35,7 @@ test('a customer who cancels is sent back to the link to try again', function ()
     $link = PaymentLink::factory()->create();
     $payment = Payments::checkout($link);
 
-    $this->post(route('payments.demo.store', $payment), ['outcome' => 'cancel'])
+    $this->post(URL::signedRoute('payments.demo.store', $payment), ['outcome' => 'cancel'])
         ->assertRedirect($payment->cancelUrl());
 
     $this->get($payment->cancelUrl())
@@ -47,8 +48,17 @@ test('a customer who cancels is sent back to the link to try again', function ()
 test('the demo checkout is closed once the payment has moved on', function () {
     $payment = Payments::payWithDemo(PaymentLink::factory()->create());
 
-    $this->get(route('payments.demo.show', $payment))->assertNotFound();
-    $this->post(route('payments.demo.store', $payment), ['outcome' => 'approve'])->assertNotFound();
+    $this->get(URL::signedRoute('payments.demo.show', $payment))->assertNotFound();
+    $this->post(URL::signedRoute('payments.demo.store', $payment), ['outcome' => 'approve'])->assertNotFound();
+});
+
+test('the demo checkout cannot be opened or answered without its signature', function () {
+    $payment = Payments::checkout(PaymentLink::factory()->create());
+
+    $this->get(route('payments.demo.show', $payment))->assertForbidden();
+    $this->post(route('payments.demo.store', $payment), ['outcome' => 'approve'])->assertForbidden();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Pending);
 });
 
 test('a receipt cannot be read without its signature', function () {
@@ -73,7 +83,7 @@ test('switching payments off stops new payments', function () {
     Payments::enable(['payments_enabled' => false]);
 
     $this->get($link->url())->assertNotFound();
-    $this->get(route('payments.demo.show', $payment))->assertNotFound();
+    $this->get(URL::signedRoute('payments.demo.show', $payment))->assertNotFound();
 });
 
 test('switching payments off leaves receipts already sent working', function () {

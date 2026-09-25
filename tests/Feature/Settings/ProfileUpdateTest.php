@@ -4,6 +4,8 @@ use App\Jobs\ProcessUploadedImage;
 use App\Livewire\Settings\Profile;
 use App\Models\Media;
 use App\Models\User;
+use App\Payments\Actions\EndSubscriptionsForDeletedUser;
+use App\Payments\Exceptions\GatewayUnavailable;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -117,6 +119,23 @@ test('correct password must be provided to delete account', function () {
     $response->assertHasErrors(['password']);
 
     expect($user->fresh())->not->toBeNull();
+});
+
+test('an account whose subscription cannot be cancelled is kept, and the user told why', function () {
+    $user = User::factory()->create();
+    $this->mock(EndSubscriptionsForDeletedUser::class)
+        ->shouldReceive('handle')
+        ->andThrow(new GatewayUnavailable('Stripe could not be reached.'));
+
+    $this->actingAs($user);
+
+    Livewire::test('settings.delete-user-form')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasErrors(['password']);
+
+    expect($user->fresh())->not->toBeNull()
+        ->and(auth()->check())->toBeTrue();
 });
 
 test('an avatar upload is queued rather than processed in the request', function () {

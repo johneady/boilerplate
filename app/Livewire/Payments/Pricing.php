@@ -82,6 +82,19 @@ class Pricing extends Component
     }
 
     /**
+     * Whether the plans' free trials apply to whoever is looking: anyone not
+     * signed in, or a customer who has never subscribed. Anyone else would
+     * not get one (User::isEligibleForTrial()), so is not offered one.
+     */
+    #[Computed]
+    public function offersTrial(): bool
+    {
+        $user = auth()->user();
+
+        return ! $user instanceof User || $user->isEligibleForTrial(app(PaymentManager::class)->mode());
+    }
+
+    /**
      * The signed-in user's running subscription, if any.
      */
     #[Computed]

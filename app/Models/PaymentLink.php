@@ -204,9 +204,15 @@ class PaymentLink extends Model implements Payable
         return $this->expires_at !== null && $this->expires_at->isPast();
     }
 
+    /**
+     * The set price, or null for a customer-entered link -- including one
+     * switched from fixed, which keeps its old amount in the column.
+     */
     public function fixedAmount(): ?Money
     {
-        return $this->amount === null ? null : Money::of($this->amount, $this->currency);
+        return $this->amount === null || $this->amount_type !== PaymentLinkAmountType::Fixed
+            ? null
+            : Money::of($this->amount, $this->currency);
     }
 
     public function minimum(): ?Money

@@ -254,6 +254,12 @@ class AuthServiceProvider extends ServiceProvider
             return in_array($ability, ['delete', 'forceDelete'], true);
         }
 
+        // Likewise a tax rate the gateways hold a copy of: TaxRatePolicy
+        // refuses to delete it, for administrators too.
+        if ($target instanceof TaxRate) {
+            return in_array($ability, ['delete', 'forceDelete'], true);
+        }
+
         // Plans and prices are retired, never deleted: subscriptions and
         // their payments name them. PlanPolicy denies deletion outright.
         if ($target instanceof Plan || $target instanceof PlanPrice

@@ -60,18 +60,29 @@ class ExpireAbandonedCheckouts extends Command
 
     private function expire(Payment $payment, PaymentManager $payments, ReconcilePayment $reconcile): bool
     {
-        if ($payment->gateway_checkout_id !== null) {
+        // A subscription invoice's payment has no checkout, but the gateway
+        // has already charged it: it is re-read like a checkout, never
+        // expired unseen.
+        if ($payment->gateway_checkout_id !== null || $payment->gateway_payment_id !== null) {
             $driver = $payments->driverFor($payment);
 
             $driver->completeCheckout($payment);
-            $payment = $reconcile->handle($payment, TransactionSource::Scheduler);
+            $state = $driver->fetch($payment);
+            $payment = $reconcile->apply($payment, $state, TransactionSource::Scheduler);
 
-            if ($payment->status !== PaymentStatus::Pending) {
+            // Paid for but still settling (a bank debit, a PayPal capture
+            // under review) is not abandoned, however long it takes.
+            if ($payment->status !== PaymentStatus::Pending || $state->status === GatewayStatus::Processing) {
                 return false;
             }
 
             $driver->expireCheckout($payment);
-            $payment = $reconcile->handle($payment, TransactionSource::Scheduler);
+            $state = $driver->fetch($payment);
+            $payment = $reconcile->apply($payment, $state, TransactionSource::Scheduler);
+
+            if ($state->status === GatewayStatus::Processing) {
+                return false;
+            }
         }
 
         // Still open at the gateway (PayPal orders cannot be expired through

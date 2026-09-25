@@ -41,12 +41,17 @@ Route::middleware(EnsurePaymentsEnabled::class)->group(function (): void {
 
     // The Demo gateway's pretend checkout exists only where the Demo gateway
     // may run -- the same environments that offer the dev login -- so in
-    // production these routes are not registered at all.
+    // production these routes are not registered at all. Signed, like a real
+    // gateway's checkout URL is unguessable: on a shared staging or demo site,
+    // knowing a payment's uuid (printed on its receipt) must not be enough to
+    // approve or decline it.
     if (app(DevLoginAccounts::class)->enabled()) {
-        Route::get('demo-checkout/{payment}', [DemoCheckoutController::class, 'show'])->name('payments.demo.show');
-        Route::post('demo-checkout/{payment}', [DemoCheckoutController::class, 'store'])->name('payments.demo.store');
-        Route::get('demo-checkout/subscriptions/{subscription}', [DemoSubscriptionCheckoutController::class, 'show'])->name('subscriptions.demo.show');
-        Route::post('demo-checkout/subscriptions/{subscription}', [DemoSubscriptionCheckoutController::class, 'store'])->name('subscriptions.demo.store');
+        Route::middleware('signed')->group(function (): void {
+            Route::get('demo-checkout/{payment}', [DemoCheckoutController::class, 'show'])->name('payments.demo.show');
+            Route::post('demo-checkout/{payment}', [DemoCheckoutController::class, 'store'])->name('payments.demo.store');
+            Route::get('demo-checkout/subscriptions/{subscription}', [DemoSubscriptionCheckoutController::class, 'show'])->name('subscriptions.demo.show');
+            Route::post('demo-checkout/subscriptions/{subscription}', [DemoSubscriptionCheckoutController::class, 'store'])->name('subscriptions.demo.store');
+        });
     }
 });
 

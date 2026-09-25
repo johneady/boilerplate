@@ -92,7 +92,11 @@ class TaxRateResource extends Resource
             ->emptyStateDescription(__('payments.tax_rates.none_active'))
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                // Shown, disabled, on a rate the gateways hold a copy of, so the
+                // administrator learns to switch it off instead (TaxRatePolicy).
+                DeleteAction::make()
+                    ->authorizationTooltip(fn (TaxRate $record): bool => filled($record->gateway_refs))
+                    ->authorizationMessage(__('payments.tax_rates.delete_synced')),
             ])
             ->toolbarActions([]);
     }

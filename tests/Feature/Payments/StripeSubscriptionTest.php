@@ -51,7 +51,7 @@ beforeEach(function () {
  */
 function fakeStripeBilling(array &$stripe): void
 {
-    $stripe += ['completed' => false, 'subscription' => []];
+    $stripe += ['completed' => false, 'subscription' => [], 'invoice' => []];
 
     GatewayFakes::stripe([
         'POST /v1/products' => PaymentFixtures::load('stripe/product'),
@@ -98,7 +98,9 @@ function fakeStripeBilling(array &$stripe): void
             return Http::response(PaymentFixtures::load('stripe/subscription', $stripe['subscription']));
         },
         'GET /v1/invoices' => function () use (&$stripe) {
-            return Http::response($stripe['completed'] ? PaymentFixtures::load('stripe/invoice_list_paid') : PaymentFixtures::load('stripe/refund_list'));
+            return Http::response($stripe['completed']
+                ? PaymentFixtures::load('stripe/invoice_list_paid', ['data' => [$stripe['invoice']]])
+                : PaymentFixtures::load('stripe/refund_list'));
         },
         'GET /v1/payment_intents/pi_test_Inv1' => PaymentFixtures::load('stripe/payment_intent_invoice'),
         'GET /v1/refunds' => PaymentFixtures::load('stripe/refund_list'),
@@ -207,6 +209,19 @@ test('subscribing opens Stripe Checkout in subscription mode for the user\'s Str
     });
 });
 
+test('a customer who has had a subscription before gets no second free trial', function () {
+    $stripe = [];
+    fakeStripeBilling($stripe);
+    $user = User::factory()->create();
+    Subscription::factory()->for($user)->status(SubscriptionStatus::Canceled)->create();
+
+    $subscription = Payments::subscribe($user, stripePro(trialDays: 14), Gateway::Stripe);
+
+    expect($subscription->trial_days)->toBe(0);
+    Http::assertSent(fn (Request $request): bool => GatewayFakes::is($request, 'POST /v1/checkout/sessions')
+        && ! isset(GatewayFakes::stripeBody($request)['subscription_data']['trial_period_days']));
+});
+
 test('a returning customer is not created at Stripe twice', function () {
     $stripe = [];
     fakeStripeBilling($stripe);
@@ -236,6 +251,19 @@ test('the return records the subscription and its first invoice, with the tax St
         ->amount_captured->toBe(3277)
         ->and($payment->tax_lines)->toEqualCanonicalizing([['name' => 'HST', 'percentage' => '13.000', 'amount' => 377]])
         ->and($payment->transactions()->sole()->gateway_transaction_id)->toBe('ch_test_Inv1');
+});
+
+test('an invoice partly settled from the customer\'s credit balance records only the tax on what was paid', function () {
+    // $32.77 invoiced, $20.00 of it from a downgrade's credit: $12.77 paid.
+    $stripe = ['invoice' => ['amount_paid' => 1277]];
+
+    $payment = stripeSubscriber($stripe)->payments()->sole();
+
+    expect($payment)
+        ->amount->toBe(1277)
+        ->tax_total->toBe(147)
+        ->subtotal->toBe(1130)
+        ->and($payment->tax_lines)->toEqualCanonicalizing([['name' => 'HST', 'percentage' => '13.000', 'amount' => 147]]);
 });
 
 test('invoice and subscription webhooks, replayed and out of order, record each payment once', function () {

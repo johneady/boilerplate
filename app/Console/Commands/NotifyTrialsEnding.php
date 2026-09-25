@@ -46,7 +46,6 @@ class NotifyTrialsEnding extends Command
                     $claimed = Subscription::query()
                         ->whereKey($subscription->id)
                         ->whereNull('trial_reminder_sent_at')
-            // Already cancelled: nothing will be billed, so nothing to warn of.
                         ->where('cancel_at_period_end', false)
                         ->update(['trial_reminder_sent_at' => CarbonImmutable::now()]);
 

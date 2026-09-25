@@ -45,6 +45,11 @@ return new class extends Migration
             $table->string('mode', 10);
             $table->string('status', 20);
             $table->char('currency', 3);
+            // The free trial this subscription was offered, fixed when it is
+            // created: the plan's own, or none for a customer who has
+            // subscribed before in this mode, so a trial cannot be had again
+            // by cancelling and starting over. Every gateway reads it here.
+            $table->unsignedSmallInteger('trial_days')->default(0);
 
             $table->string('gateway_subscription_id')->nullable();
             $table->string('gateway_customer_id')->nullable();
@@ -66,6 +71,10 @@ return new class extends Migration
             $table->timestamp('started_notified_at')->nullable();
             $table->timestamp('trial_reminder_sent_at')->nullable();
             $table->timestamp('ended_notified_at')->nullable();
+            // Claimed the first time this subscription is found running at
+            // the gateway alongside the user's other live one, so operators
+            // are told once about a customer being billed twice.
+            $table->timestamp('duplicate_alerted_at')->nullable();
             $table->timestamp('last_reconciled_at')->nullable();
 
             // The Demo gateway's simulated "server-side" state.

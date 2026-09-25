@@ -200,6 +200,20 @@ test('a tax rate over 100% is refused', function () {
         ->assertHasActionErrors(['percentage']);
 });
 
+test('a tax rate sent to a gateway cannot be deleted, even by an administrator', function () {
+    $synced = TaxRate::factory()->create(['gateway_refs' => ['stripe' => ['sandbox' => ['id' => 'txr_test_HST']]]]);
+    $unsynced = TaxRate::factory()->create();
+
+    $this->actingAs($this->admin);
+
+    Livewire::test(ManageTaxRates::class)
+        ->assertTableActionDisabled(DeleteAction::class, $synced)
+        ->callTableAction(DeleteAction::class, $unsynced);
+
+    expect(TaxRate::query()->pluck('id')->all())->toBe([$synced->id])
+        ->and($this->admin->can('delete', $synced))->toBeFalse();
+});
+
 test('a failed webhook event can be retried', function () {
     Queue::fake([ProcessWebhookEvent::class]);
     $event = WebhookEvent::factory()->failed()->create();

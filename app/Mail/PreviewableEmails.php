@@ -18,9 +18,11 @@ use App\Notifications\Payments\AbandonedSubscriptionCanceled;
 use App\Notifications\Payments\AuthorizationExpiring;
 use App\Notifications\Payments\DisputeOpened;
 use App\Notifications\Payments\DuplicatePaymentRefunded;
+use App\Notifications\Payments\DuplicateSubscriptionDetected;
 use App\Notifications\Payments\PaymentCredentialsChanged;
 use App\Notifications\Payments\PaymentReceipt;
 use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\RefundReversed;
 use App\Notifications\Payments\SubscriptionCanceled;
 use App\Notifications\Payments\SubscriptionPaymentFailed;
 use App\Notifications\Payments\SubscriptionRenewed;
@@ -154,6 +156,16 @@ class PreviewableEmails
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $refundIssued->toMail($notifiable),
             ],
+            'refund-reversed' => [
+                'description' => 'refund failed after it was made alert',
+                'notification' => $refundReversed = new RefundReversed($this->sampleRefund($payment)->forceFill([
+                    'status' => RefundStatus::Failed,
+                    'failure_reason' => 'expired_or_canceled_card',
+                ])),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $refundReversed->toMail($notifiable),
+            ],
             'payment-credentials-changed' => [
                 'description' => 'payment credentials changed alert',
                 'notification' => $credentialsChanged = new PaymentCredentialsChanged(
@@ -253,6 +265,13 @@ class PreviewableEmails
                 'mailable' => null,
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $abandonedCanceled->toMail($notifiable),
+            ],
+            'duplicate-subscription' => [
+                'description' => 'duplicate subscription alert',
+                'notification' => $duplicateSubscription = new DuplicateSubscriptionDetected($this->sampleSubscription()),
+                'mailable' => null,
+                'onDemand' => true,
+                'render' => fn (): MailMessage => $duplicateSubscription->toMail($notifiable),
             ],
             'dispute-opened' => [
                 'description' => 'payment disputed alert',

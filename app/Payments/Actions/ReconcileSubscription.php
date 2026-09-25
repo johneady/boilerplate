@@ -7,6 +7,7 @@ use App\Models\Payment;
 use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Notifications\Payments\AbandonedSubscriptionCanceled;
+use App\Notifications\Payments\DuplicateSubscriptionDetected;
 use App\Notifications\Payments\SubscriptionCanceled;
 use App\Notifications\Payments\SubscriptionPaymentFailed;
 use App\Notifications\Payments\SubscriptionStarted;
@@ -110,12 +111,12 @@ class ReconcileSubscription
             $this->followPrice($locked, $state);
             $this->copyPeriod($locked, $state);
             $this->advance($locked, $state);
-            $this->holdSlot($locked);
+            $duplicate = $this->holdSlot($locked);
 
             $locked->last_reconciled_at = CarbonImmutable::now();
             $locked->save();
 
-            return [$locked, $this->claimEvents($locked, $previous, $state)];
+            return [$locked, $this->claimEvents($locked, $previous, $state, $duplicate)];
         });
 
         foreach ($state->invoices as $invoice) {
@@ -231,18 +232,18 @@ class ReconcileSubscription
      * gateway (a checkout abandoned here but completed there later). It is
      * reconciled like any other so its payments are recorded, but it cannot
      * take the slot, and operators are warned: the customer is being billed
-     * twice.
+     * twice. Returns whether that is the case.
      */
-    private function holdSlot(Subscription $subscription): void
+    private function holdSlot(Subscription $subscription): bool
     {
         if (! $subscription->status->isLive() || $subscription->user_id === null) {
             $subscription->active_user_id = null;
 
-            return;
+            return false;
         }
 
         if ($subscription->active_user_id === $subscription->user_id) {
-            return;
+            return false;
         }
 
         $taken = Subscription::query()
@@ -256,18 +257,20 @@ class ReconcileSubscription
                 'user' => $subscription->user_id,
             ]);
 
-            return;
+            return true;
         }
 
         $subscription->active_user_id = $subscription->user_id;
+
+        return false;
     }
 
     /**
      * Claim the lifecycle emails this reconcile should send.
      *
-     * @return array{started: bool, failed: bool, ended: bool, orphaned: bool, alert_orphan: bool}
+     * @return array{started: bool, failed: bool, ended: bool, orphaned: bool, alert_orphan: bool, duplicate: bool}
      */
-    private function claimEvents(Subscription $subscription, SubscriptionStatus $previous, GatewaySubscriptionState $state): array
+    private function claimEvents(Subscription $subscription, SubscriptionStatus $previous, GatewaySubscriptionState $state, bool $duplicate): array
     {
         $orphaned = $previous === SubscriptionStatus::Expired
             && in_array($state->status, [SubscriptionStatus::Trialing, SubscriptionStatus::Active, SubscriptionStatus::PastDue], true);
@@ -275,7 +278,7 @@ class ReconcileSubscription
         if ($orphaned) {
             // An expired subscription never started, so its ended email is
             // never sent; the claim is reused to alert operators once.
-            return ['started' => false, 'failed' => false, 'ended' => false, 'orphaned' => true, 'alert_orphan' => $this->claim($subscription, 'ended_notified_at')];
+            return ['started' => false, 'failed' => false, 'ended' => false, 'orphaned' => true, 'alert_orphan' => $this->claim($subscription, 'ended_notified_at'), 'duplicate' => false];
         }
 
         $started = in_array($subscription->status, [SubscriptionStatus::Trialing, SubscriptionStatus::Active, SubscriptionStatus::PastDue], true)
@@ -290,6 +293,7 @@ class ReconcileSubscription
             'ended' => $ended,
             'orphaned' => false,
             'alert_orphan' => false,
+            'duplicate' => $duplicate && $this->claim($subscription, 'duplicate_alerted_at'),
         ];
     }
 
@@ -392,10 +396,14 @@ class ReconcileSubscription
     }
 
     /**
-     * @param  array{started: bool, failed: bool, ended: bool, orphaned: bool, alert_orphan: bool}  $events
+     * @param  array{started: bool, failed: bool, ended: bool, orphaned: bool, alert_orphan: bool, duplicate: bool}  $events
      */
     private function notify(Subscription $subscription, array $events): void
     {
+        if ($events['duplicate']) {
+            $this->opsAlerts->send(new DuplicateSubscriptionDetected($subscription));
+        }
+
         $user = $subscription->user;
 
         if ($user === null) {

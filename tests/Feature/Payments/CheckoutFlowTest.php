@@ -10,6 +10,7 @@ use App\Payments\Enums\TransactionType;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\URL;
 use Tests\Support\Payments;
 
 beforeEach(function () {
@@ -27,7 +28,7 @@ test('a checkout records a pending payment priced by the payable, with its tax s
         ->and($payment->tax_total)->toBe(1300)
         ->and($payment->amount)->toBe(11300)
         ->and($payment->tax_lines)->toBe([['name' => 'HST', 'percentage' => '13.000', 'amount' => 1300]])
-        ->and($payment->checkout_url)->toBe(route('payments.demo.show', $payment))
+        ->and($payment->checkout_url)->toBe(URL::signedRoute('payments.demo.show', $payment))
         ->and($payment->payable->is($link))->toBeTrue();
 });
 

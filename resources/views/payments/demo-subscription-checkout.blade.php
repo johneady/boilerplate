@@ -16,14 +16,14 @@
 
             <p class="mt-4 text-2xl" data-test="demo-price">{{ $subscription->price?->label() }}</p>
 
-            @if (($subscription->plan?->trial_days ?? 0) > 0)
+            @if ($subscription->trial_days > 0)
                 <p class="mt-2 text-zinc-600 dark:text-zinc-400">
-                    {{ trans_choice(':count-day free trial|:count-day free trial', $subscription->plan->trial_days, ['count' => $subscription->plan->trial_days]) }}
+                    {{ trans_choice(':count-day free trial|:count-day free trial', $subscription->trial_days, ['count' => $subscription->trial_days]) }}
                 </p>
             @endif
 
             <div class="mt-8 flex flex-wrap gap-3">
-                <form method="POST" action="{{ route('subscriptions.demo.store', $subscription) }}">
+                <form method="POST" action="{{ URL::signedRoute('subscriptions.demo.store', $subscription) }}">
                     @csrf
                     <input type="hidden" name="outcome" value="approve" />
                     <flux:button
@@ -33,7 +33,7 @@
                     >{{ __('Subscribe') }}</flux:button>
                 </form>
 
-                <form method="POST" action="{{ route('subscriptions.demo.store', $subscription) }}">
+                <form method="POST" action="{{ URL::signedRoute('subscriptions.demo.store', $subscription) }}">
                     @csrf
                     <input type="hidden" name="outcome" value="cancel" />
                     <flux:button type="submit" variant="ghost">{{ __('Cancel and go back') }}</flux:button>

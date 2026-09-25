@@ -205,9 +205,14 @@ class StripeDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
                 paymentId: (string) $intent['id'],
                 failureReason: isset($intent['cancellation_reason']) ? (string) $intent['cancellation_reason'] : null,
             ),
-            // requires_payment_method, requires_confirmation, requires_action,
-            // processing: the customer is still paying, or a delayed method
-            // (a bank debit) is settling. A declined card leaves the intent in
+            // A delayed method (a bank debit) the customer has completed, still
+            // settling: paid for, so never expired as abandoned.
+            'processing' => new GatewayPaymentState(
+                status: GatewayStatus::Processing,
+                paymentId: (string) $intent['id'],
+            ),
+            // requires_payment_method, requires_confirmation, requires_action:
+            // the customer is still paying. A declined card leaves the intent in
             // requires_payment_method -- the customer may still try another
             // card on the same Checkout page, so it is not a failure yet.
             default => new GatewayPaymentState(

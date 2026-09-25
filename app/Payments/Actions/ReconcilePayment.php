@@ -10,6 +10,7 @@ use App\Models\Subscription;
 use App\Notifications\Payments\DuplicatePaymentRefunded;
 use App\Notifications\Payments\PaymentReceipt;
 use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\RefundReversed;
 use App\Notifications\Payments\SubscriptionRenewed;
 use App\Payments\Contracts\Payable;
 use App\Payments\Data\GatewayPaymentState;
@@ -18,6 +19,7 @@ use App\Payments\Data\GatewayStatus;
 use App\Payments\Enums\PaymentAcceptance;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
+use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\TransactionSource;
 use App\Payments\Enums\TransactionType;
 use App\Payments\OpsAlerts;
@@ -45,7 +47,8 @@ use LogicException;
  *      the gateway's own transaction id, so anything already recorded is a
  *      no-op however many sources report it;
  *   2. the captured/refunded projections are recomputed from the ledger;
- *   3. the status moves forward if -- and only if -- PaymentStatus allows it;
+ *   3. the status moves forward if -- and only if -- PaymentStatus allows it,
+ *      or the ledger shows otherwise (see ledgerOverrides());
  *   4. the first time the payment is seen paid, paid_at is claimed and the
  *      payable is told, inside the same transaction.
  *
@@ -80,10 +83,17 @@ class ReconcilePayment
             }
 
             $confirmedRefunds = [];
+            $reversedRefunds = [];
 
             foreach ($state->refunds as $gatewayRefund) {
-                if (($refund = $this->syncRefund($locked, $gatewayRefund, $source)) !== null) {
-                    $confirmedRefunds[] = $refund->id;
+                ['confirmed' => $confirmed, 'reversed' => $reversed] = $this->syncRefund($locked, $gatewayRefund, $source);
+
+                if ($confirmed !== null) {
+                    $confirmedRefunds[] = $confirmed->id;
+                }
+
+                if ($reversed !== null) {
+                    $reversedRefunds[] = $reversed->id;
                 }
             }
 
@@ -98,13 +108,14 @@ class ReconcilePayment
                 'payment' => $locked,
                 'acceptance' => $this->claimPaid($locked),
                 'confirmed_refunds' => $confirmedRefunds,
+                'reversed_refunds' => $reversedRefunds,
             ];
         });
 
         /** @var Payment $reconciled */
         $reconciled = $outcome['payment'];
 
-        $this->afterCommit($reconciled, $outcome['acceptance'], $outcome['confirmed_refunds']);
+        $this->afterCommit($reconciled, $outcome['acceptance'], $outcome['confirmed_refunds'], $outcome['reversed_refunds']);
 
         return $reconciled;
     }
@@ -118,20 +129,24 @@ class ReconcilePayment
         $refund = DB::transaction(function () use ($payment, $gatewayRefund, $source): array {
             $locked = Payment::query()->lockForUpdate()->findOrFail($payment->id);
 
-            $confirmed = $this->syncRefund($locked, $gatewayRefund, $source);
+            ['confirmed' => $confirmed, 'reversed' => $reversed] = $this->syncRefund($locked, $gatewayRefund, $source);
 
             $this->recomputeProjections($locked);
             $this->advance($locked, new GatewayPaymentState(GatewayStatus::Captured));
             $locked->save();
 
-            return [$confirmed, $this->findRefund($locked, $gatewayRefund)];
+            return [$confirmed, $reversed, $this->findRefund($locked, $gatewayRefund)];
         });
 
         if ($refund[0] !== null) {
             $this->notifyRefund($refund[0]->id);
         }
 
-        return $refund[1] ?? throw new LogicException('A refund result was applied without a refund row.');
+        if ($refund[1] !== null) {
+            $this->opsAlerts->send(new RefundReversed($refund[1]));
+        }
+
+        return $refund[2] ?? throw new LogicException('A refund result was applied without a refund row.');
     }
 
     /**
@@ -157,14 +172,21 @@ class ReconcilePayment
      * Match a gateway refund to our row (creating one for a refund made in the
      * gateway's dashboard), move it forward, and ledger it once confirmed.
      *
-     * Returns the refund when this call is the one that confirmed it.
+     * Returns the refund as confirmed when this call is the one that ledgered
+     * it, or as reversed when this call is the one that undid it.
+     *
+     * @return array{confirmed: Refund|null, reversed: Refund|null}
      */
-    private function syncRefund(Payment $payment, GatewayRefund $gatewayRefund, TransactionSource $source): ?Refund
+    private function syncRefund(Payment $payment, GatewayRefund $gatewayRefund, TransactionSource $source): array
     {
         $refund = $this->findRefund($payment, $gatewayRefund) ?? $this->recordDashboardRefund($payment, $gatewayRefund);
 
         if ($refund->gateway_refund_id === null) {
             $refund->gateway_refund_id = $gatewayRefund->id;
+        }
+
+        if ($refund->status === RefundStatus::Succeeded && $gatewayRefund->status === RefundStatus::Failed) {
+            return ['confirmed' => null, 'reversed' => $this->reverseRefund($payment, $refund, $gatewayRefund, $source)];
         }
 
         if ($refund->status->canTransitionTo($gatewayRefund->status)) {
@@ -181,12 +203,43 @@ class ReconcilePayment
         $refund->save();
 
         if ($refund->status !== RefundStatus::Succeeded) {
-            return null;
+            return ['confirmed' => null, 'reversed' => null];
         }
 
         $written = $this->appendLedger($payment, TransactionType::Refund, $gatewayRefund->id, $refund->amount, $gatewayRefund->occurredAt, $source);
 
-        return $written ? $refund : null;
+        return ['confirmed' => $written ? $refund : null, 'reversed' => null];
+    }
+
+    /**
+     * Undo a refund the gateway confirmed and now reports as failed.
+     *
+     * Rare, but real at Stripe: a refund to a card closed since can fail days
+     * after succeeding, and the money goes back to the merchant's balance. The
+     * refund is marked failed -- the one backwards move a refund makes -- and
+     * an offsetting entry is appended rather than the refund's own removed,
+     * since the ledger is append-only. Keyed on the refund, so it is written
+     * once. Returns the refund when this call is the one that reversed it.
+     */
+    private function reverseRefund(Payment $payment, Refund $refund, GatewayRefund $gatewayRefund, TransactionSource $source): ?Refund
+    {
+        $refund->status = RefundStatus::Failed;
+        $refund->failure_reason = $gatewayRefund->failureReason !== null ? mb_substr($gatewayRefund->failureReason, 0, 255) : $refund->failure_reason;
+        $refund->save();
+
+        Log::warning('A refund the gateway had confirmed has failed; the money is back with the merchant.', [
+            'payment' => $payment->uuid,
+            'refund' => $refund->uuid,
+        ]);
+
+        $ledgered = $payment->transactions()
+            ->where('type', TransactionType::Refund->value)
+            ->where('gateway_transaction_id', $gatewayRefund->id)
+            ->exists();
+
+        return $ledgered && $this->appendLedger($payment, TransactionType::RefundReversal, "{$gatewayRefund->id}:reversal", $refund->amount, CarbonImmutable::now(), $source)
+            ? $refund
+            : null;
     }
 
     private function findRefund(Payment $payment, GatewayRefund $gatewayRefund): ?Refund
@@ -238,7 +291,7 @@ class ReconcilePayment
             ->pluck('total', 'type');
 
         $payment->amount_captured = (int) ($totals[TransactionType::Charge->value] ?? 0);
-        $payment->amount_refunded = abs((int) ($totals[TransactionType::Refund->value] ?? 0));
+        $payment->amount_refunded = max(0, abs((int) ($totals[TransactionType::Refund->value] ?? 0)) - (int) ($totals[TransactionType::RefundReversal->value] ?? 0));
     }
 
     /**
@@ -252,7 +305,13 @@ class ReconcilePayment
             return;
         }
 
-        if (! $payment->status->canTransitionTo($next)) {
+        if (! $payment->status->canTransitionTo($next) && $this->ledgerOverrides($payment, $next)) {
+            Log::warning('A payment\'s status follows its ledger out of the usual order.', [
+                'payment' => $payment->uuid,
+                'from' => $payment->status->value,
+                'to' => $next->value,
+            ]);
+        } elseif (! $payment->status->canTransitionTo($next)) {
             Log::warning('Ignored a backwards payment status change.', [
                 'payment' => $payment->uuid,
                 'from' => $payment->status->value,
@@ -266,7 +325,7 @@ class ReconcilePayment
 
         match ($next) {
             PaymentStatus::Authorized => $payment->authorized_at = $now,
-            PaymentStatus::Succeeded => $payment->captured_at = $now,
+            PaymentStatus::Succeeded => $payment->captured_at ??= $now,
             PaymentStatus::Failed => $payment->failed_at = $now,
             PaymentStatus::Voided => $payment->voided_at = $now,
             PaymentStatus::Expired => $payment->expired_at = $now,
@@ -278,6 +337,30 @@ class ReconcilePayment
         }
 
         $payment->status = $next;
+    }
+
+    /**
+     * Whether the ledger justifies a move PaymentStatus would refuse.
+     *
+     * The paid statuses are derived from the ledger alone, which is the
+     * record, so two moves out of the usual order are followed:
+     *
+     *   - money arriving on a payment closed unpaid (a bank debit or a PayPal
+     *     capture under review settling after the checkout was expired).
+     *     Leaving it expired would hide a real payment -- no receipt, and the
+     *     payable never told -- so it is recorded as paid, and a payable
+     *     settled meanwhile reports a duplicate that is refunded;
+     *   - a paid payment becoming less refunded, which only a reversed refund
+     *     can cause (reverseRefund()).
+     */
+    private function ledgerOverrides(Payment $payment, PaymentStatus $next): bool
+    {
+        if (! $next->isPaid() || $payment->amount_captured <= 0) {
+            return false;
+        }
+
+        return $payment->status->isPaid()
+            || in_array($payment->status, [PaymentStatus::Failed, PaymentStatus::Voided, PaymentStatus::Expired], true);
     }
 
     /**
@@ -295,7 +378,7 @@ class ReconcilePayment
         }
 
         return match ($state->status) {
-            GatewayStatus::Open => PaymentStatus::Pending,
+            GatewayStatus::Open, GatewayStatus::Processing => PaymentStatus::Pending,
             GatewayStatus::Authorized => PaymentStatus::Authorized,
             GatewayStatus::Failed => PaymentStatus::Failed,
             GatewayStatus::Canceled => PaymentStatus::Voided,
@@ -355,8 +438,9 @@ class ReconcilePayment
 
     /**
      * @param  list<int>  $confirmedRefunds
+     * @param  list<int>  $reversedRefunds
      */
-    private function afterCommit(Payment $payment, ?PaymentAcceptance $acceptance, array $confirmedRefunds): void
+    private function afterCommit(Payment $payment, ?PaymentAcceptance $acceptance, array $confirmedRefunds, array $reversedRefunds): void
     {
         if ($acceptance === PaymentAcceptance::Duplicate) {
             RefundDuplicatePayment::dispatch($payment->id)->afterCommit();
@@ -367,6 +451,10 @@ class ReconcilePayment
 
         foreach ($confirmedRefunds as $refundId) {
             $this->notifyRefund($refundId);
+        }
+
+        foreach (Refund::query()->whereKey($reversedRefunds)->get() as $reversed) {
+            $this->opsAlerts->send(new RefundReversed($reversed));
         }
     }
 
@@ -384,6 +472,16 @@ class ReconcilePayment
             return;
         }
 
+        // Nor is one sent for a subscription that was given up on here and
+        // completed at the gateway after all: it is being cancelled and its
+        // payments refunded (ReconcileSubscription::undoOrphan()), so a
+        // "renewed" receipt would only mislead. The refund email follows.
+        $payable = $payment->payable;
+
+        if ($payable instanceof Subscription && $payable->status === SubscriptionStatus::Expired) {
+            return;
+        }
+
         $claimed = Payment::query()
             ->whereKey($payment->id)
             ->whereNull('receipt_sent_at')
@@ -391,7 +489,7 @@ class ReconcilePayment
 
         if ($claimed === 1) {
             Notification::route('mail', $payment->customer_email)->notify(
-                $payment->payable_type === (new Subscription)->getMorphClass()
+                $payable instanceof Subscription
                     ? new SubscriptionRenewed($payment)
                     : new PaymentReceipt($payment),
             );

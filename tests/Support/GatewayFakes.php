@@ -85,7 +85,7 @@ class GatewayFakes
             'HTTP_PAYPAL_CERT_URL' => 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-360caa42',
             'HTTP_PAYPAL_TRANSMISSION_ID' => '69cd13f0-d67a-11e5-baa3-778b53f4ae55',
             'HTTP_PAYPAL_TRANSMISSION_SIG' => 'c2lnbmF0dXJl',
-            'HTTP_PAYPAL_TRANSMISSION_TIME' => '2026-09-23T12:00:30Z',
+            'HTTP_PAYPAL_TRANSMISSION_TIME' => now()->toIso8601ZuluString(),
         ], (string) json_encode($event));
     }
 

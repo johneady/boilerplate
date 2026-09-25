@@ -82,7 +82,7 @@
                             </ul>
                         @endif
 
-                        @if ($plan->trial_days > 0)
+                        @if ($plan->trial_days > 0 && $this->offersTrial)
                             <p class="mt-4 text-sm font-medium">
                                 {{ trans_choice(':count-day free trial|:count-day free trial', $plan->trial_days, ['count' => $plan->trial_days]) }}
                             </p>

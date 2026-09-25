@@ -7,6 +7,7 @@ use App\Models\TaxRate;
 use App\Payments\Enums\PaymentStatus;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Tests\Support\PaymentFixtures;
 use Tests\Support\Payments;
@@ -35,7 +36,7 @@ test('paying sends the customer to the gateway with a payment priced by the link
         ->set('gateway', 'demo')
         ->call('pay')
         ->assertHasNoErrors()
-        ->assertRedirect(route('payments.demo.show', Payment::sole()));
+        ->assertRedirect(URL::signedRoute('payments.demo.show', Payment::sole()));
 
     expect(Payment::sole())
         ->amount->toBe(2500)

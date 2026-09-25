@@ -32,6 +32,13 @@ abstract class PaymentNotification extends BaseNotification implements ShouldQue
 {
     use Queueable;
 
+    /**
+     * Dropped, not failed, when the user it was for has since been deleted:
+     * deleting an account cancels its subscription, and the cancellation email
+     * queued by that has nobody left to go to.
+     */
+    public bool $deleteWhenMissingModels = true;
+
     public function __construct()
     {
         $this->afterCommit();

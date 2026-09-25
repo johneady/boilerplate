@@ -77,6 +77,16 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
         'CUSTOMER.DISPUTE.RESOLVED',
     ];
 
+    /**
+     * How far a delivery's transmission time may be from now, in seconds.
+     *
+     * Checked before PayPal is asked to verify the signature: that is an API
+     * call, and a forged or replayed delivery refused here costs nothing.
+     * Wider than Stripe's five minutes to allow for clock drift, since PayPal
+     * signs the time but we cannot check the signature ourselves.
+     */
+    private const int WEBHOOK_TOLERANCE_SECONDS = 600;
+
     public function __construct(
         private readonly PayPalClient $client,
         private readonly GatewayMode $mode,
@@ -175,6 +185,7 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
 
         $charges = [];
         $captureFailure = null;
+        $capturePending = false;
 
         foreach ($payments['captures'] ?? [] as $capture) {
             $status = $capture['status'] ?? null;
@@ -189,6 +200,10 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
                 );
             } elseif (in_array($status, ['DECLINED', 'FAILED'], true)) {
                 $captureFailure = (string) ($capture['status_details']['reason'] ?? $status);
+            } elseif ($status === 'PENDING') {
+                // Held by PayPal (an eCheck clearing, a payment under review):
+                // the customer has paid, and it settles or is denied later.
+                $capturePending = true;
             }
         }
 
@@ -200,6 +215,10 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
 
         if ($captureFailure !== null) {
             return new GatewayPaymentState(GatewayStatus::Failed, (string) $order['id'], failureReason: $captureFailure);
+        }
+
+        if ($capturePending) {
+            return new GatewayPaymentState(GatewayStatus::Processing, (string) $order['id']);
         }
 
         $authorization = $payments['authorizations'][0] ?? null;
@@ -304,6 +323,21 @@ class PayPalDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
 
         if (in_array(null, $headers, true)) {
             throw new InvalidWebhook('The PayPal webhook is missing its signature headers.');
+        }
+
+        // PayPal fetches the signing certificate from this URL, so one not on
+        // PayPal's own host can only be a forgery.
+        $certUrl = parse_url((string) $headers['cert_url']);
+        $certHost = strtolower((string) ($certUrl['host'] ?? ''));
+
+        if (($certUrl['scheme'] ?? null) !== 'https' || ($certHost !== 'paypal.com' && ! str_ends_with($certHost, '.paypal.com'))) {
+            throw new InvalidWebhook('The PayPal webhook names a signing certificate that is not PayPal\'s.');
+        }
+
+        $sentAt = rescue(fn (): CarbonImmutable => CarbonImmutable::parse((string) $headers['transmission_time']), report: false);
+
+        if (! $sentAt instanceof CarbonImmutable || abs(CarbonImmutable::now()->diffInSeconds($sentAt)) > self::WEBHOOK_TOLERANCE_SECONDS) {
+            throw new InvalidWebhook('The PayPal webhook\'s transmission time is missing or too far from now.');
         }
 
         try {

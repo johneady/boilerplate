@@ -111,8 +111,8 @@ trait ManagesStripeSubscriptions
 
         $subscriptionData = ['metadata' => ['subscription_uuid' => $subscription->uuid]];
 
-        if ($plan->trial_days > 0) {
-            $subscriptionData['trial_period_days'] = $plan->trial_days;
+        if ($subscription->trial_days > 0) {
+            $subscriptionData['trial_period_days'] = $subscription->trial_days;
         }
 
         if ($plan->taxable && ($taxRates = $this->syncTaxRates()) !== []) {
@@ -512,14 +512,33 @@ trait ManagesStripeSubscriptions
 
         foreach ($invoice['total_taxes'] ?? [] as $tax) {
             $id = (string) ($tax['tax_rate_details']['tax_rate'] ?? '');
-            $amounts[$id] = ($amounts[$id] ?? 0) + (int) ($tax['amount'] ?? 0);
+            $amounts[$id] = ($amounts[$id] ?? 0) + max(0, (int) ($tax['amount'] ?? 0));
         }
+
+        if ($amounts === []) {
+            return [];
+        }
+
+        // Part of an invoice can be settled from the customer's credit
+        // balance -- a downgrade's proration -- and that part took no money.
+        // Only the tax on what was paid belongs on this payment, or the tax
+        // would be overstated and could exceed the amount itself.
+        $paid = (int) ($invoice['amount_paid'] ?? 0);
+        $total = (int) ($invoice['total'] ?? $paid);
+        $taxCharged = array_sum($amounts);
+        $taxPaid = min($paid, $total > $paid && $total > 0
+            ? intdiv($taxCharged * $paid * 2 + $total, $total * 2)
+            : $taxCharged);
+
+        $shares = $taxCharged > 0
+            ? Money::of($taxPaid, $currency)->allocate($amounts)
+            : array_map(fn (): Money => Money::zero($currency), $amounts);
 
         $lines = [];
 
-        foreach ($amounts as $id => $amount) {
+        foreach ($shares as $id => $share) {
             [$name, $percentage] = $known[$id] ?? ['Tax', '0'];
-            $lines[] = new TaxLine($name, $percentage, Money::of(min($amount, (int) ($invoice['amount_paid'] ?? 0)), $currency));
+            $lines[] = new TaxLine($name, $percentage, $share);
         }
 
         return $lines;

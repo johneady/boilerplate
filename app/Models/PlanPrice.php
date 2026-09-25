@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use LogicException;
 
 /**
  * What a plan costs, and how often: $29.00 CAD a month.
@@ -30,6 +31,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * gateway_refs holds, per gateway and mode, the gateway's id for this price
  * (a Stripe Price, a PayPal billing plan) and every id it has had, so a
  * subscription still billed on a superseded PayPal plan is still recognised.
+ * Where the gateway fixes the trial on the price itself (PayPal), no_trial
+ * holds the same for a variant without the plan's trial, which customers who
+ * have had one subscribe on.
  *
  * @property int $id
  * @property int $plan_id
@@ -38,7 +42,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property BillingInterval $interval
  * @property int $interval_count
  * @property bool $is_active
- * @property array<string, array<string, array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string}>>|null $gateway_refs
+ * @property array<string, array<string, array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string, no_trial?: array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string}}>>|null $gateway_refs
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
  * @property-read Plan|null $plan
@@ -134,7 +138,7 @@ class PlanPrice extends Model
     /**
      * What this price is known as at a gateway, in a mode, once synced.
      *
-     * @return array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string}|null
+     * @return array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string, no_trial?: array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string}}|null
      */
     public function gatewayRef(Gateway $gateway, GatewayMode $mode): ?array
     {
@@ -150,20 +154,56 @@ class PlanPrice extends Model
     public function recordGatewayRef(Gateway $gateway, GatewayMode $mode, array $ref): void
     {
         $previous = $this->gatewayRef($gateway, $mode);
+
+        $refs = $this->gateway_refs ?? [];
+        $refs[$gateway->value][$mode->value] = [
+            ...$ref,
+            'history' => self::historyAfter($previous, $ref['id']),
+            ...(isset($previous['no_trial']) ? ['no_trial' => $previous['no_trial']] : []),
+        ];
+        $this->gateway_refs = $refs;
+        $this->save();
+    }
+
+    /**
+     * Record the gateway's current id for this price's no-trial variant,
+     * keeping every id the variant has had before.
+     *
+     * @param  array{id: string, signature?: string, tax_name?: string, tax_percentage?: string}  $ref
+     */
+    public function recordNoTrialGatewayRef(Gateway $gateway, GatewayMode $mode, array $ref): void
+    {
+        $current = $this->gatewayRef($gateway, $mode)
+            ?? throw new LogicException('A price\'s own gateway id is recorded before its no-trial variant\'s.');
+
+        $current['no_trial'] = [...$ref, 'history' => self::historyAfter($current['no_trial'] ?? null, $ref['id'])];
+
+        $refs = $this->gateway_refs ?? [];
+        $refs[$gateway->value][$mode->value] = $current;
+        $this->gateway_refs = $refs;
+        $this->save();
+    }
+
+    /**
+     * The ids a ref has had, including the one it is being moved off.
+     *
+     * @param  array{id: string, history?: list<string>}|null  $previous
+     * @return list<string>
+     */
+    private static function historyAfter(?array $previous, string $newId): array
+    {
         $history = $previous['history'] ?? [];
 
         if ($previous !== null && ! in_array($previous['id'], $history, true)) {
             $history[] = $previous['id'];
         }
 
-        $refs = $this->gateway_refs ?? [];
-        $refs[$gateway->value][$mode->value] = [...$ref, 'history' => array_values(array_diff($history, [$ref['id']]))];
-        $this->gateway_refs = $refs;
-        $this->save();
+        return array_values(array_diff($history, [$newId]));
     }
 
     /**
-     * The price a gateway id belongs to, current or superseded.
+     * The price a gateway id belongs to, current or superseded, the price's
+     * own or its no-trial variant's.
      */
     public static function findByGatewayRef(Gateway $gateway, GatewayMode $mode, string $gatewayId): ?self
     {
@@ -172,8 +212,10 @@ class PlanPrice extends Model
         foreach (self::query()->whereNotNull('gateway_refs')->get() as $price) {
             $ref = $price->gatewayRef($gateway, $mode);
 
-            if ($ref !== null && ($ref['id'] === $gatewayId || in_array($gatewayId, $ref['history'] ?? [], true))) {
-                return $price;
+            foreach ([$ref, $ref['no_trial'] ?? null] as $known) {
+                if ($known !== null && ($known['id'] === $gatewayId || in_array($gatewayId, $known['history'] ?? [], true))) {
+                    return $price;
+                }
             }
         }
 

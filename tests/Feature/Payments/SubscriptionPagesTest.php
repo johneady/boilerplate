@@ -12,6 +12,7 @@ use App\Payments\Enums\SubscriptionStatus;
 use App\Settings\Settings;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\URL;
 use Livewire\Livewire;
 use Tests\Support\Payments;
 
@@ -36,6 +37,17 @@ test('the pricing page lists the plans on offer in the installation\'s currency'
         ->assertSee($pro->label())
         ->assertDontSee('Hidden plan')
         ->assertDontSee('US only');
+});
+
+test('the pricing page offers the free trial only to someone who would get it', function () {
+    PlanPrice::factory()->for(Plan::factory()->trial(14)->state(['name' => 'Pro']))->create();
+    $newcomer = User::factory()->create();
+    $returning = User::factory()->create();
+    Subscription::factory()->for($returning)->status(SubscriptionStatus::Canceled)->create();
+
+    $this->get(route('payments.pricing'))->assertSee('14-day free trial');
+    $this->actingAs($newcomer)->get(route('payments.pricing'))->assertSee('14-day free trial');
+    $this->actingAs($returning)->get(route('payments.pricing'))->assertDontSee('14-day free trial');
 });
 
 test('the pricing page is not found while payments are switched off', function () {
@@ -75,7 +87,7 @@ test('a signed-in user is sent to the gateway\'s checkout', function () {
     Livewire::actingAs($user)
         ->test(Pricing::class)
         ->call('subscribe', $price->id)
-        ->assertRedirect(route('subscriptions.demo.show', Subscription::sole()));
+        ->assertRedirect(URL::signedRoute('subscriptions.demo.show', Subscription::sole()));
 
     expect(Subscription::sole())
         ->user_id->toBe($user->id)
@@ -122,9 +134,9 @@ test('the demo checkout, approved, returns the subscriber to their billing page 
     $user = User::factory()->create();
     $subscription = Payments::subscribe($user, pricedPlan());
 
-    $this->get(route('subscriptions.demo.show', $subscription))->assertOk()->assertSee('Pro');
+    $this->get(URL::signedRoute('subscriptions.demo.show', $subscription))->assertOk()->assertSee('Pro');
 
-    $return = $this->post(route('subscriptions.demo.store', $subscription), ['outcome' => 'approve']);
+    $return = $this->post(URL::signedRoute('subscriptions.demo.store', $subscription), ['outcome' => 'approve']);
     $return->assertRedirect($subscription->returnUrl());
 
     $this->actingAs($user)->get($subscription->returnUrl())->assertRedirect(route('billing.edit'));
@@ -136,7 +148,7 @@ test('the demo checkout, approved, returns the subscriber to their billing page 
 test('backing out of the demo checkout returns to the pricing page', function () {
     $subscription = Payments::subscribe(User::factory()->create(), pricedPlan());
 
-    $this->post(route('subscriptions.demo.store', $subscription), ['outcome' => 'cancel'])
+    $this->post(URL::signedRoute('subscriptions.demo.store', $subscription), ['outcome' => 'cancel'])
         ->assertRedirect($subscription->cancelUrl());
 
     $this->get($subscription->cancelUrl())

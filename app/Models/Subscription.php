@@ -30,8 +30,8 @@ use Illuminate\Support\Str;
  *
  * One live subscription per user, enforced by the unique active_user_id
  * column: it holds user_id while the status is live and null once it has
- * ended. The gateway, mode and currency are write-once, the gateway ids are
- * set once, and the row can never be deleted.
+ * ended. The gateway, mode, currency and trial are write-once, the gateway
+ * ids are set once, and the row can never be deleted.
  *
  * @property int $id
  * @property string $uuid
@@ -45,6 +45,7 @@ use Illuminate\Support\Str;
  * @property GatewayMode $mode
  * @property SubscriptionStatus $status
  * @property Currency $currency
+ * @property int $trial_days
  * @property string|null $gateway_subscription_id
  * @property string|null $gateway_customer_id
  * @property string|null $gateway_checkout_id
@@ -59,6 +60,7 @@ use Illuminate\Support\Str;
  * @property CarbonImmutable|null $started_notified_at
  * @property CarbonImmutable|null $trial_reminder_sent_at
  * @property CarbonImmutable|null $ended_notified_at
+ * @property CarbonImmutable|null $duplicate_alerted_at
  * @property CarbonImmutable|null $last_reconciled_at
  * @property array<string, mixed>|null $metadata
  * @property CarbonImmutable|null $created_at
@@ -70,7 +72,7 @@ use Illuminate\Support\Str;
  */
 #[Fillable([
     'idempotency_key', 'user_id', 'active_user_id', 'plan_id', 'plan_price_id',
-    'gateway', 'mode', 'status', 'currency',
+    'gateway', 'mode', 'status', 'currency', 'trial_days',
 ])]
 class Subscription extends Model
 {
@@ -98,6 +100,7 @@ class Subscription extends Model
             'mode' => GatewayMode::class,
             'status' => SubscriptionStatus::class,
             'currency' => Currency::class,
+            'trial_days' => 'integer',
             'cancel_at_period_end' => 'boolean',
             'trial_ends_at' => 'immutable_datetime',
             'current_period_start' => 'immutable_datetime',
@@ -108,6 +111,7 @@ class Subscription extends Model
             'started_notified_at' => 'immutable_datetime',
             'trial_reminder_sent_at' => 'immutable_datetime',
             'ended_notified_at' => 'immutable_datetime',
+            'duplicate_alerted_at' => 'immutable_datetime',
             'last_reconciled_at' => 'immutable_datetime',
             'metadata' => 'array',
         ];
@@ -118,7 +122,7 @@ class Subscription extends Model
      */
     protected function writeOnceAttributes(): array
     {
-        return ['uuid', 'idempotency_key', 'gateway', 'mode', 'currency'];
+        return ['uuid', 'idempotency_key', 'gateway', 'mode', 'currency', 'trial_days'];
     }
 
     /**

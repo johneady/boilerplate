@@ -51,17 +51,18 @@ function deliverStripe(array $event, string $secret = 'whsec_example', string $m
  * Deliver a PayPal event, with the signature headers PayPal sends.
  *
  * @param  array<string, mixed>  $event
+ * @param  array<string, string>  $headers  Server variables replacing the genuine ones.
  */
-function deliverPayPal(array $event): TestResponse
+function deliverPayPal(array $event, array $headers = []): TestResponse
 {
-    return test()->call('POST', route('payments.webhook', ['gateway' => 'paypal', 'mode' => 'sandbox']), [], [], [], [
+    return test()->call('POST', route('payments.webhook', ['gateway' => 'paypal', 'mode' => 'sandbox']), [], [], [], [...[
         'CONTENT_TYPE' => 'application/json',
         'HTTP_PAYPAL_AUTH_ALGO' => 'SHA256withRSA',
         'HTTP_PAYPAL_CERT_URL' => 'https://api.sandbox.paypal.com/v1/notifications/certs/CERT-360caa42',
         'HTTP_PAYPAL_TRANSMISSION_ID' => '69cd13f0-d67a-11e5-baa3-778b53f4ae55',
         'HTTP_PAYPAL_TRANSMISSION_SIG' => 'lmI95Jx3Y9nhR5SJWlHVIWpg4AgFk7n9bCHSRxbrd8A9zrhdu2rMyFrmz+Zjh3s3boXB07VXCXUZy/UFzUlnGJn0wDugt7FlSvdKeIJenLpKUUz1jgIhNtWAiH8/K8I+Ttf/Na7+E0Hg2NRbfDjbSyw4g/ovbxWnDg3m+PYs9tqK8ZdqeU/o5aM1JWiRw9qlTQOaIG3r+HOzKmNIhpd5UE4rJDXKVTmPGFYDRJx8hMe8iCK5o0J0Eg0Xcnea2Z5JOANyOh3Z1YiB1Zx6jR48fDkx9ENm7Hg06IR8M4sVLajs8/IOA0nNSIi/n8xLXBONQNt8PJG+aNxbu8e0JtTPfQ==',
-        'HTTP_PAYPAL_TRANSMISSION_TIME' => '2026-09-23T12:00:30Z',
-    ], (string) json_encode($event));
+        'HTTP_PAYPAL_TRANSMISSION_TIME' => now()->toIso8601ZuluString(),
+    ], ...$headers], (string) json_encode($event));
 }
 
 /**
@@ -92,6 +93,21 @@ test('a verified Stripe event is stored, acknowledged and reconciles the payment
         ->event_id->toBe('evt_test_E7v')
         ->status->toBe(WebhookEventStatus::Processed)
         ->and($payment->fresh()->status)->toBe(PaymentStatus::Succeeded);
+});
+
+test('one address flooding the endpoint is throttled without shutting out the gateway', function () {
+    Notification::fake();
+    Queue::fake();
+    $event = PaymentFixtures::load('stripe/event_checkout_session_completed');
+
+    for ($i = 0; $i < 120; $i++) {
+        deliverStripe($event, 'whsec_forged');
+    }
+
+    deliverStripe($event, 'whsec_forged')->assertTooManyRequests();
+
+    $this->withServerVariables(['REMOTE_ADDR' => '203.0.113.9']);
+    deliverStripe($event)->assertOk();
 });
 
 test('a redelivered event is acknowledged but processed once', function () {
@@ -239,6 +255,20 @@ test('a PayPal approval whose customer never came back is captured from the webh
         && $request->data()['webhook_id'] === 'WH-ID-123'
         && $request->data()['webhook_event']['id'] === 'WH-2WR32451HC0233532-67976317FL4543714');
 });
+
+test('a PayPal delivery that cannot be genuine is refused without asking PayPal', function (array $headers) {
+    Http::fake();
+
+    deliverPayPal(PaymentFixtures::load('paypal/event_order_approved'), $headers)->assertStatus(400);
+
+    Http::assertNothingSent();
+    expect(WebhookEvent::count())->toBe(0);
+})->with([
+    'a certificate off PayPal\'s host' => [['HTTP_PAYPAL_CERT_URL' => 'https://paypal.com.example.test/certs/CERT-1']],
+    'a certificate over plain http' => [['HTTP_PAYPAL_CERT_URL' => 'http://api.sandbox.paypal.com/v1/notifications/certs/CERT-360caa42']],
+    'sent eleven minutes ago' => [fn (): array => ['HTTP_PAYPAL_TRANSMISSION_TIME' => now()->subMinutes(11)->toIso8601ZuluString()]],
+    'an unreadable time' => [['HTTP_PAYPAL_TRANSMISSION_TIME' => 'yesterday-ish']],
+]);
 
 test('a PayPal event PayPal does not verify is refused', function () {
     Http::fake([

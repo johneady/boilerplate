@@ -119,9 +119,13 @@ class AppServiceProvider extends ServiceProvider
         // PayPal deliver from many addresses, and a burst of legitimate events
         // (a batch of dashboard refunds) must not be turned away. This bounds
         // a flood of forged posts, each of which still has to fail a signature.
-        RateLimiter::for('payment-webhooks', fn (Request $request) => Limit::perMinute(600)->by(
-            'gateway:'.$request->route('gateway')
-        ));
+        // The per-address limit stops any one sender using up the gateway's
+        // whole allowance, so a flood from one place cannot crowd out real
+        // deliveries; a genuine delivery refused is retried by the gateway.
+        RateLimiter::for('payment-webhooks', fn (Request $request) => [
+            Limit::perMinute(600)->by('gateway:'.$request->route('gateway')),
+            Limit::perMinute(120)->by('address:'.$request->route('gateway').':'.$request->ip()),
+        ]);
 
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by(
             // Namespaced so a user identifier can never collide with an IP.

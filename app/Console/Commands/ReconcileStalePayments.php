@@ -85,7 +85,9 @@ class ReconcileStalePayments extends Command
         $pendingPayments = Payment::query()
             ->where('status', PaymentStatus::Pending->value)
             ->where('gateway', '!=', Gateway::Manual->value)
-            ->whereNotNull('gateway_checkout_id')
+            // A subscription invoice's payment has no checkout, only the
+            // gateway's payment id, and a failed first read leaves it pending.
+            ->where(fn ($query) => $query->whereNotNull('gateway_checkout_id')->orWhereNotNull('gateway_payment_id'))
             ->where('created_at', '<', $staleBefore)
             // Not re-read more often than the staleness window: an abandoned
             // checkout would otherwise cost an API call every run until it

@@ -40,11 +40,10 @@ use Throwable;
 class ProcessWebhookEvent extends Job
 {
     /**
-     * More attempts than the default: a gateway outage while re-reading the
-     * payment is exactly the transient failure a webhook should outlast.
+     * More failures allowed than the default: a gateway outage while
+     * re-reading the payment is exactly the transient failure a webhook
+     * should outlast.
      */
-    public int $tries = 5;
-
     public int $maxExceptions = 4;
 
     /**
@@ -56,6 +55,21 @@ class ProcessWebhookEvent extends Job
     private ?array $resolved = null;
 
     public function __construct(public int $webhookEventId) {}
+
+    /**
+     * A deadline rather than a number of tries.
+     *
+     * Every release by WithoutOverlapping counts as an attempt, and a gateway
+     * sends several events for one checkout at once (session completed, intent
+     * succeeded, charge succeeded...). Counted in tries, a burst for one
+     * subject across several workers could use up the last event's attempts
+     * waiting for the lock and mark it failed, alerting operators for nothing.
+     * Genuine errors stay bounded by $maxExceptions.
+     */
+    public function retryUntil(): CarbonImmutable
+    {
+        return CarbonImmutable::now()->addHour();
+    }
 
     /**
      * @return array<int, int>

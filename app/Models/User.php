@@ -9,6 +9,8 @@ use App\Concerns\HasMedia;
 use App\Concerns\HasRoles;
 use App\Media\HoldsMedia;
 use App\Media\MediaCollection;
+use App\Payments\Actions\EndSubscriptionsForDeletedUser;
+use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
@@ -101,6 +103,14 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     protected $attributes = [
         'role' => Role::DEFAULT->value,
     ];
+
+    protected static function booted(): void
+    {
+        // Every deletion path -- the settings page, the admin panel, tinker --
+        // stops the gateway billing the account first, and a gateway that
+        // refuses stops the deletion. See EndSubscriptionsForDeletedUser.
+        static::deleting(fn (User $user) => app(EndSubscriptionsForDeletedUser::class)->handle($user));
+    }
 
     /**
      * Attributes kept out of the audit trail beyond the global denylist.
@@ -263,18 +273,45 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     }
 
     /**
+     * Whether a new subscription would come with the plan's free trial.
+     *
+     * One trial per customer: anyone who has started a subscription before in
+     * this mode -- trialing, paying, lapsed or cancelled -- starts the next one
+     * paying. A checkout abandoned before it started does not count.
+     */
+    public function isEligibleForTrial(GatewayMode $mode): bool
+    {
+        return ! $this->subscriptions()
+            ->where('mode', $mode->value)
+            ->whereIn('status', array_map(
+                fn (SubscriptionStatus $status): string => $status->value,
+                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
+            ))
+            ->exists();
+    }
+
+    /**
      * Whether the user may use a subscription's benefits right now.
      *
      * Any plan when $planKey is null, or the plan with that key. See
      * Subscription::grantsAccess() for the trial, grace-period and
      * paid-until-period-end rules.
+     *
+     * A sandbox subscription counts only while the site is in sandbox mode:
+     * it is paid for with a test card, and one left running after the switch
+     * to live would otherwise be free access for as long as it renews.
      */
     public function subscribed(?string $planKey = null): bool
     {
-        $graceDays = app(Settings::class)->integer(SettingKey::PastDueGraceDays);
+        $settings = app(Settings::class);
+        $graceDays = $settings->integer(SettingKey::PastDueGraceDays);
+        $modes = $settings->string(SettingKey::PaymentsMode) === GatewayMode::Sandbox->value
+            ? [GatewayMode::Sandbox->value, GatewayMode::Live->value]
+            : [GatewayMode::Live->value];
 
         return $this->subscriptions()
             ->with('plan')
+            ->whereIn('mode', $modes)
             ->whereIn('status', [
                 SubscriptionStatus::Trialing->value,
                 SubscriptionStatus::Active->value,

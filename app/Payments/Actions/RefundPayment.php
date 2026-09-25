@@ -141,7 +141,9 @@ class RefundPayment
                 ]);
             });
         } catch (UniqueConstraintViolationException) {
-            return Refund::query()->where('idempotency_key', $idempotencyKey)->firstOrFail();
+            // Scoped to this payment: a key already used on another payment
+            // must fail, not hand back that payment's refund as this one's.
+            return $payment->refunds()->where('idempotency_key', $idempotencyKey)->firstOrFail();
         }
     }
 }

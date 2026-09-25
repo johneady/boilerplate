@@ -152,6 +152,8 @@ class StartSubscription
                     throw new PaymentNotAllowed(__('You already have a subscription. Change or cancel it from your billing page.'));
                 }
 
+                $mode = $this->payments->mode();
+
                 return Subscription::query()->create([
                     'idempotency_key' => $idempotencyKey,
                     'user_id' => $user->id,
@@ -159,9 +161,12 @@ class StartSubscription
                     'plan_id' => $price->plan_id,
                     'plan_price_id' => $price->id,
                     'gateway' => $gateway,
-                    'mode' => $this->payments->mode(),
+                    'mode' => $mode,
                     'status' => SubscriptionStatus::Incomplete,
                     'currency' => $price->currency,
+                    // Decided under the user's lock, so two attempts at once
+                    // cannot both be first.
+                    'trial_days' => $user->isEligibleForTrial($mode) ? ($price->plan->trial_days ?? 0) : 0,
                 ]);
             });
         } catch (UniqueConstraintViolationException) {

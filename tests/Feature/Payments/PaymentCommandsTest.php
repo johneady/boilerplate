@@ -6,6 +6,7 @@ use App\Models\WebhookEvent;
 use App\Payments\Drivers\DemoDriver;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
+use Illuminate\Support\Facades\URL;
 use Tests\Support\Payments;
 
 beforeEach(function () {
@@ -49,7 +50,7 @@ test('an expired checkout can no longer be paid through', function () {
     $this->travel(25)->hours();
     $this->artisan('payments:expire-checkouts')->assertSuccessful();
 
-    $this->get(route('payments.demo.show', $payment))->assertNotFound();
+    $this->get(URL::signedRoute('payments.demo.show', $payment))->assertNotFound();
 });
 
 test('a payment whose webhooks never came is picked up by the stale reconciliation', function () {

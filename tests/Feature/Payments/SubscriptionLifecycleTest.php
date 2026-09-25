@@ -6,6 +6,7 @@ use App\Models\PlanPrice;
 use App\Models\Subscription;
 use App\Models\TaxRate;
 use App\Models\User;
+use App\Notifications\Payments\DuplicateSubscriptionDetected;
 use App\Notifications\Payments\PaymentReceipt;
 use App\Notifications\Payments\SubscriptionCanceled;
 use App\Notifications\Payments\SubscriptionPaymentFailed;
@@ -315,4 +316,29 @@ test('the subscriber\'s payments name the subscription and never double count', 
 
     expect(Payment::query()->where('payable_type', $subscription->getMorphClass())->where('payable_id', $subscription->id)->count())->toBe(2)
         ->and(Payment::query()->pluck('gateway_payment_id')->unique()->count())->toBe(2);
+});
+
+test('deleting a subscriber\'s account cancels their subscription at the gateway first', function () {
+    $user = User::factory()->create();
+    $subscription = Payments::subscribeWithDemo($user, proPrice());
+
+    $user->delete();
+
+    expect($user->fresh())->toBeNull()
+        ->and($subscription->fresh())
+        ->status->toBe(SubscriptionStatus::Canceled)
+        ->active_user_id->toBeNull();
+});
+
+test('a second subscription found running for the same customer is reported to operators once', function () {
+    $user = User::factory()->create();
+    Payments::subscribeWithDemo($user, proPrice());
+    // Completed at the gateway after the first one had taken the user's slot.
+    $second = Subscription::factory()->for($user)->create(['active_user_id' => null]);
+
+    app(ReconcileSubscription::class)->apply($second, new GatewaySubscriptionState(SubscriptionStatus::Active), TransactionSource::Webhook);
+    app(ReconcileSubscription::class)->apply($second, new GatewaySubscriptionState(SubscriptionStatus::Active), TransactionSource::Webhook);
+
+    expect($second->fresh()->active_user_id)->toBeNull();
+    Notification::assertSentOnDemandTimes(DuplicateSubscriptionDetected::class, 1);
 });

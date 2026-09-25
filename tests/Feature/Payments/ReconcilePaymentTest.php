@@ -7,6 +7,7 @@ use App\Models\Refund;
 use App\Notifications\Payments\DuplicatePaymentRefunded;
 use App\Notifications\Payments\PaymentReceipt;
 use App\Notifications\Payments\RefundIssued;
+use App\Notifications\Payments\RefundReversed;
 use App\Payments\Actions\ReconcilePayment;
 use App\Payments\Actions\RefundPayment;
 use App\Payments\Data\GatewayPaymentState;
@@ -79,6 +80,47 @@ test('a late event cannot move a paid payment backwards', function () {
     app(ReconcilePayment::class)->apply($payment, new GatewayPaymentState(GatewayStatus::Canceled), TransactionSource::Webhook);
 
     expect($payment->fresh()->status)->toBe(PaymentStatus::Succeeded);
+});
+
+test('money that settles after a checkout was expired records the payment as paid, tells the payable and sends a receipt', function () {
+    Notification::fake();
+    HeldBooking::createTable();
+    $booking = HeldBooking::query()->create(['price' => 10000]);
+    $payment = Payments::checkout($booking);
+    app(ReconcilePayment::class)->apply($payment, new GatewayPaymentState(GatewayStatus::Expired), TransactionSource::Scheduler);
+
+    app(ReconcilePayment::class)->apply($payment, paidState($payment), TransactionSource::Webhook);
+
+    expect($payment->fresh())
+        ->status->toBe(PaymentStatus::Succeeded)
+        ->paid_at->not->toBeNull()
+        ->and($booking->fresh()->accepted_count)->toBe(1);
+
+    Notification::assertSentOnDemandTimes(PaymentReceipt::class, 1);
+});
+
+test('a refund that fails after succeeding is reversed on the ledger and operators are told once', function () {
+    Notification::fake();
+    Payments::enable(['ops_alert_email' => 'ops@example.test']);
+    $payment = Payments::checkout(PaymentLink::factory()->costing(5000)->create());
+    app(ReconcilePayment::class)->apply($payment, paidState($payment), TransactionSource::Webhook);
+    $refund = app(RefundPayment::class)->handle($payment, Money::of(5000, $payment->currency), 'refund:closed-card');
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Refunded);
+
+    // The card was closed: the gateway gives the money back to the merchant.
+    $failed = new GatewayRefund($refund->gateway_refund_id, $refund->money(), RefundStatus::Failed, CarbonImmutable::now(), $refund->uuid, 'expired_or_canceled_card');
+    app(ReconcilePayment::class)->apply($payment, paidState($payment, [$failed]), TransactionSource::Webhook);
+    app(ReconcilePayment::class)->apply($payment, paidState($payment, [$failed]), TransactionSource::Webhook);
+
+    expect($payment->fresh())
+        ->status->toBe(PaymentStatus::Succeeded)
+        ->amount_refunded->toBe(0)
+        ->and($refund->fresh())
+        ->status->toBe(RefundStatus::Failed)
+        ->failure_reason->toBe('expired_or_canceled_card')
+        ->and($payment->transactions()->where('type', TransactionType::RefundReversal->value)->sole()->amount)->toBe(5000);
+
+    Notification::assertSentOnDemandTimes(RefundReversed::class, 1);
 });
 
 test('a failure while telling the payable rolls the whole reconcile back and sends nothing', function () {

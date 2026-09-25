@@ -14,6 +14,13 @@ enum GatewayStatus
     /** The customer has not finished paying. */
     case Open;
 
+    /**
+     * The customer has paid, but the money has not settled yet: a bank debit
+     * clearing, or a PayPal capture held for review. Still pending, but never
+     * abandoned -- it must not be expired.
+     */
+    case Processing;
+
     /** Funds are held, awaiting capture. */
     case Authorized;
 

@@ -110,6 +110,21 @@ test('a held session is recorded as authorized with the card\'s capture deadline
         ->and($payment->authorization_expires_at->getTimestamp())->toBe(1790604860);
 });
 
+test('a bank debit still settling past the abandonment cutoff is kept pending, not expired', function () {
+    $payment = stripePayment([
+        'GET /v1/checkout/sessions/cs_test_a1B2c3' => PaymentFixtures::load('stripe/checkout_session_processing'),
+        // What Stripe answers for a session that has already been completed.
+        'POST /v1/checkout/sessions/cs_test_a1B2c3/expire' => fn () => Http::response(['error' => ['message' => 'This Checkout Session is not open.']], 400),
+    ]);
+
+    $this->travel(25)->hours();
+    $this->artisan('payments:expire-checkouts')->assertSuccessful();
+
+    expect($payment->fresh())
+        ->status->toBe(PaymentStatus::Pending)
+        ->expired_at->toBeNull();
+});
+
 test('an expired session is recorded as expired', function () {
     $payment = stripePayment(['GET /v1/checkout/sessions/cs_test_a1B2c3' => PaymentFixtures::load('stripe/checkout_session_expired')]);
 

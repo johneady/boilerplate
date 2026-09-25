@@ -83,6 +83,13 @@ trait ManagesPayPalSubscriptions
             if (($ref !== null || $price->is_active) && ($ref['signature'] ?? null) !== $this->billingPlanSignature($plan, $price)) {
                 return false;
             }
+
+            $noTrial = $this->noTrialRef($price);
+
+            if (($noTrial !== null || ($price->is_active && $plan->trial_days > 0))
+                && ($noTrial['signature'] ?? null) !== $this->billingPlanSignature($plan, $price, withTrial: false)) {
+                return false;
+            }
         }
 
         return true;
@@ -92,7 +99,7 @@ trait ManagesPayPalSubscriptions
     {
         $price = $subscription->price ?? throw new GatewayException('The subscription has no price.');
         $user = $subscription->user ?? throw new GatewayException('The subscription has no user.');
-        $planId = $price->gatewayRef(Gateway::PayPal, $this->mode)['id'] ?? throw new GatewayException('The price has not been synced to PayPal.');
+        $planId = $this->billingPlanFor($subscription, $price);
 
         $names = preg_split('/\s+/', trim($user->name), 2) ?: [];
 
@@ -113,6 +120,22 @@ trait ManagesPayPalSubscriptions
         }
 
         return new CheckoutSession((string) $response['id'], $approveUrl);
+    }
+
+    /**
+     * The billing plan to start a subscription on: the price's own, which
+     * carries the plan's trial, or its no-trial variant for a customer who
+     * has had a trial before (the subscription's trial_days is then 0).
+     */
+    private function billingPlanFor(Subscription $subscription, PlanPrice $price): string
+    {
+        $ref = $price->gatewayRef(Gateway::PayPal, $this->mode) ?? throw new GatewayException('The price has not been synced to PayPal.');
+
+        if ($subscription->trial_days > 0 || ($price->plan->trial_days ?? 0) === 0) {
+            return $ref['id'];
+        }
+
+        return $this->noTrialRef($price)['id'] ?? throw new GatewayException('The price\'s no-trial billing plan has not been synced to PayPal.');
     }
 
     /**
@@ -212,7 +235,10 @@ trait ManagesPayPalSubscriptions
     public function swapSubscription(Subscription $subscription, PlanPrice $price, CheckoutUrls $urls): ?string
     {
         $id = $subscription->gateway_subscription_id ?? throw new GatewayException('The subscription has not started at PayPal.');
-        $planId = $price->gatewayRef(Gateway::PayPal, $this->mode)['id'] ?? throw new GatewayException('The price has not been synced to PayPal.');
+        // A plan change never starts a trial, so the no-trial variant where
+        // there is one.
+        $ref = $price->gatewayRef(Gateway::PayPal, $this->mode);
+        $planId = $this->noTrialRef($price)['id'] ?? $ref['id'] ?? throw new GatewayException('The price has not been synced to PayPal.');
 
         $response = $this->client->post("/v1/billing/subscriptions/{$id}/revise", [
             'plan_id' => $planId,
@@ -287,7 +313,11 @@ trait ManagesPayPalSubscriptions
 
         if (! in_array($state, ['completed', 'partially_refunded', 'refunded'], true)) {
             return new GatewayPaymentState(
-                $state === 'denied' ? GatewayStatus::Failed : GatewayStatus::Open,
+                match ($state) {
+                    'denied' => GatewayStatus::Failed,
+                    'pending' => GatewayStatus::Processing,
+                    default => GatewayStatus::Open,
+                },
                 (string) $payment->gateway_payment_id,
             );
         }
@@ -350,13 +380,29 @@ trait ManagesPayPalSubscriptions
     }
 
     /**
-     * Create the billing plan a price needs, replacing one whose trial or tax
-     * no longer matches, or deactivate it once the price is retired.
+     * Keep a price's billing plans in line with it: the one customers
+     * subscribe on and, for a plan with a free trial, a second with no trial
+     * for customers who have had theirs (User::isEligibleForTrial()). PayPal
+     * fixes the trial on the billing plan, so this is the only way to start a
+     * subscription to the same price without one.
      */
     private function syncBillingPlan(Plan $plan, PlanPrice $price, string $productId): void
     {
-        $ref = $price->gatewayRef(Gateway::PayPal, $this->mode);
-        $signature = $this->billingPlanSignature($plan, $price);
+        $this->syncBillingPlanVariant($plan, $price, $productId, withTrial: true);
+
+        if ($plan->trial_days > 0 || $this->noTrialRef($price) !== null) {
+            $this->syncBillingPlanVariant($plan, $price, $productId, withTrial: false);
+        }
+    }
+
+    /**
+     * Create the billing plan one variant needs, replacing one whose trial or
+     * tax no longer matches, or deactivate it once the price is retired.
+     */
+    private function syncBillingPlanVariant(Plan $plan, PlanPrice $price, string $productId, bool $withTrial): void
+    {
+        $ref = $withTrial ? $price->gatewayRef(Gateway::PayPal, $this->mode) : $this->noTrialRef($price);
+        $signature = $this->billingPlanSignature($plan, $price, $withTrial);
 
         if (($ref['signature'] ?? null) === $signature || ($ref === null && ! $price->is_active)) {
             return;
@@ -364,7 +410,7 @@ trait ManagesPayPalSubscriptions
 
         if (! $price->is_active) {
             $this->deactivateBillingPlan((string) $ref['id']);
-            $price->recordGatewayRef(Gateway::PayPal, $this->mode, array_filter([
+            $this->recordBillingPlan($price, $withTrial, array_filter([
                 'id' => $ref['id'],
                 'signature' => $signature,
                 'tax_name' => $ref['tax_name'] ?? null,
@@ -376,11 +422,12 @@ trait ManagesPayPalSubscriptions
 
         $tax = $plan->taxable ? TaxRate::combinedActive() : null;
         $currency = $price->currency->value;
+        $trialDays = $withTrial ? $plan->trial_days : 0;
         $cycles = [];
 
-        if ($plan->trial_days > 0) {
+        if ($trialDays > 0) {
             $cycles[] = [
-                'frequency' => ['interval_unit' => 'DAY', 'interval_count' => min(365, $plan->trial_days)],
+                'frequency' => ['interval_unit' => 'DAY', 'interval_count' => min(365, $trialDays)],
                 'tenure_type' => 'TRIAL',
                 'sequence' => 1,
                 'total_cycles' => 1,
@@ -397,7 +444,7 @@ trait ManagesPayPalSubscriptions
 
         $body = [
             'product_id' => $productId,
-            'name' => mb_substr("{$plan->name} ({$price->intervalDescription()})", 0, 127),
+            'name' => mb_substr("{$plan->name} ({$price->intervalDescription()})".($withTrial ? '' : ', no trial'), 0, 127),
             'status' => 'ACTIVE',
             'billing_cycles' => $cycles,
             'payment_preferences' => [
@@ -415,11 +462,12 @@ trait ManagesPayPalSubscriptions
 
         // The plan it replaces is part of the key, so returning to an earlier
         // trial or tax creates a new plan rather than replaying the creation
-        // of one deactivated since.
-        $created = $this->client->post('/v1/billing/plans', $body, CatalogueKey::for('plan-price', $price, $this->mode, sha1($signature.'|'.($ref['id'] ?? 'none'))));
+        // of one deactivated since. The no-trial variant's key is its own, or
+        // for a plan with no trial the two would share one billing plan.
+        $created = $this->client->post('/v1/billing/plans', $body, CatalogueKey::for('plan-price', $price, $this->mode, sha1(($withTrial ? '' : 'no-trial|').$signature.'|'.($ref['id'] ?? 'none'))));
         $createdId = (string) ($created['id'] ?? throw new GatewayException('PayPal did not return the billing plan.'));
 
-        $price->recordGatewayRef(Gateway::PayPal, $this->mode, array_filter([
+        $this->recordBillingPlan($price, $withTrial, array_filter([
             'id' => $createdId,
             'signature' => $signature,
             'tax_name' => $tax['name'] ?? null,
@@ -429,6 +477,26 @@ trait ManagesPayPalSubscriptions
         if ($ref !== null && $ref['id'] !== $createdId) {
             $this->deactivateBillingPlan($ref['id']);
         }
+    }
+
+    /**
+     * @param  array{id: string, signature?: string, tax_name?: string, tax_percentage?: string}  $ref
+     */
+    private function recordBillingPlan(PlanPrice $price, bool $withTrial, array $ref): void
+    {
+        $withTrial
+            ? $price->recordGatewayRef(Gateway::PayPal, $this->mode, $ref)
+            : $price->recordNoTrialGatewayRef(Gateway::PayPal, $this->mode, $ref);
+    }
+
+    /**
+     * The billing plan a price is billed on without the plan's trial, once synced.
+     *
+     * @return array{id: string, history?: list<string>, signature?: string, tax_name?: string, tax_percentage?: string}|null
+     */
+    private function noTrialRef(PlanPrice $price): ?array
+    {
+        return $price->gatewayRef(Gateway::PayPal, $this->mode)['no_trial'] ?? null;
     }
 
     private function deactivateBillingPlan(string $planId): void
@@ -444,17 +512,19 @@ trait ManagesPayPalSubscriptions
 
     /**
      * What a billing plan must match to still be right for a price: its
-     * trial, its tax, and whether it is on offer at all.
+     * trial (none, for the no-trial variant), its tax, and whether it is on
+     * offer at all.
      */
-    private function billingPlanSignature(Plan $plan, PlanPrice $price): string
+    private function billingPlanSignature(Plan $plan, PlanPrice $price, bool $withTrial = true): string
     {
         if (! $price->is_active) {
             return 'archived';
         }
 
         $tax = $plan->taxable ? TaxRate::combinedActive() : null;
+        $trialDays = $withTrial ? $plan->trial_days : 0;
 
-        return "trial:{$plan->trial_days}|tax:".($tax['percentage'] ?? '0');
+        return "trial:{$trialDays}|tax:".($tax['percentage'] ?? '0');
     }
 
     /**

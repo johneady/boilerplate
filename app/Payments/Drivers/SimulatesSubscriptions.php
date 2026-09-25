@@ -22,6 +22,7 @@ use App\Payments\Tax\TaxLine;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 /**
  * The Demo gateway's subscriptions: a checkout page, trials, renewals and
@@ -82,7 +83,7 @@ trait SimulatesSubscriptions
             'invoices' => [],
         ]);
 
-        return new CheckoutSession('demo_sub_'.$subscription->uuid, route('subscriptions.demo.show', $subscription));
+        return new CheckoutSession('demo_sub_'.$subscription->uuid, URL::signedRoute('subscriptions.demo.show', $subscription));
     }
 
     /**
@@ -97,7 +98,7 @@ trait SimulatesSubscriptions
             }
 
             $now = CarbonImmutable::now();
-            $trialDays = $subscription->plan->trial_days ?? 0;
+            $trialDays = $subscription->trial_days;
 
             if ($trialDays > 0) {
                 $trialEnds = $now->addDays($trialDays);

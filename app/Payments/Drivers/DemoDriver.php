@@ -19,6 +19,7 @@ use App\Payments\Money;
 use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 
 /**
  * A pretend gateway that takes no money and needs no credentials.
@@ -48,7 +49,7 @@ class DemoDriver implements PaymentDriver, SubscriptionDriver
             'refunds' => [],
         ]);
 
-        return new CheckoutSession('demo_cs_'.$payment->uuid, route('payments.demo.show', $payment));
+        return new CheckoutSession('demo_cs_'.$payment->uuid, URL::signedRoute('payments.demo.show', $payment));
     }
 
     /**
