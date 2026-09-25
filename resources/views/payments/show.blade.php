@@ -48,6 +48,12 @@
                 @endswitch
             </p>
 
+            @if ($payment->mode !== \App\Payments\Enums\GatewayMode::Live)
+                <flux:callout variant="warning" icon="beaker" class="mt-6" data-test="test-payment">
+                    <flux:callout.text>{{ __('This is a test payment. No money was taken, and this is not a valid receipt.') }}</flux:callout.text>
+                </flux:callout>
+            @endif
+
             <dl class="mt-8 space-y-2 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
                 <div class="flex justify-between gap-4">
                     <dt>{{ __('For') }}</dt>
@@ -101,6 +107,19 @@
                     <dd class="font-mono">{{ $payment->uuid }}</dd>
                 </div>
             </dl>
+
+            @if (\App\Payments\ReceiptPdf::availableFor($payment))
+                <flux:button
+                    :href="$payment->receiptPdfUrl()"
+                    icon="arrow-down-tray"
+                    variant="ghost"
+                    size="sm"
+                    class="mt-4"
+                    data-test="receipt-pdf"
+                >
+                    {{ __('Download PDF receipt') }}
+                </flux:button>
+            @endif
 
             @if (! $status->isPaid() && $status !== \App\Payments\Enums\PaymentStatus::Authorized && $retryUrl !== null)
                 <flux:button :href="$retryUrl" variant="primary" class="mt-8">{{ __('Try again') }}</flux:button>

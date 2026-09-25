@@ -2,10 +2,14 @@
 
 namespace App\Notifications\Payments;
 
+use App\Models\Payment;
 use App\Notifications\BaseNotification;
+use App\Payments\ReceiptPdf;
 use App\Payments\Tax\TaxLine;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Throwable;
 
 /**
  * Base class for every email the payments module sends.
@@ -43,6 +47,32 @@ abstract class PaymentNotification extends BaseNotification implements ShouldQue
     public function __construct()
     {
         $this->afterCommit();
+    }
+
+    /**
+     * Attach the payment's PDF receipt, when it has one.
+     *
+     * A receipt that fails to render is reported and left off: the email
+     * still carries every figure and the link to the receipt page, and
+     * failing the whole send over the attachment would lose both.
+     */
+    protected function attachReceiptPdf(MailMessage $message, Payment $payment): MailMessage
+    {
+        if (! ReceiptPdf::availableFor($payment)) {
+            return $message;
+        }
+
+        $receipt = app(ReceiptPdf::class);
+
+        try {
+            $pdf = $receipt->render($payment);
+        } catch (Throwable $e) {
+            report($e);
+
+            return $message;
+        }
+
+        return $message->attachData($pdf, $receipt->filename($payment), ['mime' => 'application/pdf']);
     }
 
     /**

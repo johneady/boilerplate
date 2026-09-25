@@ -357,6 +357,7 @@ class PreviewableEmails
             'amount_refunded' => 0,
             'tax_lines' => [['name' => 'Sales Tax', 'percentage' => '13.000', 'amount' => 6500, 'registration_number' => '123456789 RT0001']],
             'receipt_number' => $status->isPaid() ? 123 : null,
+            'paid_at' => $status->isPaid() ? now() : null,
             'authorization_expires_at' => now()->addHours(20),
         ]);
     }

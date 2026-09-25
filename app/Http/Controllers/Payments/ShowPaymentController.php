@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Payments;
 use App\Http\Controllers\Controller;
 use App\Models\Payment;
 use App\Payments\Contracts\Payable;
-use App\Payments\Enums\RefundStatus;
 use Illuminate\Http\Response;
 
 /**
@@ -24,7 +23,7 @@ class ShowPaymentController extends Controller
         return response()
             ->view('payments.show', [
                 'payment' => $payment,
-                'refunds' => $payment->refunds()->where('status', RefundStatus::Succeeded->value)->orderBy('id')->get(),
+                'refunds' => $payment->succeededRefunds(),
                 'retryUrl' => $payable instanceof Payable && $payable->acceptsPayments() ? $payable->payableUrl() : null,
             ])
             // A receipt names a person and what they bought: kept out of search

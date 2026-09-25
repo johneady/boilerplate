@@ -143,6 +143,7 @@ return [
     ],
 
     'actions' => [
+        'download_receipt' => 'Download receipt',
         'refund' => 'Refund',
         'refund_heading' => 'Refund this payment',
         'refund_amount' => 'Amount to refund',

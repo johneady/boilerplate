@@ -44,7 +44,7 @@ class SubscriptionRenewed extends PaymentNotification
             $message->line(__('Receipt number: :number', ['number' => $payment->receiptNumber()]));
         }
 
-        return $message
+        return $this->attachReceiptPdf($message, $payment)
             ->line(__('Reference: :reference', ['reference' => $payment->uuid]))
             ->action(__('View your receipt'), $payment->receiptUrl());
     }

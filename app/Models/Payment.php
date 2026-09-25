@@ -17,6 +17,7 @@ use App\Payments\Tax\TaxLine;
 use Carbon\CarbonImmutable;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -239,9 +240,34 @@ class Payment extends Model
         return $this->hasMany(Dispute::class);
     }
 
+    /**
+     * The refunds that went through, oldest first: what a receipt lists.
+     *
+     * @return Collection<int, Refund>
+     */
+    public function succeededRefunds(): Collection
+    {
+        if (! $this->exists) {
+            return new Collection;
+        }
+
+        return $this->refunds()->where('status', RefundStatus::Succeeded->value)->orderBy('id')->get();
+    }
+
     public function total(): Money
     {
         return Money::of($this->amount, $this->currency);
+    }
+
+    /**
+     * What the customer actually paid, before any refund.
+     *
+     * The captured amount once there is one -- a hold can be captured for
+     * less than it authorized -- and the total until then.
+     */
+    public function paidMoney(): Money
+    {
+        return $this->capturedMoney()->isZero() ? $this->total() : $this->capturedMoney();
     }
 
     public function subtotalMoney(): Money
@@ -311,6 +337,14 @@ class Payment extends Model
     public function receiptUrl(): string
     {
         return URL::signedRoute('payments.show', $this);
+    }
+
+    /**
+     * The receipt as a PDF download, signed like the receipt page itself.
+     */
+    public function receiptPdfUrl(): string
+    {
+        return URL::signedRoute('payments.receipt-pdf', $this);
     }
 
     /**

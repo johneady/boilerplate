@@ -149,6 +149,9 @@
                                 <span class="flex items-center gap-3">
                                     <span>{{ $payment->total()->format() }}</span>
                                     <a href="{{ $payment->receiptUrl() }}" class="underline">{{ __('Receipt') }}</a>
+                                    @if (\App\Payments\ReceiptPdf::availableFor($payment))
+                                        <a href="{{ $payment->receiptPdfUrl() }}" class="underline">{{ __('PDF') }}</a>
+                                    @endif
                                 </span>
                             </li>
                         @endforeach

@@ -345,6 +345,14 @@ table — so the series is gap-free (a rolled-back payment hands its number
 back) and never shared. Sandbox and live count separately. The prefix is
 `payments.receipt_prefix`; the UUID stays the internal reference.
 
+**PDF receipts.** Rendered on demand with dompdf
+([`ReceiptPdf`](app/Payments/ReceiptPdf.php)): downloadable from the receipt
+page, the customer's billing page and the admin payment view, and attached to
+receipt and renewal emails. They carry the business details and logo from
+Settings, the receipt number and each tax's registration number. Sandbox
+receipts are stamped as test payments and named `…-test.pdf`. Paper size is
+`payments.receipt_paper` (`letter` or `a4`).
+
 **Credentials** are entered in the panel, one set for sandbox and one for
 live, and are encrypted with `APP_KEY`, never sent back to the browser, and
 changed only with the administrator's password; every change emails the ops

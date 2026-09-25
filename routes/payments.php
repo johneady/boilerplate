@@ -3,6 +3,7 @@
 use App\Auth\DevLoginAccounts;
 use App\Http\Controllers\Payments\DemoCheckoutController;
 use App\Http\Controllers\Payments\DemoSubscriptionCheckoutController;
+use App\Http\Controllers\Payments\DownloadReceiptController;
 use App\Http\Controllers\Payments\PaymentCancelledController;
 use App\Http\Controllers\Payments\PaymentReturnController;
 use App\Http\Controllers\Payments\PaymentWebhookController;
@@ -71,6 +72,10 @@ Route::get('subscriptions/{subscription}/cancelled', SubscriptionCancelledContro
 Route::get('payments/{payment}', ShowPaymentController::class)
     ->middleware('signed')
     ->name('payments.show');
+
+Route::get('payments/{payment}/receipt.pdf', DownloadReceiptController::class)
+    ->middleware(['signed', 'throttle:receipt-pdf'])
+    ->name('payments.receipt-pdf');
 
 // Called by the gateways, not a browser: no CSRF token, authenticated by the
 // webhook signature instead (PaymentWebhookController), which answers 404 for

@@ -34,6 +34,11 @@ return [
     'receipt_prefix' => 'R-',
 
     /*
+     * The paper size of the PDF receipt: 'letter' (North America) or 'a4'.
+     */
+    'receipt_paper' => 'letter',
+
+    /*
      * How long a checkout may sit unpaid before it is marked expired, in hours.
      *
      * Deliberately longer than checkout_expiry_minutes: payments:expire-checkouts
