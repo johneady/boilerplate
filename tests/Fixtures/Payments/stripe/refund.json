@@ -1,0 +1,10 @@
+{
+    "id": "re_test_R6f",
+    "object": "refund",
+    "amount": 2000,
+    "currency": "cad",
+    "created": 1790000900,
+    "payment_intent": "pi_test_P4y",
+    "status": "succeeded",
+    "metadata": {}
+}

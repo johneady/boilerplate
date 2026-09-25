@@ -1,0 +1,27 @@
+{
+    "id": "cs_test_a1B2c3",
+    "object": "checkout.session",
+    "livemode": false,
+    "mode": "payment",
+    "status": "complete",
+    "payment_status": "unpaid",
+    "url": null,
+    "metadata": {},
+    "payment_intent": {
+        "id": "pi_test_P4y",
+        "object": "payment_intent",
+        "status": "processing",
+        "created": 1790000000,
+        "capture_method": "automatic",
+        "latest_charge": {
+            "id": "ch_test_C5h",
+            "object": "charge",
+            "amount": 11300,
+            "amount_captured": 0,
+            "captured": false,
+            "status": "pending",
+            "created": 1790000060,
+            "payment_method_details": {"type": "acss_debit"}
+        }
+    }
+}

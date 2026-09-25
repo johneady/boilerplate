@@ -369,11 +369,19 @@ test('nothing is recorded while auditing is switched off', function () {
 */
 
 /*
- * An audit write must never be the reason a real action fails. If the table is
- * missing -- a half-run deploy -- a page save must still succeed.
+ * An audit write must never be the reason a real action fails. If the insert is
+ * refused -- a half-run deploy, a full disk -- a page save must still succeed.
+ *
+ * The insert is made to break a foreign key rather than the table being
+ * dropped: a DROP is implicitly committed by MySQL and MariaDB, which ends the
+ * test's transaction and leaves audit_logs gone for every later test in the
+ * worker. The refused insert happens inside that transaction, which is the
+ * case that matters on PostgreSQL, where a failed statement aborts it.
  */
 test('a failing audit write does not break the action it records', function () {
-    Schema::drop('audit_logs');
+    AuditLog::creating(function (AuditLog $entry): void {
+        $entry->user_id = 999_999_999;
+    });
 
     $page = Page::factory()->create(['title' => 'Still Saved']);
 

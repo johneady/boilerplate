@@ -9,6 +9,17 @@ use App\Media\MediaCollection;
 use App\Media\MediaManager;
 use App\Media\StagedUpload;
 use App\Models\User;
+use App\Notifications\Payments\PaymentCredentialsChanged;
+use App\Payments\Actions\RegisterWebhooks;
+use App\Payments\Enums\Currency;
+use App\Payments\Enums\Gateway;
+use App\Payments\Enums\GatewayMode;
+use App\Payments\Exceptions\GatewayException;
+use App\Payments\Exceptions\PaymentNotAllowed;
+use App\Payments\OpsAlerts;
+use App\Payments\PaymentCredentials;
+use App\Payments\PaymentDiagnostics;
+use App\Payments\PaymentManager;
 use App\Settings\DiagnosticResult;
 use App\Settings\DiagnosticSeverity;
 use App\Settings\ProductionDiagnostics;
@@ -40,6 +51,7 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 use Throwable;
 use UnitEnum;
 
@@ -124,6 +136,32 @@ class ManageSettings extends Page
     ];
 
     /**
+     * The Stripe credentials, edited through their own modal on the Payments tab.
+     *
+     * @var array<int, SettingKey>
+     */
+    private const STRIPE_CREDENTIAL_KEYS = [
+        SettingKey::StripeSandboxSecretKey,
+        SettingKey::StripeSandboxWebhookSecret,
+        SettingKey::StripeLiveSecretKey,
+        SettingKey::StripeLiveWebhookSecret,
+    ];
+
+    /**
+     * The PayPal credentials, edited through their own modal on the Payments tab.
+     *
+     * @var array<int, SettingKey>
+     */
+    private const PAYPAL_CREDENTIAL_KEYS = [
+        SettingKey::PayPalSandboxClientId,
+        SettingKey::PayPalSandboxClientSecret,
+        SettingKey::PayPalSandboxWebhookId,
+        SettingKey::PayPalLiveClientId,
+        SettingKey::PayPalLiveClientSecret,
+        SettingKey::PayPalLiveWebhookId,
+    ];
+
+    /**
      * The checks that did not pass, memoized for the render that asked.
      *
      * @var list<DiagnosticResult>|null
@@ -196,7 +234,7 @@ class ManageSettings extends Page
         $keys = array_filter(
             SettingKey::cases(),
             fn (SettingKey $key): bool => $key->tab() === $settingsTab
-                && ! in_array($key, [...self::MAILER_MODAL_KEYS, ...self::ACTION_EDITED_KEYS], true),
+                && ! in_array($key, [...self::MAILER_MODAL_KEYS, ...self::ACTION_EDITED_KEYS, ...self::STRIPE_CREDENTIAL_KEYS, ...self::PAYPAL_CREDENTIAL_KEYS], true),
         );
 
         /** @var array<int, Component> $components */
@@ -220,6 +258,14 @@ class ManageSettings extends Page
             );
         }
 
+        if ($settingsTab === SettingsTab::Payments) {
+            array_unshift($components, Actions::make([
+                $this->stripeCredentialsAction(),
+                $this->paypalCredentialsAction(),
+                $this->connectWebhooksAction(),
+            ]));
+        }
+
         if ($settingsTab === SettingsTab::Diagnostics) {
             $components[] = $this->diagnosticsReport();
         }
@@ -231,6 +277,14 @@ class ManageSettings extends Page
         $tab = Tab::make($settingsTab->label())
             ->icon($settingsTab->icon())
             ->schema($components);
+
+        // Payment settings carry their own permission: reaching the settings
+        // page is not by itself authority over where money is paid out. A
+        // hidden tab's fields are not dehydrated, so saving the form without
+        // the permission cannot write them either.
+        if ($settingsTab === SettingsTab::Payments) {
+            $tab->visible(fn (): bool => auth()->user()?->hasPermission(Permission::ManagePaymentSettings) ?? false);
+        }
 
         if ($settingsTab === SettingsTab::Mail) {
             $tab
@@ -277,10 +331,20 @@ class ManageSettings extends Page
             ->color(fn (): string => $this->settings()->effectiveMailer() === 'smtp' ? 'success' : 'gray')
             ->modalHeading(__('settings.mailer.heading'))
             ->modalDescription(SettingKey::MailMailer->helperText())
-            ->form(array_map(
-                fn (SettingKey $key): Field => $this->formComponent($key),
-                self::MAILER_MODAL_KEYS,
-            ))
+            ->form([
+                ...array_map(
+                    fn (SettingKey $key): Field => $this->formComponent($key),
+                    self::MAILER_MODAL_KEYS,
+                ),
+                // The password is write-only, so a blank field cannot mean
+                // "no password": removing one is this toggle's explicit
+                // say-so, the way entering one is the field's.
+                Toggle::make('remove_mail_password')
+                    ->label(__('settings.mailer.remove_password'))
+                    ->helperText(__('settings.mailer.remove_password_help'))
+                    ->visible(fn (Get $get): bool => $get(SettingKey::MailMailer->value) === 'smtp')
+                    ->dehydrated(fn (Get $get): bool => $get(SettingKey::MailMailer->value) === 'smtp'),
+            ])
             // mountUsing rather than fillForm: fillForm is itself just a
             // mountUsing callback, so the guard and the fill share the one
             // hook. Halting inside mount unmounts the action, so the mailer
@@ -303,6 +367,21 @@ class ManageSettings extends Page
                 ));
             })
             ->action(function (array $data): void {
+                // Write-only, like a gateway secret: the password is never
+                // filled into the modal (toArray() leaves encrypted keys
+                // out), so a blank field keeps the stored one. Removing it is
+                // the toggle's explicit say-so -- "no password" is a real
+                // mail configuration, not something a blank may decide.
+                if (trim((string) ($data[SettingKey::MailPassword->value] ?? '')) === '') {
+                    if (($data['remove_mail_password'] ?? false) === true) {
+                        $data[SettingKey::MailPassword->value] = '';
+                    } else {
+                        unset($data[SettingKey::MailPassword->value]);
+                    }
+                }
+
+                unset($data['remove_mail_password']);
+
                 $this->settings()->setMany($data);
 
                 // Fail closed, the way the service applies it: an SMTP row
@@ -389,7 +468,7 @@ class ManageSettings extends Page
     {
         return View::make('filament.settings.diagnostics-report')
             ->viewData(fn (): array => [
-                'results' => app(ProductionDiagnostics::class)->run(),
+                'results' => [...app(ProductionDiagnostics::class)->run(), ...app(PaymentDiagnostics::class)->run()],
                 'environment' => (string) config('app.env'),
             ]);
     }
@@ -420,7 +499,19 @@ class ManageSettings extends Page
      */
     protected function diagnosticFailures(): array
     {
-        return $this->diagnosticFailures ??= app(ProductionDiagnostics::class)->failures();
+        if ($this->diagnosticFailures !== null) {
+            return $this->diagnosticFailures;
+        }
+
+        $failures = [...app(ProductionDiagnostics::class)->failures(), ...app(PaymentDiagnostics::class)->failures()];
+
+        usort(
+            $failures,
+            fn (DiagnosticResult $a, DiagnosticResult $b): int => ($a->severity === DiagnosticSeverity::Error ? 0 : 1)
+                <=> ($b->severity === DiagnosticSeverity::Error ? 0 : 1),
+        );
+
+        return $this->diagnosticFailures = $failures;
     }
 
     /**
@@ -550,6 +641,216 @@ class ManageSettings extends Page
     }
 
     /**
+     * The Stripe credentials button. Named {name}Action so Filament can
+     * resolve the action by name when it is mounted, like configureMailerAction().
+     */
+    protected function stripeCredentialsAction(): Action
+    {
+        return $this->gatewayCredentialsAction(Gateway::Stripe);
+    }
+
+    /**
+     * The PayPal credentials button, resolved by name the same way.
+     */
+    protected function paypalCredentialsAction(): Action
+    {
+        return $this->gatewayCredentialsAction(Gateway::PayPal);
+    }
+
+    /**
+     * The button a gateway's credentials are edited through.
+     *
+     * Credentials can redirect where money is paid, so this modal is held to
+     * a higher standard than the rest of the page:
+     *
+     *   - secrets are write-only: never filled into the modal, never in the
+     *     Livewire payload, shown only masked, and a blank field keeps what is
+     *     stored (Settings::toArray() leaves encrypted keys out entirely);
+     *   - the administrator's current password is required to save;
+     *   - every change is announced to the operations address and audited,
+     *     with the values redacted (SettingKey::isSecret()).
+     */
+    protected function gatewayCredentialsAction(Gateway $gateway): Action
+    {
+        $keys = $gateway === Gateway::Stripe ? self::STRIPE_CREDENTIAL_KEYS : self::PAYPAL_CREDENTIAL_KEYS;
+
+        return Action::make($gateway->value.'Credentials')
+            ->label(__($gateway === Gateway::Stripe ? 'payments.settings.stripe_button' : 'payments.settings.paypal_button'))
+            ->icon(Heroicon::OutlinedKey)
+            ->color(fn (): string => app(PaymentCredentials::class)->isConfigured($gateway, app(PaymentManager::class)->mode()) ? 'success' : 'gray')
+            ->authorize(fn (): bool => auth()->user()?->hasPermission(Permission::ManagePaymentSettings) ?? false)
+            ->modalHeading(__('payments.settings.credentials_heading', ['gateway' => $gateway->label()]))
+            ->modalDescription($this->credentialsDescription($gateway))
+            ->schema([
+                ...array_map(fn (SettingKey $key): Field => $this->formComponent($key), $keys),
+                TextInput::make('current_password')
+                    ->label(__('payments.settings.current_password'))
+                    ->helperText(__('payments.settings.current_password_help'))
+                    ->password()
+                    ->currentPassword()
+                    ->required()
+                    ->dehydrated(false),
+            ])
+            ->mountUsing(function (?Schema $schema) use ($keys): void {
+                $schema?->fill(array_intersect_key(
+                    $this->settings()->toArray(),
+                    array_flip(array_map(fn (SettingKey $key): string => $key->value, $keys)),
+                ));
+            })
+            ->action(function (array $data) use ($gateway, $keys): void {
+                $changes = [];
+
+                foreach ($keys as $key) {
+                    $value = trim((string) ($data[$key->value] ?? ''));
+
+                    // Write-only: a secret left blank keeps the stored one.
+                    if ($key->isEncrypted() && $value === '') {
+                        continue;
+                    }
+
+                    if ($value !== $this->settings()->string($key)) {
+                        $changes[$key->value] = $value;
+                    }
+                }
+
+                if ($changes === []) {
+                    Notification::make()->title(__('payments.settings.credentials_unchanged'))->send();
+
+                    return;
+                }
+
+                $this->settings()->setMany($changes);
+
+                $user = auth()->user();
+
+                app(OpsAlerts::class)->send(new PaymentCredentialsChanged(
+                    gateway: $gateway->label(),
+                    changedFields: array_map(fn (string $key): string => SettingKey::from($key)->label(), array_keys($changes)),
+                    changedBy: $user instanceof User ? "{$user->name} <{$user->email}>" : 'Unknown',
+                    ipAddress: request()->ip(),
+                ));
+
+                Notification::make()->success()->title(__('payments.settings.credentials_saved'))->send();
+            });
+    }
+
+    /**
+     * Register this site's webhook endpoint at a gateway, for the current
+     * mode, and store the signing secret or webhook id it returns.
+     *
+     * Held to the credentials' standard -- password confirmation and an ops
+     * alert -- since it replaces a stored credential.
+     */
+    public function connectWebhooksAction(): Action
+    {
+        return Action::make('connectWebhooks')
+            ->label(__('payments.settings.connect_webhooks'))
+            ->icon(Heroicon::OutlinedSignal)
+            ->color('gray')
+            ->authorize(fn (): bool => auth()->user()?->hasPermission(Permission::ManagePaymentSettings) ?? false)
+            ->modalHeading(__('payments.settings.connect_webhooks'))
+            ->modalDescription(fn (): string => $this->connectWebhooksDescription())
+            ->schema([
+                Select::make('gateway')
+                    ->label(__('payments.fields.gateway'))
+                    ->options(fn (): array => collect([Gateway::Stripe, Gateway::PayPal])
+                        ->filter(fn (Gateway $gateway): bool => app(PaymentCredentials::class)->isConfigured($gateway, app(PaymentManager::class)->mode()))
+                        ->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => __($gateway->label())])
+                        ->all())
+                    ->required(),
+                TextInput::make('current_password')
+                    ->label(__('payments.settings.current_password'))
+                    ->helperText(__('payments.settings.current_password_help'))
+                    ->password()
+                    ->currentPassword()
+                    ->required()
+                    ->dehydrated(false),
+            ])
+            ->action(function (array $data): void {
+                $gateway = Gateway::from((string) $data['gateway']);
+
+                try {
+                    $key = app(RegisterWebhooks::class)->handle($gateway, app(PaymentManager::class)->mode());
+                } catch (PaymentNotAllowed|GatewayException $e) {
+                    Notification::make()->danger()->title(__('payments.settings.connect_webhooks_failed'))->body($e->getMessage())->send();
+
+                    return;
+                }
+
+                $user = auth()->user();
+
+                app(OpsAlerts::class)->send(new PaymentCredentialsChanged(
+                    gateway: $gateway->label(),
+                    changedFields: [$key->label()],
+                    changedBy: $user instanceof User ? "{$user->name} <{$user->email}>" : 'Unknown',
+                    ipAddress: request()->ip(),
+                ));
+
+                Notification::make()->success()->title(__('payments.settings.webhooks_connected', ['gateway' => $gateway->label()]))->send();
+            });
+    }
+
+    /**
+     * The connect-webhooks modal's description, naming the current mode.
+     * Cast here because __() widens to string|array once replacements are
+     * passed; the array arm is unreachable for this key.
+     */
+    protected function connectWebhooksDescription(): string
+    {
+        return (string) __('payments.settings.connect_webhooks_help', ['mode' => __(app(PaymentManager::class)->mode()->label())]);
+    }
+
+    /**
+     * The credentials modal's description: how secrets are handled, and the
+     * webhook URL to register at the gateway for each mode.
+     */
+    protected function credentialsDescription(Gateway $gateway): HtmlString
+    {
+        $lines = [
+            (string) __('payments.settings.credentials_description'),
+            (string) __('payments.settings.webhook_urls_help'),
+        ];
+
+        foreach (GatewayMode::cases() as $mode) {
+            $lines[] = (string) __('payments.settings.webhook_url', [
+                'mode' => __($mode->label()),
+                'url' => route('payments.webhook', ['gateway' => $gateway->value, 'mode' => $mode->value]),
+            ]);
+        }
+
+        // Every line escaped; only the line breaks are markup.
+        return new HtmlString(implode('<br>', array_map(e(...), $lines)));
+    }
+
+    /**
+     * The field for one gateway credential.
+     *
+     * An encrypted one is a password field that starts empty and says whether
+     * a value is stored -- by its masked form only.
+     */
+    protected function credentialField(SettingKey $key): Field
+    {
+        $field = TextInput::make($key->value)
+            ->label($key->label())
+            ->maxLength(1024);
+
+        if (! $key->isEncrypted()) {
+            return $field->helperText($key->helperText());
+        }
+
+        return $field
+            ->password()
+            ->autocomplete('new-password')
+            ->helperText(function () use ($key): string {
+                $masked = $this->settings()->masked($key);
+
+                return $key->helperText().' '.($masked === ''
+                    ? __('payments.settings.secret_unset')
+                    : __('payments.settings.secret_set', ['masked' => $masked]));
+            });
+    }
+
+    /**
      * Build the field for a single setting.
      *
      * Every key's default is declared on the enum, so a setting that has never
@@ -644,13 +945,7 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->maxLength(255)
                 ->visible($this->whenMailerIsSmtp()),
-            SettingKey::MailPassword => TextInput::make($key->value)
-                ->label($key->label())
-                ->helperText($key->helperText())
-                ->default($key->default())
-                ->password()
-                ->revealable()
-                ->maxLength(255)
+            SettingKey::MailPassword => $this->credentialField($key)
                 ->visible($this->whenMailerIsSmtp()),
             SettingKey::MailEncryption => Select::make($key->value)
                 ->label($key->label())
@@ -723,6 +1018,43 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->options(fn (): array => static::formatExamples(SettingKey::TIME_FORMATS))
                 ->selectablePlaceholder(false),
+            SettingKey::PaymentsEnabled, SettingKey::StripeEnabled, SettingKey::PayPalEnabled, SettingKey::ManualPaymentsEnabled => Toggle::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default()),
+            // Shown only where the Demo gateway can run at all: in production
+            // the toggle would switch on nothing.
+            SettingKey::DemoGatewayEnabled => Toggle::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->visible(fn (): bool => app(PaymentManager::class)->demoAllowed()),
+            SettingKey::PaymentsMode => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => __($mode->label())])->all())
+                ->required()
+                ->selectablePlaceholder(false),
+            SettingKey::PaymentsCurrency => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options(Currency::options())
+                ->required()
+                ->selectablePlaceholder(false),
+            SettingKey::PastDueGraceDays => TextInput::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->integer()
+                ->minValue(0)
+                ->maxValue(60)
+                ->required(),
+            SettingKey::StripeSandboxSecretKey, SettingKey::StripeSandboxWebhookSecret, SettingKey::StripeLiveSecretKey,
+            SettingKey::StripeLiveWebhookSecret, SettingKey::PayPalSandboxClientId, SettingKey::PayPalSandboxClientSecret,
+            SettingKey::PayPalSandboxWebhookId, SettingKey::PayPalLiveClientId, SettingKey::PayPalLiveClientSecret,
+            SettingKey::PayPalLiveWebhookId => $this->credentialField($key),
         };
     }
 
@@ -826,7 +1158,7 @@ class ManageSettings extends Page
      */
     protected function whenMailerIsSmtp(): Closure
     {
-        return fn (Get $get): bool => $get('mail_mailer') === 'smtp';
+        return fn (Get $get): bool => $get(SettingKey::MailMailer->value) === 'smtp';
     }
 
     /**

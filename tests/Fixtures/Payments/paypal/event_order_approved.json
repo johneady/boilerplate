@@ -1,0 +1,13 @@
+{
+    "id": "WH-2WR32451HC0233532-67976317FL4543714",
+    "event_version": "1.0",
+    "create_time": "2026-09-23T12:00:30Z",
+    "resource_type": "checkout-order",
+    "event_type": "CHECKOUT.ORDER.APPROVED",
+    "summary": "An order has been approved by buyer",
+    "resource": {
+        "id": "5O190127TN364715T",
+        "status": "APPROVED",
+        "intent": "CAPTURE"
+    }
+}

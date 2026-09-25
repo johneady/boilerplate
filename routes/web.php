@@ -74,6 +74,8 @@ if (app()->environment(['local', 'testing'])) {
 
 require __DIR__.'/settings.php';
 
+require __DIR__.'/payments.php';
+
 // A FALLBACK, not an ordinary catch-all, and that distinction is load-bearing.
 //
 // Laravel matches routes in registration order, so `Route::get('{page:slug}')`

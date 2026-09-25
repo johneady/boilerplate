@@ -1,0 +1,8 @@
+{
+    "id": "prod_test_Pro",
+    "object": "product",
+    "active": true,
+    "livemode": false,
+    "name": "Pro",
+    "metadata": {"plan_key": "pro"}
+}

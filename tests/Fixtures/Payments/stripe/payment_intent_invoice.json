@@ -1,0 +1,16 @@
+{
+    "id": "pi_test_Inv1",
+    "object": "payment_intent",
+    "livemode": false,
+    "status": "succeeded",
+    "amount": 3277,
+    "currency": "cad",
+    "created": 1790000000,
+    "latest_charge": {
+        "id": "ch_test_Inv1",
+        "object": "charge",
+        "amount": 3277,
+        "amount_captured": 3277,
+        "created": 1790000060
+    }
+}

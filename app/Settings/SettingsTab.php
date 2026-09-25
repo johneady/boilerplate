@@ -29,6 +29,8 @@ enum SettingsTab: string
 
     case LocaleTime = 'locale_time';
 
+    case Payments = 'payments';
+
     case Diagnostics = 'diagnostics';
 
     case Server = 'server';
@@ -47,6 +49,7 @@ enum SettingsTab: string
             self::Registration => 'Registration',
             self::Mail => 'Email',
             self::LocaleTime => 'Locale',
+            self::Payments => 'Payments',
             self::Diagnostics => 'Diagnostics',
             self::Server => 'Server',
         };
@@ -63,6 +66,7 @@ enum SettingsTab: string
             self::Registration => Heroicon::OutlinedUserPlus,
             self::Mail => Heroicon::OutlinedEnvelope,
             self::LocaleTime => Heroicon::OutlinedClock,
+            self::Payments => Heroicon::OutlinedCreditCard,
             self::Diagnostics => Heroicon::OutlinedShieldCheck,
             self::Server => Heroicon::OutlinedServer,
         };

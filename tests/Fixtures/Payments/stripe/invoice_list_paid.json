@@ -1,0 +1,45 @@
+{
+    "object": "list",
+    "url": "/v1/invoices",
+    "has_more": false,
+    "data": [
+        {
+            "id": "in_test_1",
+            "object": "invoice",
+            "status": "paid",
+            "currency": "cad",
+            "amount_paid": 3277,
+            "total": 3277,
+            "subtotal": 2900,
+            "created": 1790000000,
+            "status_transitions": {"paid_at": 1790000060},
+            "billing_reason": "subscription_create",
+            "total_taxes": [
+                {
+                    "amount": 377,
+                    "tax_behavior": "exclusive",
+                    "taxability_reason": "standard_rated",
+                    "taxable_amount": 2900,
+                    "type": "tax_rate_details",
+                    "tax_rate_details": {"tax_rate": "txr_test_HST"}
+                }
+            ],
+            "parent": {
+                "type": "subscription_details",
+                "subscription_details": {"subscription": "sub_test_S1", "metadata": {}}
+            },
+            "payments": {
+                "object": "list",
+                "data": [
+                    {
+                        "id": "inpay_test_1",
+                        "object": "invoice_payment",
+                        "status": "paid",
+                        "is_default": true,
+                        "payment": {"type": "payment_intent", "payment_intent": "pi_test_Inv1"}
+                    }
+                ]
+            }
+        }
+    ]
+}

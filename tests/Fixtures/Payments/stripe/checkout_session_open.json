@@ -1,0 +1,12 @@
+{
+    "id": "cs_test_a1B2c3",
+    "object": "checkout.session",
+    "livemode": false,
+    "mode": "payment",
+    "status": "open",
+    "payment_status": "unpaid",
+    "url": "https://checkout.stripe.com/c/pay/cs_test_a1B2c3",
+    "client_reference_id": null,
+    "metadata": {},
+    "payment_intent": null
+}

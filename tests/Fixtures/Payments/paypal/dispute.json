@@ -1,0 +1,14 @@
+{
+    "dispute_id": "PP-D-27803",
+    "create_time": "2026-09-24T10:00:00Z",
+    "update_time": "2026-09-24T10:00:00Z",
+    "reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+    "status": "WAITING_FOR_SELLER_RESPONSE",
+    "dispute_amount": {"currency_code": "CAD", "value": "113.00"},
+    "seller_response_due_date": "2026-10-04T10:00:00Z",
+    "disputed_transactions": [
+        {"seller_transaction_id": "3C679366HH908993F", "buyer_transaction_id": "7WX49553GK155682T"}
+    ],
+    "dispute_life_cycle_stage": "CHARGEBACK",
+    "links": []
+}

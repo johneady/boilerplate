@@ -1,0 +1,26 @@
+{
+    "id": "sub_test_S1",
+    "object": "subscription",
+    "livemode": false,
+    "status": "active",
+    "customer": "cus_test_C1",
+    "cancel_at_period_end": false,
+    "cancel_at": null,
+    "canceled_at": null,
+    "ended_at": null,
+    "trial_start": null,
+    "trial_end": null,
+    "metadata": {},
+    "items": {
+        "object": "list",
+        "data": [
+            {
+                "id": "si_test_1",
+                "object": "subscription_item",
+                "current_period_start": 1790000000,
+                "current_period_end": 1792592000,
+                "price": {"id": "price_test_Mo", "object": "price"}
+            }
+        ]
+    }
+}

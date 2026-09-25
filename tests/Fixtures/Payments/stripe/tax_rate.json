@@ -1,0 +1,9 @@
+{
+    "id": "txr_test_HST",
+    "object": "tax_rate",
+    "active": true,
+    "livemode": false,
+    "display_name": "HST",
+    "percentage": 13.0,
+    "inclusive": false
+}

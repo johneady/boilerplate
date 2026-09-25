@@ -9,6 +9,10 @@ use App\Concerns\HasMedia;
 use App\Concerns\HasRoles;
 use App\Media\HoldsMedia;
 use App\Media\MediaCollection;
+use App\Payments\Actions\EndSubscriptionsForDeletedUser;
+use App\Payments\Enums\GatewayMode;
+use App\Payments\Enums\SubscriptionStatus;
+use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
 use Database\Factories\UserFactory;
@@ -18,7 +22,9 @@ use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -99,6 +105,14 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
         'role' => Role::DEFAULT->value,
     ];
 
+    protected static function booted(): void
+    {
+        // Every deletion path -- the settings page, the admin panel, tinker --
+        // stops the gateway billing the account first, and a gateway that
+        // refuses stops the deletion. See EndSubscriptionsForDeletedUser.
+        static::deleting(fn (User $user) => app(EndSubscriptionsForDeletedUser::class)->handle($user));
+    }
+
     /**
      * Attributes kept out of the audit trail beyond the global denylist.
      *
@@ -128,6 +142,22 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             'role' => Role::class,
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * The email address, always stored lowercase.
+     *
+     * Fortify lowercases the address typed at sign-in (lowercase_usernames),
+     * so a stored "Jane@Example.com" could never sign in on PostgreSQL or
+     * SQLite, which compare case-sensitively -- only MySQL's case-insensitive
+     * collation hid it. Lowercasing here covers every path that writes the
+     * address, the profile page and the admin panel included.
+     *
+     * @return Attribute<string, string>
+     */
+    protected function email(): Attribute
+    {
+        return Attribute::make(set: fn (string $value): string => Str::lower($value));
     }
 
     /**
@@ -232,6 +262,83 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             SVG;
 
         return 'data:image/svg+xml;base64,'.base64_encode($svg);
+    }
+
+    /**
+     * @return HasMany<Subscription, $this>
+     */
+    public function subscriptions(): HasMany
+    {
+        return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * The subscription this user's access and billing page are about: the
+     * live one, or failing that the most recent one that started.
+     */
+    public function currentSubscription(): ?Subscription
+    {
+        return $this->subscriptions()
+            ->with(['plan', 'price', 'pendingPrice'])
+            ->whereIn('status', array_map(
+                fn (SubscriptionStatus $status): string => $status->value,
+                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
+            ))
+            ->orderByRaw('active_user_id IS NULL')
+            ->latest('id')
+            ->first();
+    }
+
+    /**
+     * Whether a new subscription would come with the plan's free trial.
+     *
+     * One trial per customer: anyone who has started a subscription before in
+     * this mode -- trialing, paying, lapsed or cancelled -- starts the next one
+     * paying. A checkout abandoned before it started does not count.
+     */
+    public function isEligibleForTrial(GatewayMode $mode): bool
+    {
+        return ! $this->subscriptions()
+            ->where('mode', $mode->value)
+            ->whereIn('status', array_map(
+                fn (SubscriptionStatus $status): string => $status->value,
+                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
+            ))
+            ->exists();
+    }
+
+    /**
+     * Whether the user may use a subscription's benefits right now.
+     *
+     * Any plan when $planKey is null, or the plan with that key. See
+     * Subscription::grantsAccess() for the trial, grace-period and
+     * paid-until-period-end rules.
+     *
+     * A sandbox subscription counts only while the site is in sandbox mode:
+     * it is paid for with a test card, and one left running after the switch
+     * to live would otherwise be free access for as long as it renews.
+     */
+    public function subscribed(?string $planKey = null): bool
+    {
+        $settings = app(Settings::class);
+        $graceDays = $settings->integer(SettingKey::PastDueGraceDays);
+        $modes = $settings->string(SettingKey::PaymentsMode) === GatewayMode::Sandbox->value
+            ? [GatewayMode::Sandbox->value, GatewayMode::Live->value]
+            : [GatewayMode::Live->value];
+
+        return $this->subscriptions()
+            ->with('plan')
+            ->whereIn('mode', $modes)
+            ->whereIn('status', [
+                SubscriptionStatus::Trialing->value,
+                SubscriptionStatus::Active->value,
+                SubscriptionStatus::PastDue->value,
+                SubscriptionStatus::Canceled->value,
+            ])
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
+            ->get()
+            ->contains(fn (Subscription $subscription): bool => $subscription->grantsAccess($graceDays)
+                && ($planKey === null || $subscription->plan?->key === $planKey));
     }
 
     /**

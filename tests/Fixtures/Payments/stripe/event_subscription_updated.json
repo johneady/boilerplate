@@ -1,0 +1,16 @@
+{
+    "id": "evt_test_SubU",
+    "object": "event",
+    "api_version": "2026-08-26.dahlia",
+    "created": 1790000200,
+    "livemode": false,
+    "type": "customer.subscription.updated",
+    "data": {
+        "object": {
+            "id": "sub_test_S1",
+            "object": "subscription",
+            "status": "active",
+            "metadata": {}
+        }
+    }
+}

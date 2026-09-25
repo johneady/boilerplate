@@ -1,0 +1,18 @@
+{
+    "id": "I-BW452GLLEP1G",
+    "plan_id": "P-5ML4271244454362WXNWU5NQ",
+    "status": "ACTIVE",
+    "status_update_time": "2026-09-23T12:00:30Z",
+    "start_time": "2026-09-23T12:00:00Z",
+    "create_time": "2026-09-23T12:00:00Z",
+    "billing_info": {
+        "outstanding_balance": {"currency_code": "CAD", "value": "0.00"},
+        "cycle_executions": [
+            {"tenure_type": "REGULAR", "sequence": 1, "cycles_completed": 1, "cycles_remaining": 0, "total_cycles": 0}
+        ],
+        "last_payment": {"amount": {"currency_code": "CAD", "value": "32.77"}, "time": "2026-09-23T12:00:30Z"},
+        "next_billing_time": "2026-10-23T10:00:00Z",
+        "failed_payments_count": 0
+    },
+    "links": []
+}

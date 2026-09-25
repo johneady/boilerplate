@@ -1,0 +1,16 @@
+{
+    "id": "dp_test_D1",
+    "object": "dispute",
+    "livemode": false,
+    "amount": 11300,
+    "currency": "cad",
+    "charge": "ch_test_C5h",
+    "payment_intent": "pi_test_P4y",
+    "reason": "fraudulent",
+    "status": "needs_response",
+    "created": 1790100000,
+    "is_charge_refundable": false,
+    "evidence_details": {"due_by": 1790899200, "has_evidence": false, "past_due": false, "submission_count": 0},
+    "balance_transactions": [],
+    "metadata": {}
+}

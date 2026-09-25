@@ -1,4 +1,0 @@
-Take this boilerplate application and create a demo (I have already run the ./docker/new-demo.sh calculator) so this is a fresch demo branch). Once done update the UPWORK.txt with a custom reply based on the current UPWORK.txt style. For for formulas below, do some light research and give me the best you can figure out for the demo. here is the customer's request:
-
-Summary
-[FILL HERE]

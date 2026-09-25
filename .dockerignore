@@ -59,6 +59,8 @@ phpunit.xml
 phpunit.*.xml
 phpstan.neon
 todo.txt
+UPWORK.txt
+plan.md
 screenshots
 docker-compose*.yml
 

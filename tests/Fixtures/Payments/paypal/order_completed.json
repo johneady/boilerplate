@@ -1,0 +1,18 @@
+{
+    "id": "5O190127TN364715T",
+    "status": "COMPLETED",
+    "intent": "CAPTURE",
+    "purchase_units": [{
+        "reference_id": "default",
+        "amount": {"currency_code": "CAD", "value": "113.00"},
+        "payments": {
+            "captures": [{
+                "id": "3C679366HH908993F",
+                "status": "COMPLETED",
+                "amount": {"currency_code": "CAD", "value": "113.00"},
+                "final_capture": true,
+                "create_time": "2026-09-23T12:01:00Z"
+            }]
+        }
+    }]
+}

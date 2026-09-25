@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureRegistrationIsEnabled;
+use App\Http\Middleware\EnsureUserIsSubscribed;
 use App\Http\Middleware\ThrottleSensitiveAuthRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -40,6 +41,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // POSTs are the Fortify routes that ship with no limiter and no config
         // key to add one.
         $middleware->appendToGroup('web', ThrottleSensitiveAuthRequests::class);
+
+        // Route::middleware(['auth', 'subscribed:pro']) -- see User::subscribed().
+        $middleware->alias(['subscribed' => EnsureUserIsSubscribed::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

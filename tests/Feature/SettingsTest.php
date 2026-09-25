@@ -117,9 +117,21 @@ test('a key that is not declared on the enum is not stored', function () {
 });
 
 test('every declared setting is present in the array that fills the panel form', function () {
+    $readable = array_filter(SettingKey::cases(), fn (SettingKey $key): bool => ! $key->isEncrypted());
+
     expect($this->settings->toArray())
-        ->toHaveKeys(array_column(SettingKey::cases(), 'value'))
+        ->toHaveKeys(array_column($readable, 'value'))
         ->and($this->settings->toArray()['allow_registration'])->toBeFalse();
+});
+
+test('encrypted settings are left out of the array that fills the panel form', function () {
+    // That array becomes the form state, and form state is sent to the browser
+    // in the Livewire payload -- a payment credential must never be in it.
+    $this->settings->set(SettingKey::StripeLiveSecretKey, 'sk_live_supersecret1234');
+
+    $encrypted = array_filter(SettingKey::cases(), fn (SettingKey $key): bool => $key->isEncrypted());
+
+    expect($this->settings->toArray())->not->toHaveKeys(array_column($encrypted, 'value'));
 });
 
 test('the whole table is read once per request however many settings are consulted', function () {

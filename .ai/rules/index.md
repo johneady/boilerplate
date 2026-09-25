@@ -40,6 +40,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | resources/views/vendor/mail/**, resources/views/vendor/notifications/** | .ai/rules/notifications.md |
 | app/Filament/Pages/Dashboard.php | .ai/rules/pages.md |
 | app/Settings/Settings.php, resources/views/partials/head.blade.php | .ai/rules/partials.md |
+| app/Payments/** | .ai/rules/payments.md |
 | app/Audit/**, app/Concerns/Auditable.php, app/Models/AuditLog.php, app/Policies/AuditLogPolicy.php, config/audit.php | .ai/rules/policies.md |
 | app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
 | app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php, .env.production.example, app/Console/Commands/AdoptPageBodyImages.php | .ai/rules/queues-and-scheduling.md |

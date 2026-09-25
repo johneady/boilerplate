@@ -287,6 +287,178 @@ Sanctum is **not** installed. Token auth is a ten-minute addition when a project
 needs it, and an unused authentication surface until then; `routes/api/v1.php`
 carries a commented `auth:sanctum` group showing where it goes.
 
+### Payments
+
+Built in and **off until switched on** (Admin → Settings → Payments). While off,
+every payment route answers 404 and the payment screens are hidden, so an
+installation that never takes money looks like one without the module. The code
+lives in [`app/Payments`](app/Payments).
+
+| Gateway | What it is |
+| --- | --- |
+| Stripe | Stripe Checkout (hosted), for Canadian or US accounts. Cards, Apple Pay, Google Pay. |
+| PayPal | PayPal Checkout (Orders v2). Needs a **Business** account: PayPal only issues live API credentials to Business accounts (upgrading a Personal one is free and keeps its login). |
+| Demo | A pretend gateway with no credentials and no money, for client demos and tests. Refused in `production`, like the dev login. |
+| Manual | Money received outside the site (Interac e-Transfer, cheque, cash, PayPal.Me), recorded by an administrator. |
+
+Customers pay on the gateway's hosted page, so card data never touches this
+application. One-time payments, full and partial refunds, and holds
+(authorize now, capture or void later) work on every gateway.
+
+**What gets paid for.** Anything implementing
+[`Payable`](app/Payments/Contracts/Payable.php) -- the model computes the
+amount, so a price never comes from the browser. The boilerplate ships
+[`PaymentLink`](app/Models/PaymentLink.php) as its own payable (Admin →
+Payments → Payment links): a `/pay/{token}` page for a fixed or
+customer-entered amount, single-use (an invoice) or reusable. A project's own
+`Order` or `Booking` becomes payable by implementing the contract with
+`App\Concerns\IsPayable`, and gets the admin actions and receipts for free;
+[`RecordManualPaymentAction`](app/Filament/Actions/RecordManualPaymentAction.php)
+adds manual payments to its resource.
+
+**Tax.** Admin → Payments → Tax rates. Every active rate is added on top of a
+taxable item's price, each rounded on its own (so GST 5% + PST 7% print as two
+lines, as a Canadian receipt does). The lines charged are snapshotted onto the
+payment, so editing a rate never changes a past receipt.
+
+**Credentials** are entered in the panel, one set for sandbox and one for
+live, and are encrypted with `APP_KEY`, never sent back to the browser, and
+changed only with the administrator's password; every change emails the ops
+alert address. **Rotating `APP_KEY` makes them unreadable** unless the old key
+is listed in `APP_PREVIOUS_KEYS` -- Diagnostics reports it if that happens.
+
+**Webhooks.** Settings → Payments → **Connect webhooks** registers this site's
+endpoint at Stripe or PayPal for the current mode, subscribed to every event
+the module uses, and stores the signing secret (Stripe) or webhook ID
+(PayPal); run it again after an upgrade to refresh the event list. It needs
+the site on a public HTTPS address (`APP_URL`). Locally, forward events with
+`stripe listen --forward-to <APP_URL>/webhooks/stripe/sandbox` and paste the
+secret it prints into the Stripe credentials. The endpoints are
+`/webhooks/{stripe|paypal}/{sandbox|live}`. Payments still complete without
+webhooks -- the customer's return and the scheduled reconciliation record
+them -- but dashboard refunds, disputes, renewals and customers who close the
+tab after paying are only picked up promptly with them.
+
+**Disputes.** Chargebacks and PayPal claims arrive by webhook and are listed
+under Payments → Disputes (the badge counts those awaiting a response), with an
+email to the ops address when one opens. Evidence is submitted in the
+gateway's dashboard, linked from each dispute. A dispute is tracked beside its
+payment, not entered on the payment's ledger: the payment was not refunded, and
+the money may come back if the dispute is won. A payment with an open or lost
+dispute cannot be refunded as well -- that would pay the customer twice.
+
+**Integrity.** Money is integer minor units throughout. Every movement is an
+append-only row in `payment_transactions`; a payment's amounts, currency and
+customer are write-once and payments are never deleted, by the panel or by
+code. Every gateway call carries an idempotency key, webhook events are stored
+once per id, and a payment is re-read from the gateway rather than trusted from
+a webhook payload, so retries, duplicate deliveries and out-of-order events are
+harmless. State changes run in short transactions under a row lock that is
+never held across a gateway call; the scheduled tasks (`payments:*` in
+[`routes/console.php`](routes/console.php)) expire abandoned checkouts, warn
+about holds nearing expiry and finish any operation whose result was lost.
+
+Emails (receipts, refunds, subscription notices, operator alerts) are queued,
+sent only after the change commits, and previewable at `/dev/mails`.
+
+#### Subscriptions
+
+Plans are defined in Admin → Payments → Plans and **synced out** to Stripe
+(products and prices) and PayPal (products and billing plans) automatically
+when saved; the Sync button reports what a gateway refused. A plan has a key
+that code checks access by, an optional free trial and a taxable flag, and one
+or more prices (monthly, yearly, every N months). A price is never edited:
+add a new one and retire the old, and existing subscribers stay on theirs.
+
+Customers compare plans at `/pricing` and subscribe with a verified account;
+they manage their subscription at `/settings/billing` (cancel at period end
+and take it back, change plan, update the card, see receipts). Each user has at
+most one live subscription. Gate features with `$user->subscribed()` /
+`$user->subscribed('pro')`, or the `subscribed` / `subscribed:pro` route
+middleware.
+
+- **Renewals** are billed by the gateway and recorded as ordinary payments,
+  with a receipt each, refundable like any other.
+- **Tax on subscriptions is charged by the gateway**, from copies of the
+  configured rates (Stripe TaxRates; one combined percentage on the PayPal
+  billing plan). A rate change applies to new subscriptions; existing ones keep
+  the tax they started with.
+- **Failed renewals**: the gateway retries; the subscriber and the ops address
+  are emailed once, and the subscriber keeps access for the grace period
+  (Settings → Payments, default 7 days). Stripe's retry schedule is set in the
+  Stripe dashboard (Billing → Revenue recovery), not through the API.
+- **PayPal** has no cancel-at-period-end: the subscription is suspended and
+  `payments:end-subscriptions` cancels it when the period runs out. A PayPal
+  plan change needs the customer's approval at PayPal and applies from the next
+  cycle; Stripe's applies at once, prorated.
+- **Stripe's billing portal** (used for "Update payment method") must be saved
+  once in the Stripe dashboard (Settings → Billing → Customer portal) for each
+  mode before it can be opened.
+- **Demo** subscriptions renew only when an administrator presses "Simulate
+  renewal" (or "Simulate failed renewal") on the subscription.
+
+Subscriptions use the same webhook endpoints as payments; **Connect webhooks**
+subscribes them to the subscription events too.
+
+#### Going live: gateway checklist
+
+Stripe (dashboard, for each of test and live mode):
+
+1. Developers → API keys: copy the secret key into Settings → Payments →
+   Stripe credentials. A restricted key needs write access to Checkout
+   Sessions, PaymentIntents, Refunds, Customers, Products, Prices, Tax Rates,
+   Subscriptions, Billing Portal sessions and Webhook Endpoints, and read
+   access to Invoices and Disputes.
+2. Connect webhooks from the settings tab (or add an endpoint by hand and
+   paste its signing secret).
+3. Settings → Billing → Customer portal: save it once, so "Update payment
+   method" can open it.
+4. Billing → Revenue recovery: set the retry schedule for failed renewals, and
+   what happens after the last retry (cancel the subscription).
+5. Business settings → Public details: the name customers see on Checkout and
+   card statements.
+
+PayPal (developer dashboard, sandbox and live apps):
+
+1. A **Business** account; Apps & Credentials → create an app and copy its
+   client ID and secret into the PayPal credentials.
+2. Connect webhooks from the settings tab (or add a webhook to the app by
+   hand, subscribed to the events in `PayPalDriver::WEBHOOK_EVENTS`, and paste
+   its ID).
+3. Account settings → Payment preferences: the business name shown on
+   PayPal's pages.
+
+Then switch Settings → Payments → Mode to Live, and check Diagnostics.
+
+#### Testing against the real sandboxes
+
+The feature suite fakes both gateways. `tests/Sandbox` calls the real Stripe
+test mode and PayPal sandbox instead, to catch an API change the fakes cannot:
+
+```bash
+STRIPE_SANDBOX_SECRET=sk_test_... \
+PAYPAL_SANDBOX_CLIENT_ID=... PAYPAL_SANDBOX_CLIENT_SECRET=... \
+vendor/bin/pest --testsuite=Sandbox
+```
+
+It is never part of the default run, each gateway's tests skip without its
+credentials, and a Stripe key must be a test key. It tidies up what it creates
+(archiving products and prices, cancelling subscriptions, deleting webhook
+endpoints) and saves the real payloads it read to
+`storage/framework/testing/payment-captures/` for comparison with the fixtures
+in `tests/Fixtures/Payments`.
+
+What needs a person clicking through PayPal's own pages is checked by hand in
+the PayPal sandbox, with a sandbox buyer account, before relying on PayPal:
+
+- pay a payment link, and one for a held (authorized) payment, then capture
+  and void it from the admin panel;
+- subscribe, then cancel at period end (the subscription shows as suspended at
+  PayPal) and keep it, confirming it re-activates without an extra charge;
+- change plan and approve the change at PayPal;
+- refund a subscription payment from the admin panel, and one from PayPal's
+  own dashboard (it should appear here within a minute).
+
 ### Error pages
 
 `resources/views/errors/` styles 403, 404, 419, 429, 500 and 503 with the

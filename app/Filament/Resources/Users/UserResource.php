@@ -66,6 +66,9 @@ class UserResource extends Resource
                     ->email()
                     ->required()
                     ->maxLength(255)
+                    // Lowercased as User stores it, so the unique rule
+                    // compares like with like on case-sensitive databases.
+                    ->mutateStateForValidationUsing(fn (?string $state): ?string => $state === null ? null : Str::lower($state))
                     ->unique(ignoreRecord: true),
                 // An admin editing themselves cannot drop their own rights:
                 // doing so would lock them out of this panel on save, with no

@@ -4,6 +4,8 @@ use App\Jobs\ProcessUploadedImage;
 use App\Livewire\Settings\Profile;
 use App\Models\Media;
 use App\Models\User;
+use App\Payments\Actions\EndSubscriptionsForDeletedUser;
+use App\Payments\Exceptions\GatewayUnavailable;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Notification;
@@ -73,6 +75,42 @@ test('profile information can be updated', function () {
     expect($user->email_verified_at)->toBeNull();
 });
 
+test('an email typed in mixed case is stored lowercase and still signs in', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test(Profile::class)
+        ->set('name', $user->name)
+        ->set('email', 'Jane.Doe@Example.com')
+        ->call('updateProfileInformation')
+        ->assertHasNoErrors();
+
+    expect($user->refresh()->email)->toBe('jane.doe@example.com');
+
+    auth()->logout();
+
+    $this->post(route('login.store'), ['email' => 'Jane.Doe@Example.com', 'password' => 'password'])
+        ->assertSessionHasNoErrors();
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('an email already taken in another case is refused', function () {
+    User::factory()->create(['email' => 'taken@example.com']);
+    $user = User::factory()->create();
+
+    $this->actingAs($user);
+
+    Livewire::test(Profile::class)
+        ->set('name', $user->name)
+        ->set('email', 'Taken@Example.com')
+        ->call('updateProfileInformation')
+        ->assertHasErrors(['email' => 'unique']);
+
+    expect($user->refresh()->email)->not->toBe('taken@example.com');
+});
+
 test('email verification status is unchanged when email address is unchanged', function () {
     $user = User::factory()->create();
 
@@ -117,6 +155,23 @@ test('correct password must be provided to delete account', function () {
     $response->assertHasErrors(['password']);
 
     expect($user->fresh())->not->toBeNull();
+});
+
+test('an account whose subscription cannot be cancelled is kept, and the user told why', function () {
+    $user = User::factory()->create();
+    $this->mock(EndSubscriptionsForDeletedUser::class)
+        ->shouldReceive('handle')
+        ->andThrow(new GatewayUnavailable('Stripe could not be reached.'));
+
+    $this->actingAs($user);
+
+    Livewire::test('settings.delete-user-form')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasErrors(['password']);
+
+    expect($user->fresh())->not->toBeNull()
+        ->and(auth()->check())->toBeTrue();
 });
 
 test('an avatar upload is queued rather than processed in the request', function () {

@@ -6,12 +6,45 @@ use App\Media\MediaCollection;
 use App\Models\Media;
 use App\Models\User;
 use App\Settings\Settings;
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Fortify\Features;
 
 abstract class TestCase extends BaseTestCase
 {
+    /**
+     * Test-only tables are migrated with the rest of the schema.
+     *
+     * Registered here rather than created by the tests that use them, because
+     * RefreshDatabase runs each test in a transaction and MySQL and MariaDB
+     * commit a CREATE TABLE implicitly -- ending that transaction, so nothing
+     * the test writes afterwards is rolled back.
+     */
+    public function createApplication(): Application
+    {
+        $app = parent::createApplication();
+
+        $app->make('migrator')->path(__DIR__.'/Fixtures/migrations');
+
+        return $app;
+    }
+
+    /**
+     * No test may reach the network through the HTTP client.
+     *
+     * The payment gateways are called through it, and a test that switches a
+     * gateway on without faking it would otherwise send a real request to
+     * Stripe or PayPal -- which is how the absence of this was found.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Http::preventStrayRequests();
+    }
+
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void
     {
         if (! Features::enabled($feature)) {

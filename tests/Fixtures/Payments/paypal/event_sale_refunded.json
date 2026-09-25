@@ -1,0 +1,14 @@
+{
+    "id": "WH-2N242548W9943490U-1JU23391CS4765624",
+    "event_version": "1.0",
+    "create_time": "2026-09-24T09:00:01Z",
+    "resource_type": "refund",
+    "event_type": "PAYMENT.SALE.REFUNDED",
+    "summary": "A sale was refunded",
+    "resource": {
+        "id": "0P209507D6694645N",
+        "state": "completed",
+        "sale_id": "8HL18326JH8397335",
+        "amount": {"total": "10.00", "currency": "CAD"}
+    }
+}

@@ -69,6 +69,7 @@ class Page extends Model implements HoldsMedia
         'login',
         'logout',
         'media',
+        'pricing',
         'register',
         'reset-password',
         'robots.txt',

@@ -1,0 +1,9 @@
+{
+    "id": "WH-4M0448861G563140B-9EX36365822141321",
+    "event_version": "1.0",
+    "create_time": "2026-09-24T10:00:01Z",
+    "resource_type": "dispute",
+    "event_type": "CUSTOMER.DISPUTE.CREATED",
+    "summary": "A new dispute opened with Case # PP-D-27803",
+    "resource": {"dispute_id": "PP-D-27803", "status": "WAITING_FOR_SELLER_RESPONSE"}
+}

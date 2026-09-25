@@ -124,3 +124,63 @@ Schedule::command('queue:restart')
     ->withoutOverlapping(60)
     ->onOneServer()
     ->description('Gracefully recycle queue workers');
+
+/*
+|--------------------------------------------------------------------------
+| Payments
+|--------------------------------------------------------------------------
+|
+| Each is a no-op while no payment is in the state it looks for, so they are
+| scheduled whether or not payments are switched on: a site that turns
+| payments off still has holds to warn about and refunds to finish.
+|
+*/
+
+/*
+ * Every 15 minutes: the recovery path for a gateway call whose result was
+ * never recorded. Its window (config('payments.stale_after_minutes')) is the
+ * longest a refund can sit unconfirmed after a crash.
+ */
+Schedule::command('payments:reconcile-stale')
+    ->everyFifteenMinutes()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Re-read payments and refunds whose last gateway operation was never recorded');
+
+Schedule::command('payments:expire-checkouts')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Expire checkouts nobody finished');
+
+/*
+ * Hourly, so a warning goes out within the hour of entering the warning
+ * window (config('payments.authorization_warning_hours')).
+ */
+Schedule::command('payments:check-authorizations')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Warn about payment holds nearing expiry and expire lapsed ones');
+
+/*
+ * Hourly: a PayPal or Demo subscription cancelled at period end is ended
+ * within the hour after its paid period runs out.
+ */
+Schedule::command('payments:end-subscriptions')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('End subscriptions cancelled at period end, and expire unfinished subscription checkouts');
+
+Schedule::command('payments:notify-trials-ending')
+    ->daily()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Remind subscribers whose free trial ends soon');
+
+Schedule::command('payments:prune-webhook-events')
+    ->daily()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Delete webhook events past their retention period');

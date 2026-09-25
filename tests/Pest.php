@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Vite;
 use Pest\Plugins\Parallel;
 use Tests\TestCase;
 
@@ -17,7 +18,33 @@ use Tests\TestCase;
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Feature', 'Browser');
+    ->in('Feature', 'Browser', 'Sandbox');
+
+/*
+|--------------------------------------------------------------------------
+| Browser tests use the built assets, never the Vite dev server
+|--------------------------------------------------------------------------
+|
+| While `npm run dev` is running, public/hot points @vite at the dev server,
+| and every page a browser test opens would load @vite/client and hold a live
+| HMR connection to it. Vite then reloads that page whenever a watched file
+| changes -- a save in resources/views, app/Livewire, lang or routes, by an
+| editor or an agent, while the suite runs -- and a reload during an
+| assertion fails it with "Execution context was destroyed, most likely
+| because of a navigation". Verified: touching a view mid-test reloads the
+| page under test.
+|
+| So the hot file is pointed somewhere that never exists, and the pages load
+| public/build exactly as they do in CI. That needs a build: run `npm run
+| build` after changing CSS or JS, or the browser tests check the old assets.
+| Only the Browser directory: feature tests render @vite without loading
+| anything, and should not start requiring a build.
+|
+*/
+
+pest()->in('Browser')->beforeEach(function (): void {
+    Vite::useHotFile(storage_path('framework/testing/vite-dev-server-not-used'));
+});
 
 /*
 |--------------------------------------------------------------------------
@@ -42,6 +69,100 @@ pest()->extend(TestCase::class)
 */
 
 pest()->tia()->defaultBranch('main')->locally();
+
+/*
+|--------------------------------------------------------------------------
+| One test run at a time per checkout
+|--------------------------------------------------------------------------
+|
+| Two Pest runs in this checkout at once break each other's browser tests.
+| pest-plugin-browser v5.0.1 keeps its Playwright server's address in ONE file
+| (vendor/pestphp/pest-plugin-browser/.temp/playwright-server.json), which
+| every run rewrites and deletes when it finishes -- even a run with no browser
+| tests in it -- and the teardown hook below kills every server started from
+| this checkout. So a second run finishing mid-way through a first takes the
+| first's server away, and the first's browser workers then busy-loop forever
+| at 100% CPU: Playwright\Client::execute() reads a closed WebSocket as an
+| empty message and loops again, with no timeout. That is what made a full
+| `composer test` appear to hang while another run (an editor, an agent, a
+| second terminal) came and went.
+|
+| So the run takes an exclusive lock for the checkout and holds it until it
+| exits; a second run waits for the first, saying so. Only the parent process
+| takes it: parallel workers belong to the run that already holds it. It is
+| taken here, while tests are loading -- before the plugin starts a server
+| for any browser test in the run, and long before its end-of-run cleanup.
+|
+*/
+
+/*
+| A run can also re-execute itself: with TIA on, Pest's PcovRestarter starts a
+| child PHP process (to set pcov.directory) after this file has already taken
+| the lock in the parent, then waits for that child. The child is not a
+| parallel worker, so without this it would wait on its own parent forever.
+| The holder names itself in the environment, which the child inherits, and a
+| process descended from the holder runs under the lock its ancestor holds.
+*/
+
+$pestRunLockHolder = (int) getenv('PEST_RUN_LOCK_HOLDER');
+
+$pestRunIsUnderHeldLock = (static function (int $holder): bool {
+    if ($holder <= 0) {
+        return false;
+    }
+
+    // Walk up the process tree: the holder must be an ancestor, not merely
+    // named in an environment copied into an unrelated shell.
+    for ($pid = getmypid(), $depth = 0; $pid > 1 && $depth < 16; $depth++) {
+        if ($pid === $holder) {
+            return true;
+        }
+
+        $stat = @file_get_contents("/proc/{$pid}/stat");
+
+        if ($stat === false) {
+            // No /proc (not Linux): trust the inherited name.
+            return true;
+        }
+
+        // The ppid is the second field after the ")" closing the command name.
+        $pid = (int) (explode(' ', substr($stat, strrpos($stat, ')') + 2))[1] ?? 0);
+    }
+
+    return false;
+})($pestRunLockHolder);
+
+if (! Parallel::isWorker() && ! $pestRunIsUnderHeldLock) {
+    $pestRunLock = fopen(sys_get_temp_dir().DIRECTORY_SEPARATOR.'pest-'.md5(dirname(__DIR__)).'.lock', 'c+');
+
+    if ($pestRunLock !== false && ! flock($pestRunLock, LOCK_EX | LOCK_NB)) {
+        // The holder writes its pid and command line into the file (below),
+        // so the wait names the run it is waiting for instead of leaving the
+        // developer to go looking for it.
+        $holder = trim((string) stream_get_contents($pestRunLock, offset: 0));
+
+        fwrite(STDERR, 'Another test run is using this checkout; waiting for it to finish...'
+            .($holder !== '' ? "\n  Held by: {$holder}\n  (stop it with: kill ".strtok($holder, ' ').')' : '')
+            ."\n");
+        flock($pestRunLock, LOCK_EX);
+    }
+
+    if ($pestRunLock !== false) {
+        $command = is_readable('/proc/self/cmdline')
+            ? trim(str_replace("\0", ' ', (string) file_get_contents('/proc/self/cmdline')))
+            : implode(' ', $_SERVER['argv'] ?? []);
+
+        ftruncate($pestRunLock, 0);
+        fwrite($pestRunLock, getmypid().' '.$command);
+        fflush($pestRunLock);
+
+        putenv('PEST_RUN_LOCK_HOLDER='.getmypid());
+    }
+
+    // Held for the life of the process: the lock is released when the handle
+    // is, which PHP does only at exit while this reference is alive.
+    $GLOBALS['pestRunLock'] = $pestRunLock;
+}
 
 /*
 |--------------------------------------------------------------------------

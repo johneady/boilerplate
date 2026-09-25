@@ -1,0 +1,6 @@
+{
+    "id": "bps_test_1",
+    "object": "billing_portal.session",
+    "customer": "cus_test_C1",
+    "url": "https://billing.stripe.com/p/session/test_YWNjdF8x"
+}
