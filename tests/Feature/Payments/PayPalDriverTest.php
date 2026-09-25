@@ -25,8 +25,6 @@ beforeEach(function () {
         'paypal_sandbox_client_secret' => 'client-secret',
         'paypal_sandbox_webhook_id' => 'WH-ID-123',
     ]);
-
-    Http::preventStrayRequests();
 });
 
 /**

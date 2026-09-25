@@ -67,14 +67,6 @@ enum Gateway: string
     }
 
     /**
-     * Whether a payment can be authorized now and captured later.
-     */
-    public function supportsManualCapture(): bool
-    {
-        return $this !== self::Manual;
-    }
-
-    /**
      * Whether a customer can subscribe through this gateway.
      */
     public function supportsSubscriptions(): bool

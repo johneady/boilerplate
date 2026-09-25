@@ -9,6 +9,7 @@ use App\Payments\Data\CheckoutRequest;
 use App\Payments\Data\CheckoutUrls;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Exceptions\GatewayException;
+use App\Payments\Exceptions\GatewayUnavailable;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Payments\PaymentManager;
 use App\Payments\Tax\TaxCalculator;
@@ -29,8 +30,10 @@ use Illuminate\Support\Facades\DB;
  *   3. record the checkout's id and URL.
  *
  * Resubmitting the same form finds the step-1 row and returns its existing
- * checkout rather than creating a second payment. A gateway refusal marks the
- * payment failed rather than leaving it pending with nowhere to pay.
+ * checkout rather than creating a second payment. A definitive gateway
+ * refusal marks the payment failed rather than leaving it pending with
+ * nowhere to pay; an unreachable one leaves it pending, its outcome unknown,
+ * for the abandoned-checkout sweep to settle.
  */
 class StartCheckout
 {
@@ -70,6 +73,13 @@ class StartCheckout
                 returnUrl: $payment->returnUrl(),
                 cancelUrl: $payment->cancelUrl(),
             ));
+        } catch (GatewayUnavailable $e) {
+            // The session may or may not exist at the gateway, so the
+            // outcome is unknown: leave the payment pending for the
+            // abandoned-checkout sweep -- or the return URL, should the
+            // customer somehow complete it -- rather than record a failure
+            // that may be wrong. The caller reports the exception.
+            throw $e;
         } catch (GatewayException $e) {
             $this->markFailed($payment, $e->getMessage());
 

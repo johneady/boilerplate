@@ -35,6 +35,10 @@ return new class extends Migration
             $table->unsignedBigInteger('settled_payment_id')->nullable();
             $table->foreignId('created_by')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamps();
+
+            // For the reverse lookup "which link did this payment settle",
+            // which the admin panel makes per payment.
+            $table->index('settled_payment_id');
         });
     }
 

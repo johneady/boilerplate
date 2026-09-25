@@ -44,7 +44,6 @@ beforeEach(function () {
         'paypal_sandbox_webhook_id' => 'WH-ID-123',
     ]);
 
-    Http::preventStrayRequests();
     Notification::fake();
 });
 
@@ -246,6 +245,39 @@ test('an approved subscription is recorded with its first payment and PayPal\'s 
         ->tax_total->toBe(377)
         ->subtotal->toBe(2900)
         ->and($payment->tax_lines)->toEqualCanonicalizing([['name' => 'HST', 'percentage' => '13.000', 'amount' => 377]]);
+});
+
+test('transactions are asked for a month at a time, from the start until one is recorded and from the last one after', function () {
+    $this->travelTo('2026-09-25 12:00:00');
+    $paypal = [];
+    fakePayPalBilling($paypal);
+    $subscription = Payments::subscribe(User::factory()->create(), paypalPro(), Gateway::PayPal);
+    Subscription::query()->whereKey($subscription->id)->update(['created_at' => now()->subDays(70)]);
+    $paypal['approved'] = true;
+
+    /** @return list<array{string, string}> */
+    $windows = fn (): array => Http::recorded(fn (Request $request): bool => GatewayFakes::is($request, 'GET /v1/billing/subscriptions/'.PAYPAL_SUBSCRIPTION.'/transactions'))
+        ->map(fn (array $sent): array => [$sent[0]->data()['start_time'], $sent[0]->data()['end_time']])
+        ->values()
+        ->all();
+
+    // 72 days from a day before creation to a day ahead: three windows, each
+    // answering the same transaction, which is recorded once.
+    app(ReconcileSubscription::class)->handle($subscription->fresh(), TransactionSource::Scheduler);
+
+    expect($windows())->toBe([
+        ['2026-07-16T12:00:00Z', '2026-08-16T12:00:00Z'],
+        ['2026-08-16T12:00:00Z', '2026-09-16T12:00:00Z'],
+        ['2026-09-16T12:00:00Z', '2026-09-26T12:00:00Z'],
+    ])->and($subscription->payments()->count())->toBe(1);
+
+    // Paid now, so the next reconcile starts a window before that payment.
+    app(ReconcileSubscription::class)->handle($subscription->fresh(), TransactionSource::Scheduler);
+
+    expect(array_slice($windows(), 3))->toBe([
+        ['2026-08-25T12:00:00Z', '2026-09-25T12:00:00Z'],
+        ['2026-09-25T12:00:00Z', '2026-09-26T12:00:00Z'],
+    ])->and($subscription->payments()->count())->toBe(1);
 });
 
 test('an activation webhook records a subscriber who never came back from PayPal', function () {

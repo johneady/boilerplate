@@ -98,7 +98,9 @@ class PaymentDiagnostics
             'No webhook event has failed in the last 24 hours.',
         );
 
-        $plans = Plan::query()->where('is_active', true)->whereHas('prices', fn ($prices) => $prices->where('is_active', true))->get();
+        // Prices eager-loaded: isSynced() reads them per plan per gateway,
+        // which the relation property answers from memory.
+        $plans = Plan::query()->with('prices')->where('is_active', true)->whereHas('prices', fn ($prices) => $prices->where('is_active', true))->get();
 
         if ($plans->isNotEmpty()) {
             $unsynced = [];
@@ -153,11 +155,7 @@ class PaymentDiagnostics
 
     private function isSwitchedOn(Gateway $gateway): bool
     {
-        return match ($gateway) {
-            Gateway::Stripe => $this->settings->boolean(SettingKey::StripeEnabled),
-            Gateway::PayPal => $this->settings->boolean(SettingKey::PayPalEnabled),
-            Gateway::Demo, Gateway::Manual => false,
-        };
+        return $this->payments->switchedOn($gateway);
     }
 
     private function check(string $name, bool $passed, DiagnosticSeverity $severity, string $failureDetail, string $passedDetail): DiagnosticResult

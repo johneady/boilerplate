@@ -45,8 +45,6 @@ Rewrite the part of `UPWORK.txt` above the `---` line, keeping its current style
 ## When done, report
 
 - What was built, the assumptions made, and what is faked or stubbed.
-- The demo login details.
-- A walkthrough script for a Loom video under 2 minutes, in 5–6 steps.
 
 ## Job post
 

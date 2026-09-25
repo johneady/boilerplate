@@ -5,7 +5,6 @@ use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\PaymentDiagnostics;
 use App\Settings\DiagnosticSeverity;
-use Illuminate\Support\Facades\Http;
 use Tests\Support\Payments;
 
 /**
@@ -68,7 +67,6 @@ test('a fully configured gateway passes every check', function () {
 });
 
 test('a plan on offer that a gateway does not have yet is a warning', function () {
-    Http::preventStrayRequests();
     $price = PlanPrice::factory()->create();
     Payments::enable([
         'demo_gateway_enabled' => false,

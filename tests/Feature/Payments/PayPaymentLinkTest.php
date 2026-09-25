@@ -91,7 +91,6 @@ test('a customer-entered amount outside the link\'s bounds is refused', function
 
 test('after a checkout fails to open, pressing pay again tries afresh', function () {
     Payments::enable(['stripe_enabled' => true, 'stripe_sandbox_secret_key' => 'sk_test_51Example']);
-    Http::preventStrayRequests();
     Http::fakeSequence('api.stripe.com/v1/checkout/sessions')
         ->push(['error' => ['message' => 'Stripe is having a moment']], 500)
         ->push(PaymentFixtures::load('stripe/checkout_session_open'));
@@ -104,7 +103,10 @@ test('after a checkout fails to open, pressing pay again tries afresh', function
     $component->call('pay')->assertHasErrors('gateway');
     $component->call('pay')->assertHasNoErrors()->assertRedirect('https://checkout.stripe.com/c/pay/cs_test_a1B2c3');
 
-    expect(Payment::query()->orderBy('id')->pluck('status')->all())->toBe([PaymentStatus::Failed, PaymentStatus::Pending]);
+    // The outage's outcome was unknown, so the first payment stays pending
+    // for the abandoned-checkout sweep rather than failing; the retry, on a
+    // rotated form token, is a fresh payment.
+    expect(Payment::query()->orderBy('id')->pluck('status')->all())->toBe([PaymentStatus::Pending, PaymentStatus::Pending]);
 });
 
 test('a gateway that is not offered cannot be chosen', function () {

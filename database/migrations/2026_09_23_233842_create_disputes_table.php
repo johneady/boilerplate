@@ -33,6 +33,10 @@ return new class extends Migration
 
             $table->unique(['gateway', 'gateway_dispute_id']);
             $table->index(['status', 'mode']);
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none, and a payment's disputes are
+            // listed from its page.
+            $table->index('payment_id');
         });
     }
 

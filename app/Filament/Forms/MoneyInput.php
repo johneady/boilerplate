@@ -17,10 +17,15 @@ class MoneyInput
 {
     public static function make(string $name, Currency $currency): TextInput
     {
+        // The decimal places the currency itself carries, so a zero- or
+        // three-decimal currency is not silently rejected by a hardcoded
+        // two (see Currency::decimals()).
+        $decimals = $currency->decimals();
+
         return TextInput::make($name)
             ->prefix($currency->value)
             ->inputMode('decimal')
-            ->rule('regex:/^\d{1,9}(\.\d{1,2})?$/')
+            ->rule('regex:/^\d{1,9}('.($decimals > 0 ? '\.\d{1,'.$decimals.'}' : '').')?$/')
             ->formatStateUsing(fn (mixed $state): ?string => is_numeric($state) ? Money::of((int) $state, $currency)->toDecimal() : null)
             ->dehydrateStateUsing(fn (mixed $state): ?int => filled($state) ? Money::fromDecimal((string) $state, $currency)->amount : null);
     }

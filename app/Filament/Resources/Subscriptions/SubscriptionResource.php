@@ -79,12 +79,12 @@ class SubscriptionResource extends Resource
                         TextEntry::make('gateway')
                             ->label(__('payments.fields.gateway'))
                             ->badge()
-                            ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                            ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                             ->color(fn (Gateway $state): string => $state->color()),
                         TextEntry::make('mode')
                             ->label(__('payments.fields.mode'))
                             ->badge()
-                            ->formatStateUsing(fn (GatewayMode $state): string => $state->label())
+                            ->formatStateUsing(fn (GatewayMode $state): string => __($state->label()))
                             ->color(fn (GatewayMode $state): string => $state->color()),
                         TextEntry::make('user.name')
                             ->label(__('payments.fields.customer'))
@@ -169,7 +169,7 @@ class SubscriptionResource extends Resource
                 TextColumn::make('gateway')
                     ->label(__('payments.fields.gateway'))
                     ->badge()
-                    ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                    ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                     ->color(fn (Gateway $state): string => $state->color()),
             ])
             ->defaultSort('created_at', 'desc')
@@ -180,10 +180,10 @@ class SubscriptionResource extends Resource
                     ->multiple(),
                 SelectFilter::make('gateway')
                     ->label(__('payments.fields.gateway'))
-                    ->options(collect(Gateway::cases())->filter(fn (Gateway $gateway): bool => $gateway->supportsSubscriptions())->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => $gateway->label()])->all()),
+                    ->options(collect(Gateway::cases())->filter(fn (Gateway $gateway): bool => $gateway->supportsSubscriptions())->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => __($gateway->label())])->all()),
                 SelectFilter::make('mode')
                     ->label(__('payments.fields.mode'))
-                    ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => $mode->label()])->all())
+                    ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => __($mode->label())])->all())
                     ->default(fn (): string => app(PaymentManager::class)->mode()->value),
             ])
             ->recordActions([

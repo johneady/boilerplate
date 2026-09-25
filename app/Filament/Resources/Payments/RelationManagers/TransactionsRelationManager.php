@@ -20,7 +20,7 @@ class TransactionsRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('Ledger');
+        return __('payments.ledger');
     }
 
     public function table(Table $table): Table
@@ -35,14 +35,14 @@ class TransactionsRelationManager extends RelationManager
                 TextColumn::make('type')
                     ->label(__('payments.fields.type'))
                     ->badge()
-                    ->formatStateUsing(fn (TransactionType $state): string => $state->label())
+                    ->formatStateUsing(fn (TransactionType $state): string => __($state->label()))
                     ->color(fn (TransactionType $state): string => $state->color()),
                 TextColumn::make('amount')
                     ->label(__('payments.fields.amount'))
                     ->state(fn (PaymentTransaction $record): string => $record->money()->format()),
                 TextColumn::make('source')
                     ->label(__('payments.fields.source'))
-                    ->formatStateUsing(fn (TransactionSource $state): string => $state->label()),
+                    ->formatStateUsing(fn (TransactionSource $state): string => __($state->label())),
                 TextColumn::make('gateway_transaction_id')
                     ->label(__('payments.fields.transaction_id'))
                     ->fontFamily('mono')

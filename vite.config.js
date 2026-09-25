@@ -9,12 +9,7 @@ export default defineConfig(({ mode }) => {
     return {
         plugins: lazyPlugins(() => [
             laravel({
-                input: [
-                    'resources/css/app.css',
-                    'resources/js/app.js',
-                    'resources/js/passkeys.js',
-                    'resources/css/filament/admin/theme.css',
-                ],
+                input: ['resources/css/app.css', 'resources/js/app.js', 'resources/js/passkeys.js', 'resources/css/filament/admin/theme.css'],
                 refresh: true,
                 fonts: [
                     bunny('Instrument Sans', {
@@ -27,19 +22,9 @@ export default defineConfig(({ mode }) => {
         server: {
             cors: true,
             host: env.VITE_HOST || undefined,
-            hmr:
-                env.VITE_HMR_HOST || env.VITE_HOST
-                    ? { host: env.VITE_HMR_HOST || env.VITE_HOST }
-                    : undefined,
+            hmr: env.VITE_HMR_HOST || env.VITE_HOST ? { host: env.VITE_HMR_HOST || env.VITE_HOST } : undefined,
             watch: {
-                ignored: [
-                    '**/.agents/**',
-                    '**/.claude/**',
-                    '**/.cursor/**',
-                    '**/.junie/**',
-                    '**/storage/framework/views/**',
-                    '**/vendor/**',
-                ],
+                ignored: ['**/.agents/**', '**/.claude/**', '**/.cursor/**', '**/.junie/**', '**/storage/framework/views/**', '**/vendor/**'],
             },
         },
     };

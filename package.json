@@ -4,7 +4,9 @@
     "type": "module",
     "scripts": {
         "build": "vp build",
-        "dev": "vp dev"
+        "dev": "vp dev",
+        "format": "prettier --write resources/css resources/js vite.config.js",
+        "format:check": "prettier --check resources/css resources/js vite.config.js"
     },
     "dependencies": {
         "@laravel/passkeys": "^0.4.0",

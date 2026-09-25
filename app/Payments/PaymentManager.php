@@ -78,14 +78,22 @@ class PaymentManager
      */
     public function offers(Gateway $gateway): bool
     {
-        $switchedOn = match ($gateway) {
+        return $this->switchedOn($gateway) && $this->credentials->isConfigured($gateway, $this->mode());
+    }
+
+    /**
+     * Whether the administrator has switched this gateway on, credentials
+     * aside. The diagnostics report a switched-on-but-unconfigured gateway
+     * differently from an off one, so the two conditions stay separable.
+     */
+    public function switchedOn(Gateway $gateway): bool
+    {
+        return match ($gateway) {
             Gateway::Stripe => $this->settings->boolean(SettingKey::StripeEnabled),
             Gateway::PayPal => $this->settings->boolean(SettingKey::PayPalEnabled),
             Gateway::Demo => $this->settings->boolean(SettingKey::DemoGatewayEnabled) && $this->demoAllowed(),
             Gateway::Manual => false,
         };
-
-        return $switchedOn && $this->credentials->isConfigured($gateway, $this->mode());
     }
 
     /**

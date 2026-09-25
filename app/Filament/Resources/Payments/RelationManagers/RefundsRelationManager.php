@@ -21,7 +21,7 @@ class RefundsRelationManager extends RelationManager
 
     public static function getTitle(Model $ownerRecord, string $pageClass): string
     {
-        return __('Refunds');
+        return __('payments.refund.plural_label');
     }
 
     public function table(Table $table): Table
@@ -40,7 +40,7 @@ class RefundsRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->label(__('payments.fields.status'))
                     ->badge()
-                    ->formatStateUsing(fn (RefundStatus $state): string => $state->label())
+                    ->formatStateUsing(fn (RefundStatus $state): string => __($state->label()))
                     ->color(fn (RefundStatus $state): string => $state->color())
                     ->description(fn (Refund $record): ?string => $record->failure_reason),
                 TextColumn::make('reason')

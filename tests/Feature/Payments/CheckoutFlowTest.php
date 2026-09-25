@@ -4,10 +4,17 @@ use App\Models\Payment;
 use App\Models\PaymentLink;
 use App\Models\TaxRate;
 use App\Notifications\Payments\PaymentReceipt;
+use App\Payments\Contracts\PaymentDriver;
+use App\Payments\Data\CheckoutSession;
+use App\Payments\Data\CheckoutUrls;
+use App\Payments\Drivers\DemoDriver;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\TransactionType;
+use App\Payments\Exceptions\GatewayException;
+use App\Payments\Exceptions\GatewayUnavailable;
 use App\Payments\Exceptions\PaymentNotAllowed;
+use App\Payments\PaymentManager;
 use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\URL;
@@ -16,6 +23,28 @@ use Tests\Support\Payments;
 beforeEach(function () {
     Payments::enable();
 });
+
+/**
+ * Put a driver in front of the Demo gateway whose createCheckout() does
+ * something else.
+ */
+function checkoutsThrough(Closure $createCheckout): void
+{
+    // The real manager, proxied: StartCheckout reads enabled() and offers()
+    // before it reaches the driver, and those must answer for real.
+    $manager = Mockery::mock(app(PaymentManager::class))->makePartial();
+    $manager->shouldReceive('driverFor')->andReturnUsing(fn (): PaymentDriver => new class($createCheckout) extends DemoDriver
+    {
+        public function __construct(private Closure $createUsing) {}
+
+        public function createCheckout(Payment $payment, CheckoutUrls $urls): CheckoutSession
+        {
+            return ($this->createUsing)($payment, $urls, fn () => parent::createCheckout($payment, $urls));
+        }
+    });
+
+    app()->instance(PaymentManager::class, $manager);
+}
 
 test('a checkout records a pending payment priced by the payable, with its tax snapshotted', function () {
     TaxRate::factory()->rate('HST', '13')->create();
@@ -27,7 +56,7 @@ test('a checkout records a pending payment priced by the payable, with its tax s
         ->and($payment->subtotal)->toBe(10000)
         ->and($payment->tax_total)->toBe(1300)
         ->and($payment->amount)->toBe(11300)
-        ->and($payment->tax_lines)->toBe([['name' => 'HST', 'percentage' => '13.000', 'amount' => 1300]])
+        ->and($payment->tax_lines)->toEqualCanonicalizing([['name' => 'HST', 'percentage' => '13.000', 'amount' => 1300]])
         ->and($payment->checkout_url)->toBe(URL::signedRoute('payments.demo.show', $payment))
         ->and($payment->payable->is($link))->toBeTrue();
 });
@@ -75,6 +104,39 @@ test('a checkout is refused on a link that no longer accepts payments', function
     'inactive' => fn () => PaymentLink::factory()->inactive()->create(),
     'expired' => fn () => PaymentLink::factory()->expired()->create(),
 ])->throws(PaymentNotAllowed::class);
+
+test('an unreachable gateway leaves the checkout pending, and the sweep settles it', function () {
+    checkoutsThrough(fn () => throw new GatewayUnavailable('timed out'));
+
+    $link = PaymentLink::factory()->costing(5000)->create();
+
+    expect(fn () => Payments::checkout($link))->toThrow(GatewayUnavailable::class);
+
+    // Not failed: the session may exist at the gateway, so the outcome is
+    // unknown and only the abandoned-checkout sweep may settle the row.
+    $payment = Payment::sole();
+
+    expect($payment->status)->toBe(PaymentStatus::Pending)
+        ->and($payment->checkout_url)->toBeNull();
+
+    app()->forgetInstance(PaymentManager::class);
+    $this->travel((int) config('payments.abandoned_after_hours') + 1)->hours();
+    $this->artisan('payments:expire-checkouts')->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::Expired);
+});
+
+test('a definitive gateway refusal marks the payment failed', function () {
+    checkoutsThrough(fn () => throw new GatewayException('No such price'));
+
+    $link = PaymentLink::factory()->costing(5000)->create();
+
+    expect(fn () => Payments::checkout($link))->toThrow(GatewayException::class);
+
+    expect(Payment::sole())
+        ->status->toBe(PaymentStatus::Failed)
+        ->failure_reason->toBe('No such price');
+});
 
 test('an approved demo payment is recorded as paid, on the ledger, with one receipt', function () {
     Notification::fake();

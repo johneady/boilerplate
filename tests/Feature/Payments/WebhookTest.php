@@ -28,22 +28,21 @@ beforeEach(function () {
         'paypal_sandbox_webhook_id' => 'WH-ID-123',
         'ops_alert_email' => 'ops@example.test',
     ]);
-
-    Http::preventStrayRequests();
 });
 
 /**
  * Deliver a Stripe event to the sandbox endpoint, signed as Stripe would.
  *
  * @param  array<string, mixed>  $event
+ * @param  int|null  $signedAt  The signature's timestamp; now when null.
  */
-function deliverStripe(array $event, string $secret = 'whsec_example', string $mode = 'sandbox'): TestResponse
+function deliverStripe(array $event, string $secret = 'whsec_example', string $mode = 'sandbox', ?int $signedAt = null): TestResponse
 {
     $payload = (string) json_encode($event);
 
     return test()->call('POST', route('payments.webhook', ['gateway' => 'stripe', 'mode' => $mode]), [], [], [], [
         'CONTENT_TYPE' => 'application/json',
-        'HTTP_STRIPE_SIGNATURE' => PaymentFixtures::stripeSignature($payload, $secret),
+        'HTTP_STRIPE_SIGNATURE' => PaymentFixtures::stripeSignature($payload, $secret, $signedAt),
     ], $payload);
 }
 
@@ -140,13 +139,23 @@ test('a delivery that fails verification is refused and stored nowhere', functio
 })->with([
     'wrong signing secret' => fn () => deliverStripe(PaymentFixtures::load('stripe/event_checkout_session_completed'), 'whsec_forged'),
     'live event at the sandbox endpoint' => fn () => deliverStripe(PaymentFixtures::load('stripe/event_checkout_session_completed', ['livemode' => true])),
+    // Stripe's five-minute tolerance: a captured delivery replayed later is
+    // genuinely signed, so the timestamp is all that stops it.
+    'genuine signature replayed after the tolerance' => fn () => deliverStripe(PaymentFixtures::load('stripe/event_checkout_session_completed'), signedAt: time() - 600),
 ]);
 
-test('an endpoint never given a signing secret answers as if it did not exist', function () {
-    deliverStripe(PaymentFixtures::load('stripe/event_checkout_session_completed'), mode: 'live')->assertNotFound();
+test('an endpoint never given a signing secret answers as if it did not exist', function (Closure $deliver) {
+    $deliver()->assertNotFound();
 
     expect(WebhookEvent::count())->toBe(0);
-});
+})->with([
+    'Stripe with no live signing secret' => fn () => deliverStripe(PaymentFixtures::load('stripe/event_checkout_session_completed'), mode: 'live'),
+    'PayPal with no webhook ID' => function () {
+        Payments::enable(['paypal_sandbox_webhook_id' => '']);
+
+        return deliverPayPal(PaymentFixtures::load('paypal/event_order_approved'));
+    },
+]);
 
 test('webhooks keep completing payments in flight after payments are switched off', function () {
     $payment = paidStripePayment();

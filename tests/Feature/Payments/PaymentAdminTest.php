@@ -154,10 +154,11 @@ test('a payment link that has taken money cannot be deleted from the panel', fun
     $this->actingAs($this->admin);
 
     Livewire::test(ManagePaymentLinks::class)
-        ->assertTableActionHidden(DeleteAction::class, $paid)
+        ->assertTableActionDisabled(DeleteAction::class, $paid)
         ->callTableAction(DeleteAction::class, $unpaid);
 
-    expect(PaymentLink::query()->pluck('id')->all())->toBe([$paid->id]);
+    expect(PaymentLink::query()->pluck('id')->all())->toBe([$paid->id])
+        ->and($this->admin->can('delete', $paid))->toBeFalse();
 });
 
 test('an administrator can record a payment received by e-Transfer against a link', function () {
@@ -176,10 +177,16 @@ test('an administrator can record a payment received by e-Transfer against a lin
         ])
         ->assertHasNoActionErrors();
 
-    expect($link->payments()->sole())
+    $payment = $link->payments()->sole();
+
+    expect($payment)
         ->status->toBe(PaymentStatus::Succeeded)
         ->amount->toBe(8000)
         ->recorded_by->toBe($this->admin->id);
+
+    Livewire::test(ViewPayment::class, ['record' => $payment->uuid])
+        ->assertSee(__('payments.fields.recorded_by'))
+        ->assertSee($this->admin->name);
 });
 
 test('a tax rate keeps its three decimal places', function () {

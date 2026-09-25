@@ -38,7 +38,6 @@ use Stripe\Exception\ApiErrorException;
 use Stripe\Exception\RateLimitException;
 use Stripe\Exception\SignatureVerificationException;
 use Stripe\StripeClient;
-use Stripe\StripeObject;
 use Stripe\Webhook;
 use UnexpectedValueException;
 
@@ -128,11 +127,23 @@ class StripeDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
             ],
             'success_url' => $urls->returnUrl,
             'cancel_url' => $urls->cancelUrl,
-            // Stripe accepts 30 minutes to 24 hours.
-            'expires_at' => now()->addMinutes(max(30, min(1440, (int) config('payments.checkout_expiry_minutes'))))->getTimestamp(),
+            'expires_at' => $this->checkoutExpiresAt(),
         ], ['idempotency_key' => $payment->gatewayKey('checkout')]));
 
         return new CheckoutSession((string) $session->id, (string) $session->url);
+    }
+
+    /**
+     * The checkout expiry as a Unix timestamp, clamped to Stripe's own
+     * bounds (30 minutes to 24 hours).
+     *
+     * The one-time Checkout Session and the subscription variant (see
+     * ManagesStripeSubscriptions) take the same clamped value; the clamp
+     * lives here once so the two cannot drift.
+     */
+    private function checkoutExpiresAt(): int
+    {
+        return now()->addMinutes(max(30, min(1440, (int) config('payments.checkout_expiry_minutes'))))->getTimestamp();
     }
 
     /**
@@ -405,12 +416,22 @@ class StripeDriver implements DisputeDriver, PaymentDriver, RegistersWebhooks, S
      */
     private function refundsFor(string $paymentIntentId, Currency $currency): array
     {
-        $refunds = $this->call(fn () => $this->client()->refunds->all(['payment_intent' => $paymentIntentId, 'limit' => 100]));
-
-        return array_values(array_map(
-            fn (StripeObject $refund): GatewayRefund => $this->mapRefund($refund->toArray(), $currency),
-            $refunds->data,
+        // Auto-paged: a payment refunded in many small parts can exceed one
+        // page, and a refund missing from this state is money the ledger
+        // does not know was returned. Drained inside call(), since every page
+        // after the first is its own request that can fail.
+        $refunds = $this->call(fn (): array => iterator_to_array(
+            $this->client()->refunds->all(['payment_intent' => $paymentIntentId, 'limit' => 100])->autoPagingIterator(),
+            preserve_keys: false,
         ));
+
+        $mapped = [];
+
+        foreach ($refunds as $refund) {
+            $mapped[] = $this->mapRefund($refund->toArray(), $currency);
+        }
+
+        return $mapped;
     }
 
     /**

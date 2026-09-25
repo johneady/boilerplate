@@ -11,18 +11,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('billing_customers', function (Blueprint $table): void {
-            $table->id();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->string('gateway', 20);
-            $table->string('mode', 10);
-            $table->string('gateway_customer_id');
-            $table->timestamps();
-
-            $table->unique(['user_id', 'gateway', 'mode']);
-            $table->unique(['gateway', 'mode', 'gateway_customer_id']);
-        });
-
         Schema::create('subscriptions', function (Blueprint $table): void {
             $table->id();
             // The public reference: route key for the return URLs, and the
@@ -93,6 +81,5 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('subscriptions');
-        Schema::dropIfExists('billing_customers');
     }
 };

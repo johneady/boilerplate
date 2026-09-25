@@ -376,11 +376,12 @@ enum SettingKey: string
     /**
      * Whether this setting is encrypted at rest and never read back in bulk.
      *
-     * Payment credentials can move money, so they are stored encrypted with
-     * the application key, are left out of Settings::toArray() (and so out of
-     * every form fill and Livewire payload), and are shown in the panel only
-     * masked. MailPassword predates this and is not encrypted: it is
-     * redacted from the audit trail by isSecret() but otherwise stored as is.
+     * Credentials are stored encrypted with the application key, are left
+     * out of Settings::toArray() (and so out of every form fill and
+     * Livewire payload), and are shown in the panel only masked. The mail
+     * password is one: it authenticates the application to a mail server,
+     * and the panel never needs it back -- a blank field keeps what is
+     * stored, exactly like a gateway secret.
      *
      * A match rather than a list, like isSecret(), so a new case must be
      * classified here.
@@ -388,11 +389,11 @@ enum SettingKey: string
     public function isEncrypted(): bool
     {
         return match ($this) {
-            self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
+            self::MailPassword, self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
-            self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress,
+            self::MailUsername, self::MailEncryption, self::MailFromAddress,
             self::MailFromName, self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
             self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,

@@ -118,12 +118,17 @@ class PayPaymentLink extends Component
     {
         $this->ensureIsNotRateLimited();
 
+        // The currency's own decimal places decide the fraction the customer
+        // may type, so a zero- or three-decimal currency is not rejected by
+        // a hardcoded two (see Currency::decimals()).
+        $decimals = $this->paymentLink->currency->decimals();
+
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'gateway' => ['required', Rule::in(array_map(fn (Gateway $gateway): string => $gateway->value, $this->gateways()))],
             'amount' => $this->isCustomerEntered()
-                ? ['required', 'regex:/^\d{1,9}(\.\d{1,2})?$/']
+                ? ['required', 'regex:/^\d{1,9}('.($decimals > 0 ? '\.\d{1,'.$decimals.'}' : '').')?$/']
                 : ['nullable'],
         ], [
             'amount.regex' => __('Enter an amount such as 25 or 25.50.'),

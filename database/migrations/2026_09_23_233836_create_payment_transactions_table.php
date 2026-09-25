@@ -31,6 +31,10 @@ return new class extends Migration
             $table->timestamp('created_at')->nullable();
 
             $table->unique(['gateway', 'gateway_transaction_id']);
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none, and the reconcile projections
+            // count these rows under the payment's row lock.
+            $table->index('payment_id');
         });
     }
 

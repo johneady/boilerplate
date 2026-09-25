@@ -5,6 +5,7 @@ use App\Filament\Pages\ManageSettings;
 use App\Jobs\ProcessUploadedImage;
 use App\Mail\TestEmail;
 use App\Media\StagedUpload;
+use App\Models\Setting;
 use App\Models\User;
 use App\Settings\DiagnosticResult;
 use App\Settings\DiagnosticSeverity;
@@ -519,9 +520,75 @@ test('the mailer modal opens on the stored connection', function () {
             'mail_host' => 'smtp.example.com',
             'mail_port' => '587',
             'mail_username' => 'mailer',
-            'mail_password' => 'secret',
+            // The password is write-only: never filled into the modal, so it
+            // is never in the Livewire payload either.
+            'mail_password' => null,
             'mail_encryption' => 'tls',
         ]);
+});
+
+test('the stored mail password is encrypted at rest and kept when the modal is saved blank', function () {
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+    app(Settings::class)->set(SettingKey::MailPassword, 'secret');
+
+    // Ciphertext, not the password itself, in the table.
+    expect(app(Settings::class)->toArray())->not->toHaveKey('mail_password')
+        ->and(Setting::query()->where('key', 'mail_password')->value('value'))->not->toContain('secret');
+
+    // A blank field keeps what is stored, the way a gateway secret's does.
+    Livewire::test(ManageSettings::class)
+        ->callAction('configureMailer', [
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => 587,
+            'mail_username' => 'mailer',
+            'mail_password' => '',
+            'mail_encryption' => 'tls',
+        ]);
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::MailPassword))->toBe('secret');
+});
+
+test('the mailer modal removes the stored password only when asked', function () {
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+    app(Settings::class)->set(SettingKey::MailPassword, 'secret');
+
+    // The toggle's say-so, not the blank field's: only this removes it.
+    Livewire::test(ManageSettings::class)
+        ->callAction('configureMailer', [
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => 587,
+            'mail_username' => 'mailer',
+            'mail_password' => '',
+            'mail_encryption' => 'tls',
+            'remove_mail_password' => true,
+        ]);
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::MailPassword))->toBe('');
+});
+
+test('a password typed into the mailer modal wins over the remove toggle', function () {
+    app(Settings::class)->set(SettingKey::MailFromAddress, 'hello@cromulent.test');
+
+    Livewire::test(ManageSettings::class)
+        ->callAction('configureMailer', [
+            'mail_mailer' => 'smtp',
+            'mail_host' => 'smtp.example.com',
+            'mail_port' => 587,
+            'mail_username' => 'mailer',
+            'mail_password' => 'replacement',
+            'mail_encryption' => 'tls',
+            'remove_mail_password' => true,
+        ]);
+
+    app()->forgetInstance(Settings::class);
+
+    expect(app(Settings::class)->string(SettingKey::MailPassword))->toBe('replacement');
 });
 
 test('submitting the mailer modal persists the mail settings', function () {

@@ -77,17 +77,23 @@ trait ManagesPayPalSubscriptions
             return false;
         }
 
-        foreach ($plan->prices()->get() as $price) {
+        // The relation property, not prices()->get(), and the tax looked up
+        // once rather than per price: a table or diagnostics page that
+        // eager-loads prices for many plans is then answered from memory
+        // instead of queries per plan per price.
+        $tax = $this->taxPercentage($plan);
+
+        foreach ($plan->prices as $price) {
             $ref = $price->gatewayRef(Gateway::PayPal, $this->mode);
 
-            if (($ref !== null || $price->is_active) && ($ref['signature'] ?? null) !== $this->billingPlanSignature($plan, $price)) {
+            if (($ref !== null || $price->is_active) && ($ref['signature'] ?? null) !== $this->billingPlanSignature($plan, $price, $tax)) {
                 return false;
             }
 
             $noTrial = $this->noTrialRef($price);
 
             if (($noTrial !== null || ($price->is_active && $plan->trial_days > 0))
-                && ($noTrial['signature'] ?? null) !== $this->billingPlanSignature($plan, $price, withTrial: false)) {
+                && ($noTrial['signature'] ?? null) !== $this->billingPlanSignature($plan, $price, $tax, withTrial: false)) {
                 return false;
             }
         }
@@ -243,8 +249,8 @@ trait ManagesPayPalSubscriptions
         $response = $this->client->post("/v1/billing/subscriptions/{$id}/revise", [
             'plan_id' => $planId,
             'application_context' => $this->applicationContext($urls),
-            // As Stripe's swapKey(): a repeat of an earlier change is a new request.
-        ], $subscription->gatewayKey("swap:{$subscription->plan_price_id}:{$price->id}:".($subscription->updated_at?->getTimestamp() ?? 0)));
+            // As Stripe's swap: Subscription::swapIdempotencyKey().
+        ], $subscription->swapIdempotencyKey($price));
 
         return $this->linkHref($response, fn (string $rel, string $href): bool => $rel === 'approve')
             ?? throw new GatewayException('PayPal did not return a link to approve the change.');
@@ -402,7 +408,7 @@ trait ManagesPayPalSubscriptions
     private function syncBillingPlanVariant(Plan $plan, PlanPrice $price, string $productId, bool $withTrial): void
     {
         $ref = $withTrial ? $price->gatewayRef(Gateway::PayPal, $this->mode) : $this->noTrialRef($price);
-        $signature = $this->billingPlanSignature($plan, $price, $withTrial);
+        $signature = $this->billingPlanSignature($plan, $price, $this->taxPercentage($plan), $withTrial);
 
         if (($ref['signature'] ?? null) === $signature || ($ref === null && ! $price->is_active)) {
             return;
@@ -515,16 +521,23 @@ trait ManagesPayPalSubscriptions
      * trial (none, for the no-trial variant), its tax, and whether it is on
      * offer at all.
      */
-    private function billingPlanSignature(Plan $plan, PlanPrice $price, bool $withTrial = true): string
+    private function billingPlanSignature(Plan $plan, PlanPrice $price, string $taxPercentage, bool $withTrial = true): string
     {
         if (! $price->is_active) {
             return 'archived';
         }
 
-        $tax = $plan->taxable ? TaxRate::combinedActive() : null;
         $trialDays = $withTrial ? $plan->trial_days : 0;
 
-        return "trial:{$trialDays}|tax:".($tax['percentage'] ?? '0');
+        return "trial:{$trialDays}|tax:{$taxPercentage}";
+    }
+
+    /**
+     * The combined tax a plan's billing plans charge, as its signature has it.
+     */
+    private function taxPercentage(Plan $plan): string
+    {
+        return $plan->taxable ? (TaxRate::combinedActive()['percentage'] ?? '0') : '0';
     }
 
     /**
@@ -544,50 +557,86 @@ trait ManagesPayPalSubscriptions
     /**
      * Every payment PayPal has taken for a subscription, oldest first.
      *
+     * Asked for in windows of at most 31 days: PayPal's subscription APIs
+     * constrain how far apart start_time and end_time may be, so one
+     * request spanning the life of an older subscription can be refused
+     * outright. Windows share their edges; the ids key the merge, so a
+     * transaction seen twice is kept once.
+     *
      * @return list<GatewayInvoice>
      */
     private function transactions(Subscription $subscription, string $paypalId): array
     {
-        $response = $this->client->get("/v1/billing/subscriptions/{$paypalId}/transactions", [
-            'start_time' => ($subscription->created_at ?? CarbonImmutable::now())->subDay()->utc()->format('Y-m-d\TH:i:s\Z'),
-            'end_time' => CarbonImmutable::now()->addDay()->utc()->format('Y-m-d\TH:i:s\Z'),
-        ]);
-
         $tax = $subscription->price?->gatewayRef(Gateway::PayPal, $this->mode);
         $currency = $subscription->currency;
         $invoices = [];
 
-        foreach ($response['transactions'] ?? [] as $transaction) {
-            // Refunded ones took the money too; the refunds are recorded
-            // against the payment separately.
-            if (! in_array($transaction['status'] ?? null, ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'], true)) {
-                continue;
+        $end = CarbonImmutable::now()->addDay();
+        $start = $this->transactionsSince($subscription);
+
+        while ($start < $end) {
+            $windowEnd = min($start->addDays(31), $end);
+
+            $response = $this->client->get("/v1/billing/subscriptions/{$paypalId}/transactions", [
+                'start_time' => $start->format('Y-m-d\TH:i:s\Z'),
+                'end_time' => $windowEnd->utc()->format('Y-m-d\TH:i:s\Z'),
+            ]);
+
+            foreach ($response['transactions'] ?? [] as $transaction) {
+                // Refunded ones took the money too; the refunds are recorded
+                // against the payment separately.
+                if (! in_array($transaction['status'] ?? null, ['COMPLETED', 'PARTIALLY_REFUNDED', 'REFUNDED'], true)) {
+                    continue;
+                }
+
+                $gross = $transaction['amount_with_breakdown']['gross_amount']['value'] ?? null;
+
+                if (! is_string($gross) && ! is_numeric($gross)) {
+                    continue;
+                }
+
+                $taxAmount = isset($transaction['amount_with_breakdown']['tax_amount']['value'])
+                    ? Money::fromDecimal((string) $transaction['amount_with_breakdown']['tax_amount']['value'], $currency)
+                    : Money::zero($currency);
+
+                $invoices[(string) $transaction['id']] = new GatewayInvoice(
+                    id: (string) $transaction['id'],
+                    paymentId: (string) $transaction['id'],
+                    total: Money::fromDecimal((string) $gross, $currency),
+                    taxLines: $taxAmount->isPositive()
+                        ? [new TaxLine($tax['tax_name'] ?? 'Tax', $tax['tax_percentage'] ?? '0', $taxAmount)]
+                        : [],
+                    paidAt: CarbonImmutable::parse((string) ($transaction['time'] ?? 'now')),
+                );
             }
 
-            $gross = $transaction['amount_with_breakdown']['gross_amount']['value'] ?? null;
-
-            if (! is_string($gross) && ! is_numeric($gross)) {
-                continue;
-            }
-
-            $taxAmount = isset($transaction['amount_with_breakdown']['tax_amount']['value'])
-                ? Money::fromDecimal((string) $transaction['amount_with_breakdown']['tax_amount']['value'], $currency)
-                : Money::zero($currency);
-
-            $invoices[] = new GatewayInvoice(
-                id: (string) $transaction['id'],
-                paymentId: (string) $transaction['id'],
-                total: Money::fromDecimal((string) $gross, $currency),
-                taxLines: $taxAmount->isPositive()
-                    ? [new TaxLine($tax['tax_name'] ?? 'Tax', $tax['tax_percentage'] ?? '0', $taxAmount)]
-                    : [],
-                paidAt: CarbonImmutable::parse((string) ($transaction['time'] ?? 'now')),
-            );
+            $start = $windowEnd;
         }
+
+        $invoices = array_values($invoices);
 
         usort($invoices, fn (GatewayInvoice $a, GatewayInvoice $b): int => $a->paidAt <=> $b->paidAt);
 
         return $invoices;
+    }
+
+    /**
+     * Where transactions() starts asking.
+     *
+     * From the last invoice already recorded as paid, less one window for a
+     * transaction PayPal reported late, rather than from the subscription's
+     * start: ReconcileSubscription skips an invoice it has already recorded,
+     * so re-reading the whole history on every webhook and sweep would cost
+     * one request per month of the subscription's age, and a few years in,
+     * outlast the job's timeout.
+     */
+    private function transactionsSince(Subscription $subscription): CarbonImmutable
+    {
+        $lastPaid = $subscription->payments()->whereNotNull('paid_at')->max('paid_at');
+
+        return $lastPaid !== null
+            ? CarbonImmutable::parse($lastPaid)->subDays(31)->utc()
+            : ($subscription->created_at ?? CarbonImmutable::now())->subDay()->utc();
     }
 
     /**

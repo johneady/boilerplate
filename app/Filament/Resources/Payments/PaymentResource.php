@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
+use App\Payments\Enums\ManualPaymentMethod;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\PaymentManager;
 use App\Settings\Settings;
@@ -81,17 +82,17 @@ class PaymentResource extends Resource
                         TextEntry::make('status')
                             ->label(__('payments.fields.status'))
                             ->badge()
-                            ->formatStateUsing(fn (PaymentStatus $state): string => $state->label())
+                            ->formatStateUsing(fn (PaymentStatus $state): string => __($state->label()))
                             ->color(fn (PaymentStatus $state): string => $state->color()),
                         TextEntry::make('gateway')
                             ->label(__('payments.fields.gateway'))
                             ->badge()
-                            ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                            ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                             ->color(fn (Gateway $state): string => $state->color()),
                         TextEntry::make('mode')
                             ->label(__('payments.fields.mode'))
                             ->badge()
-                            ->formatStateUsing(fn (GatewayMode $state): string => $state->label())
+                            ->formatStateUsing(fn (GatewayMode $state): string => __($state->label()))
                             ->color(fn (GatewayMode $state): string => $state->color()),
                         TextEntry::make('description')
                             ->label(__('payments.fields.description')),
@@ -140,7 +141,7 @@ class PaymentResource extends Resource
                             ->columnSpanFull(),
                         TextEntry::make('manual_method')
                             ->label(__('payments.fields.manual_method'))
-                            ->formatStateUsing(fn ($state): string => $state?->label() ?? '—')
+                            ->formatStateUsing(fn (?ManualPaymentMethod $state): string => $state === null ? '—' : __($state->label()))
                             ->visible(fn (Payment $record): bool => $record->gateway === Gateway::Manual),
                         TextEntry::make('manual_reference')
                             ->label(__('payments.fields.manual_reference'))
@@ -149,6 +150,11 @@ class PaymentResource extends Resource
                         TextEntry::make('manual_received_on')
                             ->label(__('payments.fields.manual_received_on'))
                             ->formatStateUsing(fn ($state): string => $settings->formatDate($state))
+                            ->visible(fn (Payment $record): bool => $record->gateway === Gateway::Manual),
+                        TextEntry::make('recorder.name')
+                            ->label(__('payments.fields.recorded_by'))
+                            // The foreign key goes null when the account is deleted.
+                            ->placeholder('—')
                             ->visible(fn (Payment $record): bool => $record->gateway === Gateway::Manual),
                         TextEntry::make('uuid')
                             ->label(__('payments.fields.reference'))
@@ -190,17 +196,17 @@ class PaymentResource extends Resource
                 TextColumn::make('status')
                     ->label(__('payments.fields.status'))
                     ->badge()
-                    ->formatStateUsing(fn (PaymentStatus $state): string => $state->label())
+                    ->formatStateUsing(fn (PaymentStatus $state): string => __($state->label()))
                     ->color(fn (PaymentStatus $state): string => $state->color()),
                 TextColumn::make('gateway')
                     ->label(__('payments.fields.gateway'))
                     ->badge()
-                    ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                    ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                     ->color(fn (Gateway $state): string => $state->color()),
                 TextColumn::make('mode')
                     ->label(__('payments.fields.mode'))
                     ->badge()
-                    ->formatStateUsing(fn (GatewayMode $state): string => $state->label())
+                    ->formatStateUsing(fn (GatewayMode $state): string => __($state->label()))
                     ->color(fn (GatewayMode $state): string => $state->color())
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -208,14 +214,14 @@ class PaymentResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('payments.fields.status'))
-                    ->options(collect(PaymentStatus::cases())->mapWithKeys(fn (PaymentStatus $status): array => [$status->value => $status->label()])->all())
+                    ->options(collect(PaymentStatus::cases())->mapWithKeys(fn (PaymentStatus $status): array => [$status->value => __($status->label())])->all())
                     ->multiple(),
                 SelectFilter::make('gateway')
                     ->label(__('payments.fields.gateway'))
-                    ->options(collect(Gateway::cases())->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => $gateway->label()])->all()),
+                    ->options(collect(Gateway::cases())->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => __($gateway->label())])->all()),
                 SelectFilter::make('mode')
                     ->label(__('payments.fields.mode'))
-                    ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => $mode->label()])->all())
+                    ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => __($mode->label())])->all())
                     ->default(fn (): string => app(PaymentManager::class)->mode()->value),
             ])
             ->recordActions([

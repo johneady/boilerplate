@@ -7,6 +7,7 @@ use App\Payments\Data\GatewaySubscriptionState;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\TransactionSource;
 use App\Payments\Exceptions\GatewayException;
+use App\Payments\Exceptions\GatewayUnavailable;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Payments\PaymentManager;
 
@@ -54,6 +55,15 @@ class CancelSubscription
 
         try {
             $driver->cancelSubscription($subscription, $atPeriodEnd);
+        } catch (GatewayUnavailable $e) {
+            // The suspension may or may not have been carried out, so the
+            // schedule recorded above STAYS: a webhook for a suspension the
+            // gateway did make reconciles as the cancellation it is, and one
+            // that never happened is carried out at the period end by
+            // payments:end-subscriptions -- rather than a rollback that would
+            // read a real suspension back as a payment failure. The caller
+            // reports the exception.
+            throw $e;
         } catch (GatewayException $e) {
             if ($scheduledHere) {
                 $this->reconcile->apply($subscription, new GatewaySubscriptionState(null, cancelAtPeriodEnd: false), TransactionSource::Admin);

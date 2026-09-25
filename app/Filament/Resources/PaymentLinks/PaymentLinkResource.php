@@ -91,7 +91,7 @@ class PaymentLinkResource extends Resource
                     ->columnSpanFull(),
                 Select::make('amount_type')
                     ->label(__('payments.links.amount_type'))
-                    ->options(collect(PaymentLinkAmountType::cases())->mapWithKeys(fn (PaymentLinkAmountType $type): array => [$type->value => $type->label()])->all())
+                    ->options(collect(PaymentLinkAmountType::cases())->mapWithKeys(fn (PaymentLinkAmountType $type): array => [$type->value => __($type->label())])->all())
                     ->default(PaymentLinkAmountType::Fixed->value)
                     ->required()
                     ->selectablePlaceholder(false)
@@ -118,7 +118,7 @@ class PaymentLinkResource extends Resource
                     ->visible($isCustomerEntered),
                 Select::make('usage')
                     ->label(__('payments.links.usage'))
-                    ->options(collect(PaymentLinkUsage::cases())->mapWithKeys(fn (PaymentLinkUsage $usage): array => [$usage->value => $usage->label()])->all())
+                    ->options(collect(PaymentLinkUsage::cases())->mapWithKeys(fn (PaymentLinkUsage $usage): array => [$usage->value => __($usage->label())])->all())
                     ->default(PaymentLinkUsage::SingleUse->value)
                     ->required()
                     ->selectablePlaceholder(false),
@@ -153,7 +153,7 @@ class PaymentLinkResource extends Resource
                         ?? __('payments.links.customer_entered')),
                 TextColumn::make('usage')
                     ->label(__('payments.links.usage'))
-                    ->formatStateUsing(fn (PaymentLinkUsage $state): string => $state->label())
+                    ->formatStateUsing(fn (PaymentLinkUsage $state): string => __($state->label()))
                     ->description(fn (PaymentLink $record): ?string => $record->settled_payment_id !== null ? static::settledLabel() : null),
                 IconColumn::make('is_active')
                     ->label(__('payments.links.is_active'))
@@ -183,7 +183,13 @@ class PaymentLinkResource extends Resource
                     ->openUrlInNewTab(),
                 RecordManualPaymentAction::make(),
                 EditAction::make(),
-                DeleteAction::make(),
+                // Shown, disabled, on a link that has taken payments, rather
+                // than silently hidden (PaymentLinkPolicy::delete): the
+                // administrator learns why instead of wondering where the
+                // button went. Same treatment as a synced tax rate.
+                DeleteAction::make()
+                    ->authorizationTooltip(fn (PaymentLink $record): bool => $record->payments_count > 0)
+                    ->authorizationMessage(__('payments.links.delete_taken')),
             ])
             ->toolbarActions([]);
     }

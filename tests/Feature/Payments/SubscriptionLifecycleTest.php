@@ -17,6 +17,8 @@ use App\Payments\Actions\ReconcileSubscription;
 use App\Payments\Actions\RefundPayment;
 use App\Payments\Actions\ResumeSubscription;
 use App\Payments\Actions\SwapSubscriptionPlan;
+use App\Payments\Data\CheckoutSession;
+use App\Payments\Data\CheckoutUrls;
 use App\Payments\Data\GatewaySubscriptionState;
 use App\Payments\Drivers\DemoDriver;
 use App\Payments\Enums\Currency;
@@ -24,8 +26,10 @@ use App\Payments\Enums\Gateway;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\TransactionSource;
+use App\Payments\Exceptions\GatewayUnavailable;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Payments\Money;
+use App\Payments\PaymentManager;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\Notification;
 use Tests\Support\Payments;
@@ -202,6 +206,69 @@ test('a scheduled cancellation cut short by an immediate one ends access at once
     app(CancelSubscription::class)->handle($subscription, atPeriodEnd: false);
 
     expect($user->subscribed())->toBeFalse();
+});
+
+test('an unreachable gateway keeps the scheduled cancellation, and the sweep carries it out', function () {
+    $user = User::factory()->create();
+    $subscription = Payments::subscribeWithDemo($user, proPrice());
+
+    // The real manager, proxied: the suspension's outcome is unknown, so
+    // the schedule recorded before the call must survive it.
+    $manager = Mockery::mock(app(PaymentManager::class))->makePartial();
+    $manager->shouldReceive('subscriptionDriver')->andReturnUsing(fn (): DemoDriver => new class extends DemoDriver
+    {
+        public function cancelSubscription(Subscription $subscription, bool $atPeriodEnd): void
+        {
+            throw new GatewayUnavailable('timed out');
+        }
+    });
+    app()->instance(PaymentManager::class, $manager);
+
+    expect(fn () => app(CancelSubscription::class)->handle($subscription))->toThrow(GatewayUnavailable::class);
+
+    $subscription = $subscription->fresh();
+
+    expect($subscription->cancel_at_period_end)->toBeTrue()
+        ->and($subscription->ends_at)->not->toBeNull();
+
+    // The gateway is back; the sweep carries the cancellation through.
+    app()->forgetInstance(PaymentManager::class);
+    $this->travelTo($subscription->ends_at->addMinute());
+    $this->artisan('payments:end-subscriptions')->assertSuccessful();
+
+    expect($subscription->fresh()->status)->toBe(SubscriptionStatus::Canceled)
+        ->and($user->subscribed())->toBeFalse();
+});
+
+test('an unreachable gateway leaves the subscription incomplete, and the sweep frees the slot', function () {
+    $user = User::factory()->create();
+    $price = proPrice();
+
+    $manager = Mockery::mock(app(PaymentManager::class))->makePartial();
+    $manager->shouldReceive('subscriptionDriver')->andReturnUsing(fn (): DemoDriver => new class extends DemoDriver
+    {
+        public function createSubscriptionCheckout(Subscription $subscription, CheckoutUrls $urls): CheckoutSession
+        {
+            throw new GatewayUnavailable('timed out');
+        }
+    });
+    app()->instance(PaymentManager::class, $manager);
+
+    expect(fn () => Payments::subscribe($user, $price))->toThrow(GatewayUnavailable::class);
+
+    // Not expired: the checkout may exist at the gateway, so only the
+    // abandoned-checkout sweep may settle the row and free the slot.
+    $subscription = Subscription::sole();
+
+    expect($subscription->status)->toBe(SubscriptionStatus::Incomplete)
+        ->and($subscription->active_user_id)->toBe($user->id);
+
+    app()->forgetInstance(PaymentManager::class);
+    $this->travel((int) config('payments.abandoned_after_hours') + 1)->hours();
+    $this->artisan('payments:end-subscriptions')->assertSuccessful();
+
+    expect($subscription->fresh()->status)->toBe(SubscriptionStatus::Expired)
+        ->and($subscription->fresh()->active_user_id)->toBeNull();
 });
 
 test('an ended user can subscribe again', function () {

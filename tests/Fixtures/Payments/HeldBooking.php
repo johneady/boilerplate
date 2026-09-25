@@ -41,6 +41,14 @@ class HeldBooking extends Model implements Payable
 
     public static function createTable(): void
     {
+        // Dropped and recreated per test rather than created once: the table
+        // is test-only, so it is not in the migrations, and on the MySQL and
+        // MariaDB CI matrix the CREATE's implicit commit ends the test's
+        // transaction -- both making a second CREATE fatal and leaving this
+        // test's rows where the rollback cannot reach them. Dropping first
+        // clears those rows for whichever test runs next in the worker.
+        Schema::dropIfExists('held_bookings');
+
         Schema::create('held_bookings', function (Blueprint $table): void {
             $table->id();
             $table->unsignedBigInteger('price');

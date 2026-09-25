@@ -1,5 +1,17 @@
 <?php
 
+use App\Payments\Enums\DisputeStatus;
+use App\Payments\Enums\Gateway;
+use App\Payments\Enums\GatewayMode;
+use App\Payments\Enums\ManualPaymentMethod;
+use App\Payments\Enums\PaymentLinkAmountType;
+use App\Payments\Enums\PaymentLinkUsage;
+use App\Payments\Enums\PaymentStatus;
+use App\Payments\Enums\RefundStatus;
+use App\Payments\Enums\SubscriptionStatus;
+use App\Payments\Enums\TransactionSource;
+use App\Payments\Enums\TransactionType;
+use App\Payments\Enums\WebhookEventStatus;
 use Illuminate\Filesystem\Filesystem;
 
 /**
@@ -91,3 +103,32 @@ test('the json catalogue keys every string to itself', function () {
 
     expect($drifted)->toBe([]);
 });
+
+test('every enum label translated at display has a catalogue entry', function (string $enum) {
+    /** @var array<string, string> $catalogue */
+    $catalogue = json_decode((string) file_get_contents(lang_path('en.json')), true);
+
+    // The enums return plain English and the admin panel wraps it in __() at
+    // display (.ai/rules/i18n.md). A case added without a catalogue entry still
+    // renders in English, so only this notices it never reaches a translator.
+    $missing = collect($enum::cases())
+        ->map(fn (UnitEnum $case): string => $case->label())
+        ->reject(fn (string $label): bool => array_key_exists($label, $catalogue))
+        ->values()
+        ->all();
+
+    expect($missing)->toBe([]);
+})->with([
+    DisputeStatus::class,
+    Gateway::class,
+    GatewayMode::class,
+    ManualPaymentMethod::class,
+    PaymentLinkAmountType::class,
+    PaymentLinkUsage::class,
+    PaymentStatus::class,
+    RefundStatus::class,
+    SubscriptionStatus::class,
+    TransactionSource::class,
+    TransactionType::class,
+    WebhookEventStatus::class,
+]);

@@ -9,6 +9,7 @@ use App\Payments\Data\CheckoutUrls;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Exceptions\GatewayException;
+use App\Payments\Exceptions\GatewayUnavailable;
 use App\Payments\Exceptions\PaymentNotAllowed;
 use App\Payments\PaymentManager;
 use Illuminate\Database\UniqueConstraintViolationException;
@@ -69,6 +70,14 @@ class StartSubscription
                 returnUrl: $subscription->returnUrl(),
                 cancelUrl: $subscription->cancelUrl(),
             ));
+        } catch (GatewayUnavailable $e) {
+            // The checkout may or may not exist at the gateway, so the
+            // outcome is unknown: leave the subscription incomplete and the
+            // slot held for the abandoned-checkout sweep, which re-reads one
+            // the gateway recorded and expires one it did not -- rather than
+            // expire it here and free a slot a live checkout may still claim.
+            // The caller reports the exception.
+            throw $e;
         } catch (GatewayException $e) {
             // Nothing was started at the gateway, so the slot is freed at
             // once rather than held until the abandoned-checkout sweep.

@@ -63,7 +63,9 @@ trait SimulatesSubscriptions
 
     public function isSynced(Plan $plan): bool
     {
-        foreach ($plan->prices()->get() as $price) {
+        // The relation property, so an eager-loaded collection is used
+        // rather than one query per plan (see the other drivers).
+        foreach ($plan->prices as $price) {
             if ($price->gatewayRef(Gateway::Demo, GatewayMode::Sandbox) === null) {
                 return false;
             }

@@ -109,12 +109,12 @@ class WebhookEventResource extends Resource
                 TextColumn::make('gateway')
                     ->label(__('payments.fields.gateway'))
                     ->badge()
-                    ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                    ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                     ->color(fn (Gateway $state): string => $state->color()),
                 TextColumn::make('mode')
                     ->label(__('payments.fields.mode'))
                     ->badge()
-                    ->formatStateUsing(fn (GatewayMode $state): string => $state->label())
+                    ->formatStateUsing(fn (GatewayMode $state): string => __($state->label()))
                     ->color(fn (GatewayMode $state): string => $state->color()),
                 TextColumn::make('type')
                     ->label(__('payments.fields.event_type'))
@@ -122,7 +122,7 @@ class WebhookEventResource extends Resource
                 TextColumn::make('status')
                     ->label(__('payments.fields.status'))
                     ->badge()
-                    ->formatStateUsing(fn (WebhookEventStatus $state): string => $state->label())
+                    ->formatStateUsing(fn (WebhookEventStatus $state): string => __($state->label()))
                     ->color(fn (WebhookEventStatus $state): string => $state->color()),
                 TextColumn::make('attempts')
                     ->label(__('payments.fields.attempts')),
@@ -131,10 +131,10 @@ class WebhookEventResource extends Resource
             ->filters([
                 SelectFilter::make('status')
                     ->label(__('payments.fields.status'))
-                    ->options(collect(WebhookEventStatus::cases())->mapWithKeys(fn (WebhookEventStatus $status): array => [$status->value => $status->label()])->all()),
+                    ->options(collect(WebhookEventStatus::cases())->mapWithKeys(fn (WebhookEventStatus $status): array => [$status->value => __($status->label())])->all()),
                 SelectFilter::make('gateway')
                     ->label(__('payments.fields.gateway'))
-                    ->options([Gateway::Stripe->value => Gateway::Stripe->label(), Gateway::PayPal->value => Gateway::PayPal->label()]),
+                    ->options([Gateway::Stripe->value => __(Gateway::Stripe->label()), Gateway::PayPal->value => __(Gateway::PayPal->label())]),
             ])
             ->recordActions([
                 ViewAction::make(),

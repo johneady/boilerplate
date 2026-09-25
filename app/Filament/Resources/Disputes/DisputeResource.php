@@ -103,12 +103,12 @@ class DisputeResource extends Resource
                         TextEntry::make('gateway')
                             ->label(__('payments.fields.gateway'))
                             ->badge()
-                            ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                            ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                             ->color(fn (Gateway $state): string => $state->color()),
                         TextEntry::make('mode')
                             ->label(__('payments.fields.mode'))
                             ->badge()
-                            ->formatStateUsing(fn (GatewayMode $state): string => $state->label())
+                            ->formatStateUsing(fn (GatewayMode $state): string => __($state->label()))
                             ->color(fn (GatewayMode $state): string => $state->color()),
                         TextEntry::make('payment.description')
                             ->label(__('payments.disputes.payment'))
@@ -156,7 +156,7 @@ class DisputeResource extends Resource
                 TextColumn::make('gateway')
                     ->label(__('payments.fields.gateway'))
                     ->badge()
-                    ->formatStateUsing(fn (Gateway $state): string => $state->label())
+                    ->formatStateUsing(fn (Gateway $state): string => __($state->label()))
                     ->color(fn (Gateway $state): string => $state->color()),
             ])
             ->defaultSort('created_at', 'desc')
@@ -167,7 +167,7 @@ class DisputeResource extends Resource
                     ->multiple(),
                 SelectFilter::make('mode')
                     ->label(__('payments.fields.mode'))
-                    ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => $mode->label()])->all())
+                    ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => __($mode->label())])->all())
                     ->default(fn (): string => app(PaymentManager::class)->mode()->value),
             ])
             ->recordActions([

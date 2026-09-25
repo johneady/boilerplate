@@ -116,7 +116,12 @@ class PlanResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label(__('payments.plans.name'))
-                    ->description(fn (Plan $record): string => $record->key),
+                    ->description(fn (Plan $record): string => $record->key)
+                    ->searchable(),
+                TextColumn::make('key')
+                    ->label(__('payments.plans.key'))
+                    ->searchable(isIndividual: true)
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('prices')
                     ->label(__('payments.plans.prices'))
                     ->state(fn (Plan $record): string => $record->prices->where('is_active', true)->map->label()->implode(', ') ?: '—'),

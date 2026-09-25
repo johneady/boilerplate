@@ -27,7 +27,12 @@ return new class extends Migration
             // A redelivered event is inserted with insertOrIgnore and so
             // stored, and processed, once.
             $table->unique(['gateway', 'event_id']);
+            // The daily prune deletes by age alone; the fifteen-minute stale
+            // sweep dispatched still-Received events by age, and every
+            // sibling table got this pair at creation -- this one was
+            // originally missed and near-scanned its whole retention.
             $table->index('created_at');
+            $table->index(['status', 'created_at']);
         });
     }
 

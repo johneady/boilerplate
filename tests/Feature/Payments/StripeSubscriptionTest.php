@@ -38,7 +38,6 @@ beforeEach(function () {
         'stripe_sandbox_webhook_secret' => 'whsec_example',
     ]);
 
-    Http::preventStrayRequests();
     Notification::fake();
 });
 

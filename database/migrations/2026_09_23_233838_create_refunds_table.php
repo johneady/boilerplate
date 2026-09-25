@@ -36,6 +36,10 @@ return new class extends Migration
 
             $table->unique(['gateway', 'gateway_refund_id']);
             $table->index(['status', 'created_at']);
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none, and a payment's refunds are
+            // re-read under its row lock.
+            $table->index('payment_id');
         });
     }
 

@@ -36,6 +36,8 @@ return [
         'updated' => 'Mailer updated',
         'host_placeholder' => 'smtp.example.com',
         'port_placeholder' => '587',
+        'remove_password' => 'Remove the stored password',
+        'remove_password_help' => 'For a mail server that needs no password. A password typed into the field is used instead.',
     ],
 
     'logo' => [

@@ -16,6 +16,8 @@ return [
 
     'navigation_group' => 'Payments',
 
+    'ledger' => 'Ledger',
+
     'payment' => [
         'label' => 'Payment',
         'plural_label' => 'Payments',
@@ -51,6 +53,11 @@ return [
         'plural_label' => 'Disputes',
     ],
 
+    'refund' => [
+        'label' => 'Refund',
+        'plural_label' => 'Refunds',
+    ],
+
     'fields' => [
         'reference' => 'Reference',
         'created' => 'Created',
@@ -74,7 +81,6 @@ return [
         'failure_reason' => 'Failure reason',
         'gateway_checkout_id' => 'Gateway checkout ID',
         'gateway_payment_id' => 'Gateway payment ID',
-        'payable' => 'Paid for',
         'manual_method' => 'Received by',
         'manual_reference' => 'Receipt reference',
         'manual_received_on' => 'Received on',
@@ -90,7 +96,6 @@ return [
         'attempts' => 'Attempts',
         'event_id' => 'Event ID',
         'event_type' => 'Event type',
-        'processed' => 'Processed',
         'error' => 'Error',
         'payload' => 'Payload',
     ],
@@ -117,6 +122,7 @@ return [
         'settled' => 'Paid',
         'copied' => 'Link copied',
         'open' => 'Open',
+        'delete_taken' => 'A link that has taken payments cannot be deleted; switch it off instead.',
         'amount_positive' => 'Enter an amount greater than zero.',
         'max_below_min' => 'The maximum cannot be less than the minimum.',
     ],
@@ -161,7 +167,6 @@ return [
         'record_failed' => 'Payment not recorded',
         'retry' => 'Retry',
         'retried' => 'Event queued for processing',
-        'gateway_error' => 'The gateway said: :message',
     ],
 
     'settings' => [
@@ -179,7 +184,7 @@ return [
         'current_password_help' => 'Changing payment credentials requires your password.',
         'credentials_saved' => 'Credentials saved',
         'credentials_unchanged' => 'Nothing was changed',
-        'webhook_urls' => 'Webhook URLs',
+        'webhook_url' => ':mode: :url',
         'webhook_urls_help' => 'Point each gateway\'s webhook endpoint at the URL for its mode.',
     ],
 

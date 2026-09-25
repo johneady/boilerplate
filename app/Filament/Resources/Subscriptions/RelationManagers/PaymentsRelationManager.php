@@ -41,7 +41,7 @@ class PaymentsRelationManager extends RelationManager
                 TextColumn::make('status')
                     ->label(__('payments.fields.status'))
                     ->badge()
-                    ->formatStateUsing(fn (PaymentStatus $state): string => $state->label())
+                    ->formatStateUsing(fn (PaymentStatus $state): string => __($state->label()))
                     ->color(fn (PaymentStatus $state): string => $state->color()),
             ])
             ->defaultSort('id', 'desc')

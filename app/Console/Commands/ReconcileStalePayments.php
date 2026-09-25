@@ -33,6 +33,8 @@ use Throwable;
  *     are re-read from the gateway (a PayPal approval is captured on the way).
  *   - A subscription checkout still unfinished is re-read, which records a
  *     subscription whose webhooks were lost.
+ *   - A live subscription holding no slot is re-read, which re-claims the
+ *     slot once the subscription that held it has ended.
  *   - A webhook event stored but never processed (its dispatch failed) is
  *     dispatched again.
  *
@@ -117,6 +119,30 @@ class ReconcileStalePayments extends Command
             ->get();
 
         foreach ($incompleteSubscriptions as $subscription) {
+            try {
+                $reconcileSubscription->handle($subscription, TransactionSource::Scheduler);
+                $touched++;
+            } catch (Throwable $e) {
+                report($e);
+            }
+        }
+
+        // A live subscription whose slot is not held only re-claims it on
+        // its own reconcile, and nothing else schedules one: a duplicate
+        // that lost the slot when the winner ended stays slot-less forever,
+        // and the user cannot subscribe again, unless this batch re-reads
+        // it. The window gate keeps a duplicate the winner still holds from
+        // costing an API call every run.
+        $slotlessSubscriptions = Subscription::query()
+            ->whereIn('status', [SubscriptionStatus::Trialing->value, SubscriptionStatus::Active->value, SubscriptionStatus::PastDue->value])
+            ->whereNull('active_user_id')
+            ->whereNotNull('user_id')
+            ->where(fn ($query) => $query->whereNull('last_reconciled_at')->orWhere('last_reconciled_at', '<', $staleBefore))
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        foreach ($slotlessSubscriptions as $subscription) {
             try {
                 $reconcileSubscription->handle($subscription, TransactionSource::Scheduler);
                 $touched++;

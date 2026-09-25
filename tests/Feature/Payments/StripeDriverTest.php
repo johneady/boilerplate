@@ -24,8 +24,6 @@ beforeEach(function () {
         'stripe_sandbox_secret_key' => 'sk_test_51Example',
         'stripe_sandbox_webhook_secret' => 'whsec_example',
     ]);
-
-    Http::preventStrayRequests();
 });
 
 /**
@@ -164,6 +162,18 @@ test('a Stripe outage is reported as unavailable, to be retried, not as a refusa
     'rate limited' => fn () => Http::response(['error' => ['message' => 'Too many']], 429),
     'no connection' => fn () => Http::failedConnection(),
 ])->throws(GatewayUnavailable::class);
+
+test('a Stripe outage on a later page of refunds is reported as unavailable too', function () {
+    $payment = stripePayment([
+        'GET /v1/checkout/sessions/cs_test_a1B2c3' => PaymentFixtures::load('stripe/checkout_session_paid'),
+        // The first page promises more; fetching the next one fails.
+        'GET /v1/refunds' => fn (Request $request) => str_contains($request->url(), 'starting_after')
+            ? Http::response(['error' => ['message' => 'Internal']], 500)
+            : Http::response(PaymentFixtures::load('stripe/refund_list', ['has_more' => true, 'data' => [PaymentFixtures::load('stripe/refund')]])),
+    ]);
+
+    app(PaymentManager::class)->driverFor($payment)->fetch($payment);
+})->throws(GatewayUnavailable::class);
 
 test('a request Stripe rejects is reported as a refusal with Stripe\'s reason', function () {
     $payment = stripePayment([

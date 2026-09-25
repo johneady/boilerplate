@@ -253,4 +253,18 @@ class Subscription extends Model
     {
         return "{$this->uuid}:{$operation}";
     }
+
+    /**
+     * The idempotency key for changing this subscription to a price.
+     *
+     * Both subscription gateways build the same key, so it lives here where
+     * the two cannot drift: keyed on the change AND the subscription's last
+     * update, so a double click sends one change while switching back to a
+     * price used earlier the same day is not mistaken for a replay of the
+     * first switch.
+     */
+    public function swapIdempotencyKey(PlanPrice $to): string
+    {
+        return $this->gatewayKey("swap:{$this->plan_price_id}:{$to->id}:".($this->updated_at?->getTimestamp() ?? 0));
+    }
 }

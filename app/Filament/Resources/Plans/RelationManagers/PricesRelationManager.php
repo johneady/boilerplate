@@ -48,7 +48,7 @@ class PricesRelationManager extends RelationManager
                     }),
                 Select::make('interval')
                     ->label(__('payments.plans.interval'))
-                    ->options(BillingInterval::options())
+                    ->options(array_map(fn (string $label): string => __($label), BillingInterval::options()))
                     ->default(BillingInterval::Month->value)
                     ->required()
                     ->selectablePlaceholder(false),

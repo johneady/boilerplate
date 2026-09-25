@@ -64,3 +64,20 @@ test('a subscription whose return and webhooks were lost is picked up by the sta
     expect($subscription->fresh()->status)->toBe(SubscriptionStatus::Active)
         ->and($subscription->payments()->count())->toBe(1);
 });
+
+test('a live subscription holding no slot re-claims it through the stale reconciliation', function () {
+    // The state a duplicate ends up in once the subscription that held the
+    // slot has ended: live at the gateway, but slot-less here, and with no
+    // webhook of its own coming to reconcile it.
+    $subscription = Payments::subscribeWithDemo(User::factory()->create(), PlanPrice::factory()->create());
+    $subscription->forceFill(['active_user_id' => null, 'last_reconciled_at' => now()])->save();
+
+    $this->travel(20)->minutes();
+
+    $this->artisan('payments:reconcile-stale')->assertSuccessful();
+
+    $subscription = $subscription->fresh();
+
+    expect($subscription->status)->toBe(SubscriptionStatus::Active)
+        ->and($subscription->active_user_id)->toBe($subscription->user_id);
+});

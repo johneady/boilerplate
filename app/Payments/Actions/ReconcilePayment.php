@@ -133,6 +133,9 @@ class ReconcilePayment
 
             $this->recomputeProjections($locked);
             $this->advance($locked, new GatewayPaymentState(GatewayStatus::Captured));
+            // Set here too, like apply(): a just-refunded payment need not be
+            // re-read by the next stale sweep to learn what it just wrote.
+            $locked->last_reconciled_at = CarbonImmutable::now();
             $locked->save();
 
             return [$confirmed, $reversed, $this->findRefund($locked, $gatewayRefund)];
@@ -191,7 +194,7 @@ class ReconcilePayment
 
         if ($refund->status->canTransitionTo($gatewayRefund->status)) {
             $refund->status = $gatewayRefund->status;
-            $refund->failure_reason = $gatewayRefund->failureReason;
+            $refund->failure_reason = $gatewayRefund->failureReason !== null ? mb_substr($gatewayRefund->failureReason, 0, 255) : null;
         } elseif ($refund->status !== $gatewayRefund->status) {
             Log::warning('Ignored a backwards refund status change.', [
                 'refund' => $refund->uuid,

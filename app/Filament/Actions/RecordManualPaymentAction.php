@@ -57,7 +57,7 @@ class RecordManualPaymentAction
                     ->required(),
                 Select::make('method')
                     ->label(__('payments.fields.manual_method'))
-                    ->options(ManualPaymentMethod::options())
+                    ->options(array_map(fn (string $label): string => __($label), ManualPaymentMethod::options()))
                     ->required()
                     ->selectablePlaceholder(false),
                 TextInput::make('reference')

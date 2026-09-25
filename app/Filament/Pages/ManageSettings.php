@@ -331,10 +331,20 @@ class ManageSettings extends Page
             ->color(fn (): string => $this->settings()->effectiveMailer() === 'smtp' ? 'success' : 'gray')
             ->modalHeading(__('settings.mailer.heading'))
             ->modalDescription(SettingKey::MailMailer->helperText())
-            ->form(array_map(
-                fn (SettingKey $key): Field => $this->formComponent($key),
-                self::MAILER_MODAL_KEYS,
-            ))
+            ->form([
+                ...array_map(
+                    fn (SettingKey $key): Field => $this->formComponent($key),
+                    self::MAILER_MODAL_KEYS,
+                ),
+                // The password is write-only, so a blank field cannot mean
+                // "no password": removing one is this toggle's explicit
+                // say-so, the way entering one is the field's.
+                Toggle::make('remove_mail_password')
+                    ->label(__('settings.mailer.remove_password'))
+                    ->helperText(__('settings.mailer.remove_password_help'))
+                    ->visible(fn (Get $get): bool => $get(SettingKey::MailMailer->value) === 'smtp')
+                    ->dehydrated(fn (Get $get): bool => $get(SettingKey::MailMailer->value) === 'smtp'),
+            ])
             // mountUsing rather than fillForm: fillForm is itself just a
             // mountUsing callback, so the guard and the fill share the one
             // hook. Halting inside mount unmounts the action, so the mailer
@@ -357,6 +367,21 @@ class ManageSettings extends Page
                 ));
             })
             ->action(function (array $data): void {
+                // Write-only, like a gateway secret: the password is never
+                // filled into the modal (toArray() leaves encrypted keys
+                // out), so a blank field keeps the stored one. Removing it is
+                // the toggle's explicit say-so -- "no password" is a real
+                // mail configuration, not something a blank may decide.
+                if (trim((string) ($data[SettingKey::MailPassword->value] ?? '')) === '') {
+                    if (($data['remove_mail_password'] ?? false) === true) {
+                        $data[SettingKey::MailPassword->value] = '';
+                    } else {
+                        unset($data[SettingKey::MailPassword->value]);
+                    }
+                }
+
+                unset($data['remove_mail_password']);
+
                 $this->settings()->setMany($data);
 
                 // Fail closed, the way the service applies it: an SMTP row
@@ -730,7 +755,7 @@ class ManageSettings extends Page
                     ->label(__('payments.fields.gateway'))
                     ->options(fn (): array => collect([Gateway::Stripe, Gateway::PayPal])
                         ->filter(fn (Gateway $gateway): bool => app(PaymentCredentials::class)->isConfigured($gateway, app(PaymentManager::class)->mode()))
-                        ->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => $gateway->label()])
+                        ->mapWithKeys(fn (Gateway $gateway): array => [$gateway->value => __($gateway->label())])
                         ->all())
                     ->required(),
                 TextInput::make('current_password')
@@ -772,7 +797,7 @@ class ManageSettings extends Page
      */
     protected function connectWebhooksDescription(): string
     {
-        return (string) __('payments.settings.connect_webhooks_help', ['mode' => app(PaymentManager::class)->mode()->label()]);
+        return (string) __('payments.settings.connect_webhooks_help', ['mode' => __(app(PaymentManager::class)->mode()->label())]);
     }
 
     /**
@@ -787,7 +812,10 @@ class ManageSettings extends Page
         ];
 
         foreach (GatewayMode::cases() as $mode) {
-            $lines[] = $mode->label().': '.route('payments.webhook', ['gateway' => $gateway->value, 'mode' => $mode->value]);
+            $lines[] = (string) __('payments.settings.webhook_url', [
+                'mode' => __($mode->label()),
+                'url' => route('payments.webhook', ['gateway' => $gateway->value, 'mode' => $mode->value]),
+            ]);
         }
 
         // Every line escaped; only the line breaks are markup.
@@ -917,13 +945,7 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->maxLength(255)
                 ->visible($this->whenMailerIsSmtp()),
-            SettingKey::MailPassword => TextInput::make($key->value)
-                ->label($key->label())
-                ->helperText($key->helperText())
-                ->default($key->default())
-                ->password()
-                ->revealable()
-                ->maxLength(255)
+            SettingKey::MailPassword => $this->credentialField($key)
                 ->visible($this->whenMailerIsSmtp()),
             SettingKey::MailEncryption => Select::make($key->value)
                 ->label($key->label())
@@ -1011,7 +1033,7 @@ class ManageSettings extends Page
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default())
-                ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => $mode->label()])->all())
+                ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => __($mode->label())])->all())
                 ->required()
                 ->selectablePlaceholder(false),
             SettingKey::PaymentsCurrency => Select::make($key->value)
@@ -1136,7 +1158,7 @@ class ManageSettings extends Page
      */
     protected function whenMailerIsSmtp(): Closure
     {
-        return fn (Get $get): bool => $get('mail_mailer') === 'smtp';
+        return fn (Get $get): bool => $get(SettingKey::MailMailer->value) === 'smtp';
     }
 
     /**

@@ -90,7 +90,10 @@ trait ManagesStripeSubscriptions
             return false;
         }
 
-        foreach ($plan->prices()->get() as $price) {
+        // The relation property, not prices()->get(): a table or diagnostics
+        // page that eager-loads prices for many plans is then answered from
+        // memory instead of one query per plan per gateway.
+        foreach ($plan->prices as $price) {
             $ref = $price->gatewayRef(Gateway::Stripe, $this->mode);
 
             // An inactive price never synced needs nothing; any other price
@@ -128,7 +131,7 @@ trait ManagesStripeSubscriptions
             'subscription_data' => $subscriptionData,
             'success_url' => $urls->returnUrl,
             'cancel_url' => $urls->cancelUrl,
-            'expires_at' => now()->addMinutes(max(30, min(1440, (int) config('payments.checkout_expiry_minutes'))))->getTimestamp(),
+            'expires_at' => $this->checkoutExpiresAt(),
         ], ['idempotency_key' => $subscription->gatewayKey('checkout')]));
 
         return new CheckoutSession((string) $session->id, (string) $session->url);
@@ -231,7 +234,7 @@ trait ManagesStripeSubscriptions
             // The customer is charged or credited for the rest of the
             // current period on the next invoice.
             'proration_behavior' => 'create_prorations',
-        ], ['idempotency_key' => $this->swapKey($subscription, $price)]));
+        ], ['idempotency_key' => $subscription->swapIdempotencyKey($price)]));
 
         return null;
     }
@@ -430,17 +433,21 @@ trait ManagesStripeSubscriptions
      */
     private function paidInvoices(string $subscriptionId, Currency $currency): array
     {
-        $invoices = $this->call(fn () => $this->client()->invoices->all([
+        // Auto-paged: a subscription renewed for years can exceed one page
+        // of invoices, and an invoice missing from this state is a payment
+        // the ledger does not know was taken. Drained inside call(), since
+        // every page after the first is its own request that can fail.
+        $invoices = $this->call(fn (): array => iterator_to_array($this->client()->invoices->all([
             'subscription' => $subscriptionId,
             'status' => 'paid',
             'limit' => 100,
             'expand' => ['data.payments'],
-        ]));
+        ])->autoPagingIterator(), preserve_keys: false));
 
         $paid = [];
         $knownRates = $this->knownTaxRates();
 
-        foreach ($invoices->data as $object) {
+        foreach ($invoices as $object) {
             /** @var StripeObject $object */
             $invoice = $object->toArray();
             $amount = (int) ($invoice['amount_paid'] ?? 0);
@@ -542,16 +549,6 @@ trait ManagesStripeSubscriptions
         }
 
         return $lines;
-    }
-
-    /**
-     * Keyed on the change and on the subscription's last update, so a double
-     * click sends one change while switching back to a price used earlier
-     * the same day is not mistaken for a replay of the first switch.
-     */
-    private function swapKey(Subscription $subscription, PlanPrice $price): string
-    {
-        return $subscription->gatewayKey("swap:{$subscription->plan_price_id}:{$price->id}:".($subscription->updated_at?->getTimestamp() ?? 0));
     }
 
     private function timestamp(mixed $value): ?CarbonImmutable
