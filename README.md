@@ -353,6 +353,15 @@ Settings, the receipt number and each tax's registration number. Sandbox
 receipts are stamped as test payments and named `…-test.pdf`. Paper size is
 `payments.receipt_paper` (`letter` or `a4`).
 
+**Exports.** Payments (paid ones, with a column per tax and a *Paid between*
+filter), refunds (succeeded, with a date range) and users export to CSV or
+Excel through Filament's exporter, from the Payments and Users screens, for
+anyone who can view that list. The file is built on the queue and its
+download link arrives in the panel's notification bell. Dates are ISO in the
+business timezone, amounts plain decimals, and customer-typed text is guarded
+against spreadsheet formula injection. `app:prune-exports` deletes exports,
+their files and their notifications after a week.
+
 **Credentials** are entered in the panel, one set for sandbox and one for
 live, and are encrypted with `APP_KEY`, never sent back to the browser, and
 changed only with the administrator's password; every change emails the ops

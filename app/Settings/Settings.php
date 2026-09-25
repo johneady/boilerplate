@@ -7,6 +7,7 @@ use App\Audit\AuditLogger;
 use App\Media\MediaCollection;
 use App\Models\Media;
 use App\Models\Setting;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Database\LostConnectionException;
@@ -317,6 +318,41 @@ class Settings
     public function formatDate(?CarbonInterface $date): string
     {
         return $this->format($date, $this->string(SettingKey::DateFormat));
+    }
+
+    /**
+     * Format a calendar date -- a DATE column, with no time of day -- as the
+     * administrator configured.
+     *
+     * Not moved into the display timezone, unlike formatDate(): a date column
+     * loads as midnight UTC, and shifting that west of UTC would print the
+     * day before the one that was entered.
+     */
+    public function formatCalendarDate(?CarbonInterface $date): string
+    {
+        if ($date === null) {
+            return '';
+        }
+
+        return $date->locale($this->string(SettingKey::Locale))->translatedFormat($this->string(SettingKey::DateFormat));
+    }
+
+    /**
+     * The first instant of a business calendar day (Y-m-d), in UTC.
+     *
+     * Date filters speak in the business's days; timestamp columns are UTC.
+     */
+    public function startOfBusinessDay(string $date): CarbonImmutable
+    {
+        return CarbonImmutable::parse($date, $this->string(SettingKey::Timezone))->startOfDay()->utc();
+    }
+
+    /**
+     * The last instant of a business calendar day (Y-m-d), in UTC.
+     */
+    public function endOfBusinessDay(string $date): CarbonImmutable
+    {
+        return CarbonImmutable::parse($date, $this->string(SettingKey::Timezone))->endOfDay()->utc();
     }
 
     /**

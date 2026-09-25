@@ -112,6 +112,16 @@ Schedule::command('app:adopt-page-body-images')
     ->onOneServer()
     ->description('Adopt referenced page-body uploads into the media library, and collect the rest');
 
+/*
+ * Daily: an export is announced by a notification the same minute it
+ * finishes, so a week's retention is measured in days, not hours.
+ */
+Schedule::command('app:prune-exports')
+    ->daily()
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Delete exports older than a week, and their files');
+
 /**
  * Restart queue workers nightly.
  *

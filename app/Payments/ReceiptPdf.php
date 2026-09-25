@@ -93,7 +93,9 @@ class ReceiptPdf
             'logo' => $this->logoDataUri(),
             // A manual payment is dated by when the money arrived, as the
             // ledger records it, not by when somebody entered it.
-            'paidOn' => $this->settings->formatDate($payment->manual_received_on ?? $payment->paid_at),
+            'paidOn' => $payment->manual_received_on !== null
+                ? $this->settings->formatCalendarDate($payment->manual_received_on)
+                : $this->settings->formatDate($payment->paid_at),
         ])->render();
     }
 

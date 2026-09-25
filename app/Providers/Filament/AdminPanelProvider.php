@@ -97,6 +97,12 @@ class AdminPanelProvider extends PanelProvider
             // fetched from ui-avatars.com and so leaks the user's name to a
             // third party on every panel page view.
             ->defaultAvatarProvider(InitialsAvatarProvider::class)
+            // The topbar bell. Exports arrive here -- the file is built in the
+            // background and its download link is a database notification --
+            // and it is where operational alerts can be delivered in-panel.
+            // Polled rather than broadcast: no websocket server to run.
+            ->databaseNotifications()
+            ->databaseNotificationsPolling('30s')
             // No resource is worth a topbar search field on this panel yet.
             ->globalSearch(false)
             // amber, zinc, sky, emerald and violet back the role badges

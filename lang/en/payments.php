@@ -61,6 +61,10 @@ return [
     'fields' => [
         'reference' => 'Reference',
         'receipt_number' => 'Receipt number',
+        'paid_from' => 'Paid from',
+        'paid_until' => 'Paid until',
+        'paid_from_indicator' => 'Paid from :date',
+        'paid_until_indicator' => 'Paid until :date',
         'tax_line' => ':tax: :amount',
         'tax_line_registered' => ':tax: :amount (registration no. :number)',
         'created' => 'Created',
@@ -144,6 +148,7 @@ return [
 
     'actions' => [
         'download_receipt' => 'Download receipt',
+        'export' => 'Export payments',
         'refund' => 'Refund',
         'refund_heading' => 'Refund this payment',
         'refund_amount' => 'Amount to refund',

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Users;
 
 use App\Auth\Role;
+use App\Filament\Exports\UserExporter;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\User;
 use App\Settings\Settings;
@@ -11,6 +12,7 @@ use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
+use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
@@ -159,6 +161,11 @@ class UserResource extends Resource
                 TernaryFilter::make('email_verified_at')
                     ->label(__('users.fields.email_verified'))
                     ->nullable(),
+            ])
+            ->headerActions([
+                ExportAction::make()
+                    ->label(__('users.export'))
+                    ->exporter(UserExporter::class),
             ])
             ->recordActions([
                 EditAction::make()
