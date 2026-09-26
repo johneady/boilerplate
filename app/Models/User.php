@@ -280,12 +280,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     {
         return $this->subscriptions()
             ->with(['plan', 'price', 'pendingPrice'])
-            ->whereIn('status', array_map(
-                fn (SubscriptionStatus $status): string => $status->value,
-                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
-            ))
-            ->orderByRaw('active_user_id IS NULL')
-            ->latest('id')
+            ->currentFirst()
             ->first();
     }
 

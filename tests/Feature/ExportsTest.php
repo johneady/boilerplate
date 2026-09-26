@@ -7,6 +7,7 @@ use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Models\Payment;
 use App\Models\PaymentLink;
 use App\Models\Refund;
+use App\Models\Subscription;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Payments\Actions\RecordManualPayment;
@@ -14,6 +15,7 @@ use App\Payments\Actions\RefundPayment;
 use App\Payments\Enums\Currency;
 use App\Payments\Enums\ManualPaymentMethod;
 use App\Payments\Enums\RefundStatus;
+use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Money;
 use App\Payments\ReceiptPdf;
 use App\Settings\SettingKey;
@@ -152,6 +154,40 @@ test('a manager exports the user list', function () {
 
     expect(exportedColumn(exportedRows(), 'Email'))->toContain('priya@example.test');
 });
+
+test('the users export shows each user\'s current subscription', function () {
+    $user = User::factory()->create(['email' => 'sub@example.test']);
+    $live = Subscription::factory()->for($user)->create(['status' => SubscriptionStatus::Active]);
+    // Newer, but over: the live one is still the current one.
+    Subscription::factory()->for($user)->create(['status' => SubscriptionStatus::Canceled]);
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    Livewire::test(ManageUsers::class)->callTableAction('export');
+
+    $rows = exportedRows();
+    $row = array_search('sub@example.test', exportedColumn($rows, 'Email'), true);
+
+    expect(exportedColumn($rows, 'Subscription')[$row])->toBe($live->plan->name.' (Active)');
+});
+
+test('the users export reads subscriptions in a fixed number of queries, however many users', function (int $users) {
+    Subscription::factory()->count($users)->create();
+
+    $this->actingAs(User::factory()->admin()->create());
+
+    $queries = 0;
+    DB::listen(function ($query) use (&$queries): void {
+        if (str_contains($query->sql, 'from "subscriptions"') || str_contains($query->sql, 'from `subscriptions`')) {
+            $queries++;
+        }
+    });
+
+    Livewire::test(ManageUsers::class)->callTableAction('export');
+
+    // One query for every chunk's subscriptions, not one per user.
+    expect($queries)->toBe(1);
+})->with([3, 30]);
 
 test('text a customer typed cannot run as a spreadsheet formula', function () {
     $payment = Payments::payWithDemo(PaymentLink::factory()->create());
