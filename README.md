@@ -635,10 +635,15 @@ vendor/bin/pest --ci
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
 `main` and every pull request:
 
-- **Pint & PHPStan** — `pint --test` and `phpstan analyse` (level 8).
+- **Pint, PHPStan & Prettier** — `pint --test`, `phpstan analyse` (level 8)
+  and `npm run format:check`. Every Pest job waits for this one.
 - **Pest** — the suite on sqlite, in parallel.
-- **Pest (mysql / mariadb)** — the same suite against `mysql:8.4` and
-  `mariadb:11`.
+- **Pest (browser)** — the browser suite.
+- **Pest (mysql / mariadb / pgsql)** — the same suite against `mysql:8.4`,
+  `mariadb:11` and `postgres:17`.
+- **Docker** — on pushes to `main` only, once every job above is green, calls
+  [`.github/workflows/docker.yml`](.github/workflows/docker.yml) to build and
+  publish the image to GHCR.
 
 That last job exists because production runs MySQL or MariaDB (the Dockerfile
 installs `pdo_mysql`) while the fast job runs sqlite, which tolerates looser

@@ -19,9 +19,13 @@ on:
   # `demo-<slug>`, and `latest` stays main-only via is_default_branch.
   # A single `*` on purpose: a nested demo/a/b would be tagged demo-a-b while
   # the deploy summary below printed demo-a/b, which is not a valid tag.
+  # main is NOT here: ci.yml calls this workflow after its test jobs pass, so
+  # main only publishes a tested commit. demo/* and v* tags stay direct --
+  # ci.yml does not run on either, so there is nothing to wait for.
   push:
-    branches: [main, 'demo/*']
+    branches: ['demo/*']
     tags: ['v*']
+  workflow_call:
   # Build (but never push) on PRs that touch the image, so a broken Dockerfile
   # is caught on the branch rather than at deploy time. The extension assertion
   # in the runtime stage is the point: it turns a dropped gd configure flag or
