@@ -17,6 +17,8 @@ use App\Payments\Tax\TaxLine;
 use Carbon\CarbonImmutable;
 use Database\Factories\PaymentFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -238,6 +240,23 @@ class Payment extends Model
     public function disputes(): HasMany
     {
         return $this->hasMany(Dispute::class);
+    }
+
+    /**
+     * Held payments that lapse within the warning window unless captured.
+     *
+     * The window the expiry warning email uses; lapsed ones are excluded,
+     * since they can no longer be captured at all.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function holdsExpiringSoon(Builder $query): void
+    {
+        $query->where('status', PaymentStatus::Authorized->value)
+            ->whereNotNull('authorization_expires_at')
+            ->where('authorization_expires_at', '<=', now()->addHours((int) config('payments.authorization_warning_hours')))
+            ->where('authorization_expires_at', '>', now());
     }
 
     /**

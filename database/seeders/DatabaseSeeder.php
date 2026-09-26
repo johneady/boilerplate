@@ -56,6 +56,13 @@ class DatabaseSeeder extends Seeder
                 $this->seedDemoAccount($email, trim((string) ($account['name'] ?? '')) ?: $email, $role);
             }
         }
+
+        // A year of demo trading, so the dashboard and payment screens have
+        // something to show. Not in the test suite: it drives hundreds of
+        // payments through the real actions, and has a test of its own.
+        if (! app()->environment('testing')) {
+            $this->call(DemoBusinessSeeder::class);
+        }
     }
 
     /**

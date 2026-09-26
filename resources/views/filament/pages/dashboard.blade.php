@@ -1,4 +1,10 @@
 <x-filament-panels::page>
+    {{-- The business overview widgets. Each checks the viewer may see it. --}}
+    {{ $this->content }}
+
+    {{-- The introduction to John Eady's work is for demo instances only: a
+         client's live site must never carry it. --}}
+    @unless (app()->environment('production'))
     <div
         x-data
         x-init="
@@ -8,8 +14,6 @@
             }
         "
     >
-        {{-- Business overview widgets --}}
-        {{ $this->content }}
 
         {{-- Reopen strip: the introduction lives in a modal, so this stays on the page
          as the way back in. --}}
@@ -29,10 +33,10 @@
                             icon="heroicon-s-information-circle"
                             class="size-4.5 shrink-0 text-blue-700 dark:text-blue-400"
                         />
-                        The widgets above are generic examples
+                        {{ __('The figures above are demo data') }}
                     </h2>
                     <p class="mt-0.5 text-xs font-semibold text-blue-800/80 dark:text-blue-200/80">
-                        In the finished product they are replaced with widgets built around your real business data.
+                        {{ __('In the finished product they come from your real sales, customers and messages.') }}
                         <span class="font-normal text-blue-700 dark:text-blue-300/80">The panel itself is a live work sample by John Eady. See the story behind both.</span>
                     </p>
                 </div>
@@ -237,4 +241,5 @@
             </x-slot>
         </x-filament::modal>
     </div>
+    @endunless
 </x-filament-panels::page>

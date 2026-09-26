@@ -62,10 +62,7 @@ class DisputeResource extends Resource
 
     public static function getNavigationBadge(): ?string
     {
-        $open = Dispute::query()
-            ->where('status', DisputeStatus::NeedsResponse->value)
-            ->where('mode', app(PaymentManager::class)->mode()->value)
-            ->count();
+        $open = Dispute::query()->needingResponse(app(PaymentManager::class)->mode())->count();
 
         return $open > 0 ? (string) $open : null;
     }

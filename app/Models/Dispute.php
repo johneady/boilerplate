@@ -12,6 +12,8 @@ use App\Payments\Money;
 use Carbon\CarbonImmutable;
 use Database\Factories\DisputeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -113,5 +115,17 @@ class Dispute extends Model
             Gateway::Stripe => 'https://dashboard.stripe.com/'.($sandbox ? 'test/' : '').'disputes/'.$this->gateway_dispute_id,
             default => 'https://www.'.($sandbox ? 'sandbox.' : '').'paypal.com/resolutioncenter',
         };
+    }
+
+    /**
+     * Disputes in a payments mode waiting on the business's response, each
+     * against a deadline after which it is lost.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function needingResponse(Builder $query, GatewayMode $mode): void
+    {
+        $query->where('status', DisputeStatus::NeedsResponse->value)->where('mode', $mode->value);
     }
 }

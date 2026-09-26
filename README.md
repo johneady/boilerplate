@@ -105,6 +105,18 @@ Filament 5 serves an admin panel at `/admin`. Access is gated on the
 [`FilamentAuthenticate`](app/Http/Middleware/FilamentAuthenticate.php), which
 403s non-admins and sends guests to Fortify's login page.
 
+**The dashboard** shows the business at a glance from real data
+([`BusinessMetrics`](app/Payments/BusinessMetrics.php)): revenue this month
+against the same point last month (net of refunds, read from the ledger), new
+customers, active subscriptions and monthly recurring revenue, twelve months
+of revenue, and a *Needs attention* list — disputes awaiting a response,
+failed renewals, holds about to lapse, unanswered messages. Each widget and
+item appears only to someone with the permission to act on it. Outside
+production, `DemoBusinessSeeder` fills a fresh install with a year of demo
+trading through the real payment actions (sandbox, Demo gateway), and the
+dashboard carries the introduction to the author's work; production never
+shows it.
+
 **The panel has no login page of its own.** `filament:install --panels`
 scaffolds `->login()` in the panel provider, which would register a second login
 at `/admin/login` — bypassing Fortify and with it 2FA, passkeys, and email

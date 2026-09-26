@@ -35,11 +35,8 @@ class CheckPaymentAuthorizations extends Command
         $warned = 0;
 
         Payment::query()
-            ->where('status', PaymentStatus::Authorized->value)
+            ->holdsExpiringSoon()
             ->whereNull('expiry_alerted_at')
-            ->whereNotNull('authorization_expires_at')
-            ->where('authorization_expires_at', '<=', now()->addHours((int) config('payments.authorization_warning_hours')))
-            ->where('authorization_expires_at', '>', now())
             ->chunkById(100, function ($payments) use ($opsAlerts, &$warned): void {
                 foreach ($payments as $payment) {
                     $claimed = Payment::query()
