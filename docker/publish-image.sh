@@ -31,6 +31,12 @@
 #
 # Auth: needs a GitHub PAT with `write:packages` in GHCR_TOKEN, or an already
 # logged-in `gh` (the script falls back to `gh auth token`).
+#
+# If this script is the FIRST thing to push to the package, GitHub creates it
+# with no Actions access, and the workflow then fails every push with
+# `denied: permission_denied: read_package` despite its `packages: write`.
+# Fix it once in the package settings: Manage Actions access -> add this repo
+# with role Write (Read is the default and still fails).
 
 set -euo pipefail
 
@@ -42,7 +48,7 @@ for arg in "$@"; do
   case "$arg" in
     --also-latest) ALSO_LATEST=1 ;;
     --dry-run) DRY_RUN=1 ;;
-    -h|--help) sed -n '2,30p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,39p' "$0"; exit 0 ;;
     *) echo "error: unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
