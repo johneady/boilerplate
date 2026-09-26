@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Users;
 use App\Auth\Role;
 use App\Filament\Exports\UserExporter;
 use App\Filament\Resources\Users\Pages\ManageUsers;
+use App\Media\MediaCollection;
 use App\Models\User;
 use App\Settings\Settings;
 use BackedEnum;
@@ -25,6 +26,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
@@ -95,6 +97,14 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            // Only the avatar collection is eager-loaded, because the avatar
+            // column below resolves through avatarUrl() -> getMedia(), which
+            // would otherwise run one media query per row of this table.
+            // getMedia() filters the loaded relation in memory, and skipping
+            // the other collections keeps the eager load to one row per user.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(
+                ['media' => fn ($media) => $media->inCollection(MediaCollection::Avatar)],
+            ))
             ->columns([
                 // State is resolved through User::avatarUrl() rather than from
                 // the media row directly: the row's `path` holds the conversion

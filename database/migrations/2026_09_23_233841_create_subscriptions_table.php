@@ -73,6 +73,16 @@ return new class extends Migration
             $table->unique(['gateway', 'gateway_subscription_id']);
             $table->unique(['gateway', 'gateway_checkout_id']);
             $table->index(['status', 'created_at']);
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none. user_id backs User::
+            // subscriptions(), read behind the subscribed: middleware on every
+            // gated request; plan_price_id backs the per-price subscription
+            // count in the plan prices relation manager.
+            $table->index('user_id');
+            $table->index('plan_price_id');
+            // The subscriptions table's default sort is created_at desc under
+            // the default mode filter, matching payments above.
+            $table->index(['mode', 'created_at']);
         });
     }
 

@@ -72,6 +72,11 @@ return new class extends Migration
             // Answers "which rows own no record", which is what the orphan
             // prune scans for.
             $table->index('created_at');
+
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none. Serves the media table's
+            // eager uploader load (with('uploader') queries by uploaded_by).
+            $table->index('uploaded_by');
         });
     }
 

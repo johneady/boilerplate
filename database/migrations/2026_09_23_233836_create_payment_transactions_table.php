@@ -35,6 +35,12 @@ return new class extends Migration
             // SQLite and PostgreSQL create none, and the reconcile projections
             // count these rows under the payment's row lock.
             $table->index('payment_id');
+            // Serves the metrics ledger queries (BusinessMetrics::ledger()),
+            // which always filter one currency over an occurred_at range: the
+            // equality column comes first so the range can use the index. The
+            // table is append-only, so without it every dashboard load means
+            // a full scan that only ever grows.
+            $table->index(['currency', 'occurred_at']);
         });
     }
 

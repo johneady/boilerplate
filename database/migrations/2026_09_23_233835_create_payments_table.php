@@ -84,6 +84,18 @@ return new class extends Migration
 
             $table->unique(['mode', 'receipt_number']);
 
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none. user_id backs the customer's
+            // own payment history (Livewire billing settings reads the latest
+            // paid payment per user); recorded_by is the same portability
+            // sweep, read through the recorder relation.
+            $table->index('user_id');
+            $table->index('recorded_by');
+            // The payments table's default sort is created_at desc under the
+            // default mode filter, which the ['status', 'created_at'] index
+            // cannot serve because status is not filtered by default.
+            $table->index(['mode', 'created_at']);
+
             // Unique per gateway: a webhook or return naming a gateway id
             // resolves to exactly one payment. MySQL, MariaDB, PostgreSQL and
             // SQLite all allow any number of NULLs in a unique index.

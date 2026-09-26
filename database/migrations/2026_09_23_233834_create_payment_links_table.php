@@ -39,6 +39,10 @@ return new class extends Migration
             // For the reverse lookup "which link did this payment settle",
             // which the admin panel makes per payment.
             $table->index('settled_payment_id');
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none. Same portability sweep as the
+            // hot-path FK indexes above; creator() reads it.
+            $table->index('created_by');
         });
     }
 
