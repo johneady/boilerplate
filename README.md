@@ -117,6 +117,14 @@ trading through the real payment actions (sandbox, Demo gateway), and the
 dashboard carries the introduction to the author's work; production never
 shows it.
 
+**The business summary** (`app:send-business-summary`, checked hourly) emails
+every administrator the same figures at 8am on Monday for the week just
+ended — or on the 1st for the month — in the display timezone. It is on by
+default and set under Settings → Email, skips a period with no activity, and
+records each period sent in the settings table (not the cache, which every
+container start clears), so a redeploy never sends it twice. `--force` sends
+the last period now.
+
 **The panel has no login page of its own.** `filament:install --panels`
 scaffolds `->login()` in the panel provider, which would register a second login
 at `/admin/login` — bypassing Fortify and with it 2FA, passkeys, and email

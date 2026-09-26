@@ -142,6 +142,18 @@ enum SettingKey: string
 
     case OpsAlertEmail = 'ops_alert_email';
 
+    case SummaryEmailEnabled = 'summary_email_enabled';
+
+    case SummaryEmailFrequency = 'summary_email_frequency';
+
+    /**
+     * The period the last summary covered, e.g. "weekly:2026-09-14". Written
+     * by app:send-business-summary, never by the form: kept in the database
+     * rather than the cache because every container start clears the cache,
+     * and a Monday redeploy must not email everyone again.
+     */
+    case SummaryEmailLastPeriod = 'summary_email_last_period';
+
     case Timezone = 'timezone';
 
     case Locale = 'locale';
@@ -200,7 +212,7 @@ enum SettingKey: string
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
-            self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => SettingsTab::Mail,
+            self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod => SettingsTab::Mail,
             self::Timezone, self::Locale, self::DateFormat, self::TimeFormat => SettingsTab::LocaleTime,
             self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret,
@@ -221,6 +233,11 @@ enum SettingKey: string
             self::AllowRegistration => false,
             self::MailMailer => 'log',
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => '',
+            // On by default: the summary is for the owner, who should not
+            // have to find a setting to start receiving it.
+            self::SummaryEmailEnabled => true,
+            self::SummaryEmailFrequency => 'weekly',
+            self::SummaryEmailLastPeriod => '',
             // UTC is the storage timezone this application pins in config, so
             // the display setting defaults to it too: reading an unsaved row
             // and reading a hand-edited one agree.
@@ -255,6 +272,9 @@ enum SettingKey: string
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
             self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => self::toFilledString($value, ''),
+            self::SummaryEmailEnabled => self::toBoolean($value),
+            self::SummaryEmailFrequency => self::toOneOf($value, ['weekly', 'monthly'], 'weekly'),
+            self::SummaryEmailLastPeriod => self::toFilledString($value, ''),
             self::Timezone => self::toTimezone($value),
             self::Locale => self::toOneOf($value, array_keys(self::LOCALES), 'en'),
             self::DateFormat => self::toOneOf($value, array_keys(self::DATE_FORMATS), array_key_first(self::DATE_FORMATS)),
@@ -367,7 +387,7 @@ enum SettingKey: string
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
-            self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
+            self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod, self::Timezone, self::Locale, self::DateFormat,
             self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,
         };
@@ -394,7 +414,7 @@ enum SettingKey: string
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress,
-            self::MailFromName, self::OpsAlertEmail, self::Timezone, self::Locale, self::DateFormat,
+            self::MailFromName, self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod, self::Timezone, self::Locale, self::DateFormat,
             self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
             self::PayPalSandboxClientId, self::PayPalSandboxWebhookId, self::PayPalLiveClientId, self::PayPalLiveWebhookId => false,
         };
@@ -424,6 +444,9 @@ enum SettingKey: string
             self::MailFromAddress => 'From address',
             self::MailFromName => 'From name',
             self::OpsAlertEmail => 'Failure alert address',
+            self::SummaryEmailEnabled => 'Email administrators a business summary',
+            self::SummaryEmailFrequency => 'Summary frequency',
+            self::SummaryEmailLastPeriod => 'Last summary sent',
             self::Timezone => 'Display timezone',
             self::Locale => 'Locale',
             self::DateFormat => 'Date format',
@@ -473,6 +496,9 @@ enum SettingKey: string
             self::MailFromAddress => 'The address outgoing email is sent from. Required when the mailer is SMTP; on the log mailer, leave blank to keep the address the deployment configured.',
             self::MailFromName => 'The name outgoing email is sent from. Leave blank to use the business name.',
             self::OpsAlertEmail => 'Where to email a warning when a queued background job fails. Leave blank to send no alerts; failures are written to the application log either way.',
+            self::SummaryEmailEnabled => 'Revenue, new customers, subscriptions and anything needing attention, sent to every administrator at 8am on Monday (weekly) or on the 1st (monthly), in the display timezone. Skipped for a period with no activity at all.',
+            self::SummaryEmailFrequency => 'Weekly covers Monday to Sunday; monthly covers the previous calendar month.',
+            self::SummaryEmailLastPeriod => 'Recorded by the summary job so a period is never sent twice.',
             self::Timezone => 'Dates and times are stored as UTC and shown converted to this timezone across the site. Changing it never rewrites stored data, so it is safe to change at any time.',
             self::Locale => 'Localises month and day names and relative times such as "2 hours ago". Interface text stays in English until translation files are added to the application.',
             self::DateFormat => 'How dates are shown. Each option names the convention it belongs to; month and day names follow the locale chosen above.',

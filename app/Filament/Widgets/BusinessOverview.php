@@ -91,15 +91,16 @@ class BusinessOverview extends StatsOverviewWidget
      */
     private function compared(Stat $stat, int $current, int $previous): Stat
     {
-        if ($previous <= 0) {
+        $change = BusinessMetrics::percentChange($current, $previous);
+
+        if ($change === null) {
             return $stat->description(__('dashboard.overview.no_comparison'));
         }
 
-        if ($current === $previous) {
+        if ($change === 0.0) {
             return $stat->description(__('dashboard.overview.level'));
         }
 
-        $change = ($current - $previous) / $previous * 100;
         $rising = $change > 0;
 
         return $stat

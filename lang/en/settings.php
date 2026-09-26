@@ -16,6 +16,11 @@
 
 return [
 
+    'summary' => [
+        'weekly' => 'Weekly',
+        'monthly' => 'Monthly',
+    ],
+
     'actions' => [
         'save' => 'Save changes',
         'saved' => 'Settings saved',

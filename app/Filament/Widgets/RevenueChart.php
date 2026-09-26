@@ -6,10 +6,8 @@ use App\Auth\Permission;
 use App\Payments\BusinessMetrics;
 use App\Payments\Money;
 use App\Payments\PaymentManager;
-use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
-use Carbon\CarbonInterface;
 use Filament\Widgets\ChartWidget;
 
 /**
@@ -52,7 +50,7 @@ class RevenueChart extends ChartWidget
     protected function getData(): array
     {
         $months = app(BusinessMetrics::class)->monthlyNetRevenue(12);
-        $locale = app(Settings::class)->string(SettingKey::Locale);
+        $settings = app(Settings::class);
 
         return [
             'datasets' => [
@@ -64,18 +62,10 @@ class RevenueChart extends ChartWidget
                 ],
             ],
             'labels' => array_map(
-                fn (string $month): string => $this->monthLabel(new CarbonImmutable($month), $locale),
+                fn (string $month): string => $settings->formatMonth(new CarbonImmutable($month), short: true),
                 array_keys($months),
             ),
         ];
-    }
-
-    /**
-     * "Sep 2026", in the configured locale.
-     */
-    private function monthLabel(CarbonInterface $month, string $locale): string
-    {
-        return $month->locale($locale)->translatedFormat('M Y');
     }
 
     protected function getOptions(): array

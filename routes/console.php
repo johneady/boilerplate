@@ -113,6 +113,17 @@ Schedule::command('app:adopt-page-body-images')
     ->description('Adopt referenced page-body uploads into the media library, and collect the rest');
 
 /*
+ * Hourly, and the command decides whether a summary is due: "8am Monday" is in
+ * the business's timezone, which is a setting this file must not read -- it is
+ * loaded on every artisan boot, migrations on an empty database included.
+ */
+Schedule::command('app:send-business-summary')
+    ->hourly()
+    ->withoutOverlapping(30)
+    ->onOneServer()
+    ->description('Email administrators the weekly or monthly business summary when due');
+
+/*
  * Daily: an export is announced by a notification the same minute it
  * finishes, so a week's retention is measured in days, not hours.
  */

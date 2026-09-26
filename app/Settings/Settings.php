@@ -338,6 +338,16 @@ class Settings
     }
 
     /**
+     * Name a month, e.g. "September 2026" (or "Sep 2026" when short), in the
+     * configured locale. Not moved between timezones: it names the month the
+     * date already falls in.
+     */
+    public function formatMonth(CarbonInterface $date, bool $short = false): string
+    {
+        return $date->locale($this->string(SettingKey::Locale))->translatedFormat($short ? 'M Y' : 'F Y');
+    }
+
+    /**
      * The first instant of a business calendar day (Y-m-d), in UTC.
      *
      * Date filters speak in the business's days; timestamp columns are UTC.

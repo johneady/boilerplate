@@ -205,6 +205,48 @@ class BusinessMetrics
     }
 
     /**
+     * Everything waiting on someone, as counts keyed by what it is:
+     * disputes, past_due, holds (money, only while payments are on) and
+     * messages. Only the outstanding items appear.
+     *
+     * The one list the dashboard and the summary email both report, so a new
+     * kind of outstanding work is added once.
+     *
+     * @return array<'disputes'|'past_due'|'holds'|'messages', int>
+     */
+    public function attentionCounts(): array
+    {
+        $counts = ['messages' => $this->unhandledMessages()];
+
+        if ($this->payments->enabled()) {
+            $counts = [
+                'disputes' => $this->disputesNeedingResponse(),
+                'past_due' => $this->pastDueSubscriptions(),
+                'holds' => $this->holdsExpiringSoon(),
+                ...$counts,
+            ];
+        }
+
+        return array_filter($counts, fn (int $count): bool => $count > 0);
+    }
+
+    /**
+     * How far a figure moved against the one before, in percent: 0.0 when
+     * unchanged, and null when there is nothing before to compare with.
+     *
+     * The one rule the dashboard and the summary email phrase their
+     * comparisons from, so they never describe the same figures differently.
+     */
+    public static function percentChange(int $current, int $previous): ?float
+    {
+        if ($previous <= 0) {
+            return null;
+        }
+
+        return $current === $previous ? 0.0 : ($current - $previous) / $previous * 100;
+    }
+
+    /**
      * The first instant of the calendar month $monthsAgo months back (0 is
      * this month, -1 next month), in UTC.
      */

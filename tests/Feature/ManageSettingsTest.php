@@ -160,6 +160,8 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'mail_from_address',
         'mail_from_name',
         'ops_alert_email',
+        'summary_email_enabled',
+        'summary_email_frequency',
         'timezone',
         'locale',
         'date_format',
@@ -321,7 +323,7 @@ test('each setting is edited on its declared tab', function () {
     // site icon through the Brand tab's buttons, rather than tab fields.
     // The gateway credentials through the Payments tab's two credential modals.
     $editedInModal = [
-        'mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'logo',
+        'mail_mailer', 'mail_host', 'mail_port', 'mail_username', 'mail_password', 'mail_encryption', 'logo', 'summary_email_last_period',
         'stripe_sandbox_secret_key', 'stripe_sandbox_webhook_secret', 'stripe_live_secret_key', 'stripe_live_webhook_secret',
         'paypal_sandbox_client_id', 'paypal_sandbox_client_secret', 'paypal_sandbox_webhook_id',
         'paypal_live_client_id', 'paypal_live_client_secret', 'paypal_live_webhook_id',

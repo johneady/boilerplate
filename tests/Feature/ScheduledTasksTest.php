@@ -51,6 +51,7 @@ test('the housekeeping tasks every project needs are scheduled', function (strin
     'payments:end-subscriptions',
     'payments:notify-trials-ending',
     'app:prune-exports',
+    'app:send-business-summary',
 ]);
 
 /**
@@ -79,6 +80,7 @@ test('recurring maintenance tasks cannot overlap or double-run', function (strin
     'payments:end-subscriptions',
     'payments:notify-trials-ending',
     'app:prune-exports',
+    'app:send-business-summary',
 ]);
 
 /**
@@ -97,6 +99,7 @@ test('overlap locks expire well inside a day', function (string $command) {
     'payments:end-subscriptions',
     'payments:notify-trials-ending',
     'app:prune-exports',
+    'app:send-business-summary',
 ]);
 
 test('queued jobs retry a bounded number of times and then stop', function () {

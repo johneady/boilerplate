@@ -12,6 +12,7 @@ use App\Models\Refund;
 use App\Models\Subscription;
 use App\Models\User;
 use App\Models\WebhookEvent;
+use App\Notifications\BusinessSummaryReport;
 use App\Notifications\ContactSubmissionReceived;
 use App\Notifications\PasswordChanged;
 use App\Notifications\Payments\AbandonedSubscriptionCanceled;
@@ -31,6 +32,8 @@ use App\Notifications\Payments\TrialEnding;
 use App\Notifications\Payments\WebhookProcessingFailed;
 use App\Notifications\Payments\WebhookSignatureRejected;
 use App\Notifications\QueueJobFailed;
+use App\Payments\BusinessMetrics;
+use App\Payments\Data\BusinessSummary;
 use App\Payments\Enums\BillingInterval;
 use App\Payments\Enums\CaptureMethod;
 use App\Payments\Enums\Currency;
@@ -41,6 +44,8 @@ use App\Payments\Enums\PaymentStatus;
 use App\Payments\Enums\RefundStatus;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\WebhookEventStatus;
+use App\Payments\Money;
+use App\Settings\Settings;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Mail\Mailable;
@@ -129,6 +134,26 @@ class PreviewableEmails
                 'mailable' => null,
                 'onDemand' => true,
                 'render' => fn (): MailMessage => $contactSubmission->toMail($notifiable),
+            ],
+            'business-summary' => [
+                'description' => 'weekly business summary',
+                // Routed to the factory user, as it goes to administrators'
+                // own accounts. Figures are invented, not read, so the
+                // preview looks the same on an empty installation.
+                'notification' => $businessSummary = new BusinessSummaryReport(new BusinessSummary(
+                    frequency: 'weekly',
+                    periodLabel: __('summary.week_of', ['date' => app(Settings::class)->formatDate(app(BusinessMetrics::class)->now()->subWeek()->startOfWeek())]),
+                    netRevenue: Money::of(482500, Currency::CAD),
+                    previousNetRevenue: Money::of(391000, Currency::CAD),
+                    refunded: Money::of(15000, Currency::CAD),
+                    newCustomers: 6,
+                    activeSubscriptions: 24,
+                    monthlyRecurringRevenue: Money::of(117600, Currency::CAD),
+                    attention: ['disputes' => 1, 'messages' => 3],
+                )),
+                'mailable' => null,
+                'onDemand' => false,
+                'render' => fn (): MailMessage => $businessSummary->toMail($notifiable),
             ],
             'password-changed' => [
                 'description' => 'password change security alert',
