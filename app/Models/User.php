@@ -294,6 +294,18 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     }
 
     /**
+     * This user's customer records at the gateways, one per gateway and
+     * mode, created on first subscribe so repeat checkouts and the billing
+     * portal have one to attach to.
+     *
+     * @return HasMany<BillingCustomer, $this>
+     */
+    public function billingCustomers(): HasMany
+    {
+        return $this->hasMany(BillingCustomer::class);
+    }
+
+    /**
      * The subscription this user's access and billing page are about: the
      * live one, or failing that the most recent one that started.
      */

@@ -6,6 +6,7 @@ use App\Models\Page;
 use App\Notifications\ContactSubmissionReceived;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Features\SupportTesting\Testable;
@@ -16,10 +17,11 @@ beforeEach(function (): void {
 
     app(Settings::class)->set(SettingKey::BusinessEmail, 'hello@example.com');
 
-    // Cleared between tests: the limiter is keyed on the request IP, which is
-    // the same 127.0.0.1 for every test in the file, so a test that trips the
-    // limit would otherwise fail the next one.
+    // Cleared between tests: both limiter keys are keyed on the request IP,
+    // which is the same 127.0.0.1 for every test in the file, so a test that
+    // trips a limit would otherwise fail the next one.
     RateLimiter::clear('contact-form:127.0.0.1');
+    RateLimiter::clear('contact-form-rejections:127.0.0.1');
 });
 
 /**
@@ -217,6 +219,31 @@ test('a discarded spam submission does not count against the rate limit', functi
     submitContactForm()->assertHasNoErrors();
 
     expect(ContactSubmission::count())->toBe(1);
+});
+
+/**
+ * Rejections count against their own budget, so a bot hammering the form is
+ * eventually cut off without the human limiter ever being involved.
+ */
+test('enough rejected submissions exhaust their own budget and the address is refused', function () {
+    foreach (range(1, 30) as $attempt) {
+        submitContactForm(['website' => 'http://spam.example'])->assertHasNoErrors();
+    }
+
+    // The 31st is refused with the same generic copy as the human limiter,
+    // and still stores nothing.
+    submitContactForm(['website' => 'http://spam.example'])->assertHasErrors('message');
+
+    expect(ContactSubmission::count())->toBe(0);
+});
+
+test('the business notification is queued rather than sent inline', function () {
+    // The visitor's request should end at the dispatch: the SMTP round trip
+    // belongs to a worker. Pinned on the class rather than by observing the
+    // queue because this file fakes the Notification facade to assert sends,
+    // and a fake intercepts before anything is dispatched.
+    expect(new ContactSubmissionReceived(ContactSubmission::factory()->make()))
+        ->toBeInstanceOf(ShouldQueue::class);
 });
 
 /**

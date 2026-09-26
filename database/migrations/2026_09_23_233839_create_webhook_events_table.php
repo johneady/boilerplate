@@ -15,7 +15,10 @@ return new class extends Migration
             $table->id();
             $table->string('gateway', 20);
             $table->string('mode', 10);
-            $table->string('event_id');
+            // The gateway's own id for the event, sized to what gateways
+            // really issue (see the payments table) rather than the string
+            // default: it sits inside the composite unique index below.
+            $table->string('event_id', 100);
             $table->string('type');
             $table->json('payload');
             $table->string('status', 20);

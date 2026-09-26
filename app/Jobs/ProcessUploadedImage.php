@@ -84,12 +84,17 @@ class ProcessUploadedImage extends Job
         $written = [];
 
         try {
-            foreach ($conversions as $name => $conversion) {
-                // Decoded per conversion: modifiers mutate the image in place,
-                // so a single instance would compound crops across sizes.
-                $image = $manager->decodeBinary($contents);
+            // Decoded once, deep-cloned per conversion: Intervention's
+            // modifiers mutate the image in place (a modifier replaces each
+            // frame's native and returns the same instance), so the
+            // conversions cannot share one instance -- but they no longer
+            // each pay a full decode of the source bytes either. `clone` is
+            // the deep copy: both drivers' Image implement __clone by
+            // duplicating the underlying resource.
+            $decoded = $manager->decodeBinary($contents);
 
-                $written[$name] = $this->writeConversion($image, $name, $conversion, $target);
+            foreach ($conversions as $name => $conversion) {
+                $written[$name] = $this->writeConversion(clone $decoded, $name, $conversion, $target);
             }
         } catch (Throwable $exception) {
             // A partially written set would leave the model pointing at sizes
@@ -110,8 +115,9 @@ class ProcessUploadedImage extends Job
         // Oriented before its geometry is recorded, because orient() swaps
         // the axes of a phone photo: the conversions are written oriented, so
         // an un-oriented probe would file width and height the wrong way
-        // round against the bytes the row describes.
-        $probe = $manager->decodeBinary($contents);
+        // round against the bytes the row describes. Cloned from the same
+        // single decode rather than decoded again.
+        $probe = clone $decoded;
         $probe->orient();
 
         $this->attachToMedia($written, $probe);

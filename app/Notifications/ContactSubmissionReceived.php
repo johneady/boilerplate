@@ -3,25 +3,35 @@
 namespace App\Notifications;
 
 use App\Models\ContactSubmission;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\HtmlString;
 
 /**
  * Tells the business that somebody used the public contact form.
  *
- * Deliberately NOT a ShouldQueue notification, for the same reason as
- * QueueJobFailed: the submission is already safely in the database by the time
- * this is sent, and the send is wrapped in a try/catch by the caller, so the
- * only thing queueing would add is a second way for the message to go missing
- * on an instance whose worker is not running. A contact form is also low enough
- * volume that one inline send costs nothing worth optimising.
+ * Queued, with the explicit per-class opt-in BaseNotification asks for: the
+ * visitor should not wait on the SMTP round trip, and a worker is standard in
+ * this stack. The submission is already safely in the database before this is
+ * dispatched, so a send that fails in the queue does not lose the message --
+ * the failed-job alert covers it, and the row is the record.
  *
  * The reply-to is the submitter's address, so answering the notification
  * answers the person -- the from address stays the application's, because
  * sending as an unverified visitor address is how mail gets marked as spoofed.
  */
-class ContactSubmissionReceived extends BaseNotification
+class ContactSubmissionReceived extends BaseNotification implements ShouldQueue
 {
+    use Queueable;
+
+    /**
+     * Dropped, not failed, when the submission has since been deleted: the
+     * message was already handled in the panel, and a retried notification
+     * for a row nobody can read has nowhere to report itself.
+     */
+    public bool $deleteWhenMissingModels = true;
+
     public function __construct(private readonly ContactSubmission $submission) {}
 
     /**

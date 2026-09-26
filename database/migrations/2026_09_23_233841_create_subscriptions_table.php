@@ -40,9 +40,12 @@ return new class extends Migration
             // by cancelling and starting over. Every gateway reads it here.
             $table->unsignedSmallInteger('trial_days')->default(0);
 
-            $table->string('gateway_subscription_id')->nullable();
-            $table->string('gateway_customer_id')->nullable();
-            $table->string('gateway_checkout_id')->nullable();
+            // Sized like the payments table's gateway ids: real ids are
+            // short, and both of these end up inside composite unique
+            // indexes.
+            $table->string('gateway_subscription_id', 100)->nullable();
+            $table->string('gateway_customer_id', 100)->nullable();
+            $table->string('gateway_checkout_id', 100)->nullable();
             $table->text('checkout_url')->nullable();
 
             $table->timestamp('trial_ends_at')->nullable();

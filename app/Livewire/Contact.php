@@ -45,6 +45,17 @@ class Contact extends Component
     private const int MAX_ATTEMPTS_PER_HOUR = 5;
 
     /**
+     * How many rejected submissions one address may make per hour before the
+     * form stops entertaining them at all.
+     *
+     * High enough that a person cannot plausibly reach it -- a genuine visitor
+     * whose password manager trips the honeypot sees the success toast and
+     * stops -- but a bot hammering the form does, and each of its round trips
+     * costs a validation and a render.
+     */
+    private const int MAX_REJECTIONS_PER_HOUR = 30;
+
+    /**
      * The shortest time a genuine submission can plausibly take, in seconds.
      */
     private const int MINIMUM_FILL_SECONDS = 3;
@@ -101,6 +112,12 @@ class Contact extends Component
         $validated = $this->validate($this->contactRules());
 
         if ($this->looksAutomated()) {
+            // Rejections count against their own budget, separate from the
+            // stored-submission limiter: a bot gets cut off after enough of
+            // them, while a person whose password manager trips the honeypot
+            // a few times cannot lock themselves out of the real form.
+            RateLimiter::increment($this->rejectionKey(), 3600);
+
             $this->finish();
 
             return;
@@ -137,21 +154,23 @@ class Contact extends Component
     }
 
     /**
-     * Refuse a submission from an address that has sent too many already.
+     * Refuse a submission from an address that has sent too many already, or
+     * from one whose rejected attempts have exhausted the rejection budget.
      *
-     * Keyed on the address rather than the session, because a bot does not keep
-     * cookies. Throwing a validation exception puts the message beside the form
-     * the way every other error appears.
+     * Both keys are on the address rather than the session, because a bot does
+     * not keep cookies. Throwing a validation exception puts the message
+     * beside the form the way every other error appears -- and the copy stays
+     * generic, so a blocked bot is not told which check it keeps failing.
      */
     private function ensureIsNotRateLimited(): void
     {
-        if (! RateLimiter::tooManyAttempts($this->rateLimitKey(), self::MAX_ATTEMPTS_PER_HOUR)) {
-            return;
+        if (RateLimiter::tooManyAttempts($this->rateLimitKey(), self::MAX_ATTEMPTS_PER_HOUR)) {
+            $this->throwRateLimited();
         }
 
-        throw ValidationException::withMessages([
-            'message' => __('You have sent several messages recently. Please try again later.'),
-        ]);
+        if (RateLimiter::tooManyAttempts($this->rejectionKey(), self::MAX_REJECTIONS_PER_HOUR)) {
+            $this->throwRateLimited();
+        }
     }
 
     /**
@@ -160,6 +179,21 @@ class Contact extends Component
     private function rateLimitKey(): string
     {
         return 'contact-form:'.request()->ip();
+    }
+
+    /**
+     * The rejection-budget key for the current sender.
+     */
+    private function rejectionKey(): string
+    {
+        return 'contact-form-rejections:'.request()->ip();
+    }
+
+    private function throwRateLimited(): never
+    {
+        throw ValidationException::withMessages([
+            'message' => __('You have sent several messages recently. Please try again later.'),
+        ]);
     }
 
     /**
@@ -186,16 +220,19 @@ class Contact extends Component
      * Email the business about a new submission.
      *
      * Sent on demand to a bare address with no account behind it, the same way
-     * SendQueueFailureAlert reaches the operations address.
+     * SendQueueFailureAlert reaches the operations address. The notification
+     * is queued, so this dispatches rather than sends -- the visitor's request
+     * no longer waits on the SMTP round trip.
      *
      * A blank BusinessEmail sends nothing: that setting's own help text says a
      * blank value hides the address, so treating blank as "mail it anyway"
      * would contradict what the administrator was told it means.
      *
-     * Any failure is logged and swallowed. The submission is already stored, so
-     * an unreachable SMTP server must not turn a visitor's completed form into
+     * Any dispatch failure is logged and swallowed. The submission is already
+     * stored, so a failure here must not turn a visitor's completed form into
      * an error page -- they would simply send it again, and the panel would
-     * hold two copies of a message nobody has read.
+     * hold two copies of a message nobody has read. A failure that happens
+     * later, in the queue, is reported by the failed-job alert instead.
      */
     private function notifyBusiness(ContactSubmission $submission): void
     {

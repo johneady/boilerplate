@@ -2,7 +2,6 @@
 
 namespace App\Payments\Drivers\Stripe;
 
-use App\Models\BillingCustomer;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanPrice;
@@ -396,8 +395,7 @@ trait ManagesStripeSubscriptions
     {
         $user = $subscription->user ?? throw new GatewayException('The subscription has no user.');
 
-        $existing = BillingCustomer::query()
-            ->where('user_id', $user->id)
+        $existing = $user->billingCustomers()
             ->where('gateway', Gateway::Stripe->value)
             ->where('mode', $this->mode->value)
             ->value('gateway_customer_id');
@@ -416,8 +414,7 @@ trait ManagesStripeSubscriptions
             // In its own transaction, like every insert here that may lose a
             // race: a savepoint when the caller holds one open, so PostgreSQL
             // does not abort the caller's transaction along with the insert.
-            DB::transaction(fn () => BillingCustomer::query()->create([
-                'user_id' => $user->id,
+            DB::transaction(fn () => $user->billingCustomers()->create([
                 'gateway' => Gateway::Stripe,
                 'mode' => $this->mode,
                 'gateway_customer_id' => (string) $customer->id,
@@ -426,8 +423,7 @@ trait ManagesStripeSubscriptions
             // A concurrent checkout recorded a customer first. Usually the
             // same one (the idempotency key returned it to both), but not
             // once the key has expired, so the recorded one is what is used.
-            return (string) BillingCustomer::query()
-                ->where('user_id', $user->id)
+            return (string) $user->billingCustomers()
                 ->where('gateway', Gateway::Stripe->value)
                 ->where('mode', $this->mode->value)
                 ->value('gateway_customer_id');

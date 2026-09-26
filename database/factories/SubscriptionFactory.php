@@ -23,6 +23,14 @@ use Illuminate\Support\Str;
 class SubscriptionFactory extends Factory
 {
     /**
+     * The plan a price belongs to, memoised per factory instance so a
+     * count()-style run that reuses one price reads it once.
+     *
+     * @var array<int, int>
+     */
+    private array $planByPriceId = [];
+
+    /**
      * An active Demo subscription in sandbox mode, mid-period.
      *
      * @return array<string, mixed>
@@ -39,7 +47,12 @@ class SubscriptionFactory extends Factory
                 ? $attributes['user_id']
                 : null,
             'plan_price_id' => PlanPrice::factory(),
-            'plan_id' => fn (array $attributes): int => PlanPrice::query()->whereKey($attributes['plan_price_id'])->firstOrFail()->plan_id,
+            // Resolved through the per-instance memo below: a run that
+            // reuses one price (count(), forPrice()) pays one read instead
+            // of one per subscription. forPrice() sets this attribute
+            // directly, so the closure only runs for the factory's own
+            // prices.
+            'plan_id' => fn (array $attributes): int => $this->planForPrice($attributes['plan_price_id']),
             'gateway' => Gateway::Demo,
             'mode' => GatewayMode::Sandbox,
             'currency' => Currency::CAD,
@@ -52,6 +65,22 @@ class SubscriptionFactory extends Factory
             $subscription->current_period_start ??= now()->subDays(10)->toImmutable();
             $subscription->current_period_end ??= now()->addDays(20)->toImmutable();
         });
+    }
+
+    /**
+     * The plan that owns a price, read once per price per factory instance.
+     *
+     * Deliberately per-instance and not static, so a fresh test database can
+     * never be answered from a stale mapping.
+     */
+    private function planForPrice(mixed $priceId): int
+    {
+        $priceId = (int) $priceId;
+
+        return $this->planByPriceId[$priceId] ??= PlanPrice::query()
+            ->whereKey($priceId)
+            ->firstOrFail()
+            ->plan_id;
     }
 
     public function status(SubscriptionStatus $status): static

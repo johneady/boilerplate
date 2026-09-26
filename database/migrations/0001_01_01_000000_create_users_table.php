@@ -19,6 +19,12 @@ return new class extends Migration
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();
+
+            // The admin users table default-sorts by name, so the sort that
+            // runs on every load has an index to use once the table grows.
+            // (Search is deliberately not covered: it issues leading-
+            // wildcard LIKEs, which a B-tree index cannot serve.)
+            $table->index('name');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

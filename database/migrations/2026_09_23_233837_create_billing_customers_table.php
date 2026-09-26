@@ -20,7 +20,9 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('gateway', 20);
             $table->string('mode', 10);
-            $table->string('gateway_customer_id');
+            // Sized like the payments table's gateway ids: real customer ids
+            // are short, and this sits inside a composite unique index.
+            $table->string('gateway_customer_id', 100);
             $table->timestamps();
 
             $table->unique(['user_id', 'gateway', 'mode']);
