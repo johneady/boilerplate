@@ -43,14 +43,12 @@ return new class extends Migration
             $table->unsignedBigInteger('amount_refunded')->default(0);
             $table->json('tax_lines');
 
-            // Gateway-assigned ids, sized to what gateways really issue
-            // (Stripe ~27 chars, PayPal ~20, the Demo gateway 44) rather
-            // than the string default: two of these sit inside composite
-            // unique indexes, and every byte of width is index the database
-            // carries forever.
-            $table->string('gateway_checkout_id', 100)->nullable();
-            $table->string('gateway_payment_id', 100)->nullable();
-            $table->string('gateway_authorization_id', 100)->nullable();
+            // Gateway-assigned ids stay at the string default: Stripe
+            // documents that its ids may grow to 255 characters, and a
+            // narrower column rejects the insert under strict mode.
+            $table->string('gateway_checkout_id')->nullable();
+            $table->string('gateway_payment_id')->nullable();
+            $table->string('gateway_authorization_id')->nullable();
             $table->text('checkout_url')->nullable();
 
             $table->timestamp('authorized_at')->nullable();

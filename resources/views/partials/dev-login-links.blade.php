@@ -36,7 +36,11 @@
                 @if (! $devUser['exists'])
                     <flux:badge size="sm" color="zinc" inset="top bottom">{{ __('Not seeded') }}</flux:badge>
                 @elseif ($devUser['panel'])
-                    <flux:badge size="sm" :color="$devUser['role']->color()" inset="top bottom">{{ __($devUser['role']->label()) }}</flux:badge>
+                    <flux:badge
+                        size="sm"
+                        :color="$devUser['role']->color()"
+                        inset="top bottom"
+                    >{{ __($devUser['role']->label()) }}</flux:badge>
                 @else
                     <flux:badge size="sm" color="zinc" inset="top bottom">{{ __('Dashboard') }}</flux:badge>
                 @endif

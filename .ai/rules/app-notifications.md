@@ -10,7 +10,7 @@ paths:
 
 It is named BaseNotification, not Notification, because App\Notifications\Notification would shadow Illuminate's own class inside this namespace and force every subclass to disambiguate.
 
-BaseNotification is deliberately NOT ShouldQueue, which is the opposite of App\Jobs\Job. Operator alerts must not depend on the queue: QueueJobFailed announces that the queue just failed, and handing that alert to the same queue leaves it unsent in the table it is warning about. ContactSubmissionReceived is unqueued for a related reason (the submission is already persisted; queueing only adds a second way to lose the mail). A notification that SHOULD be queued declares `implements ShouldQueue` on itself — PasswordChanged is the worked example.
+BaseNotification is deliberately NOT ShouldQueue, which is the opposite of App\Jobs\Job. Operator alerts must not depend on the queue: QueueJobFailed announces that the queue just failed, and handing that alert to the same queue leaves it unsent in the table it is warning about. ContactSubmissionReceived IS queued: the submission is persisted before dispatch, so a failed send loses nothing and the failed-job alert reports it (see .ai/rules/models-notifications.md). A notification that SHOULD be queued declares `implements ShouldQueue` on itself — PasswordChanged is the worked example.
 
 businessName() resolves per call rather than in a constructor: a queued notification constructed in one process and rendered in another would otherwise serialise a stale name and mail it after the setting changed.
 

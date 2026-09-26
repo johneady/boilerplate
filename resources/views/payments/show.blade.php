@@ -50,7 +50,8 @@
 
             @if ($payment->mode !== \App\Payments\Enums\GatewayMode::Live)
                 <flux:callout variant="warning" icon="beaker" class="mt-6" data-test="test-payment">
-                    <flux:callout.text>{{ __('This is a test payment. No money was taken, and this is not a valid receipt.') }}</flux:callout.text>
+                    <flux:callout.text>
+                        {{ __('This is a test payment. No money was taken, and this is not a valid receipt.') }}</flux:callout.text>
                 </flux:callout>
             @endif
 

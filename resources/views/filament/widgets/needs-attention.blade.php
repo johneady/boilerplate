@@ -8,7 +8,7 @@
     <x-filament::section :heading="__('dashboard.attention.heading')" icon="heroicon-o-bell-alert">
         @if ($items === [])
             <p class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400" data-test="all-clear">
-                <x-filament::icon icon="heroicon-o-check-circle" class="size-5 text-success-500" />
+                <x-filament::icon icon="heroicon-o-check-circle" class="text-success-500 size-5" />
                 {{ __('dashboard.attention.all_clear') }}
             </p>
         @else
@@ -17,7 +17,7 @@
                     <li>
                         <a
                             href="{{ $item['url'] }}"
-                            class="flex items-center gap-3 py-2.5 text-sm font-medium text-gray-700 hover:text-primary-600 dark:text-gray-200 dark:hover:text-primary-400"
+                            class="hover:text-primary-600 dark:hover:text-primary-400 flex items-center gap-3 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200"
                         >
                             <x-filament::icon
                                 :icon="$item['icon']"
