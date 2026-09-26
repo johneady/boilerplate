@@ -4,6 +4,7 @@ namespace App\Http\Responses;
 
 use App\Models\User;
 use Filament\Facades\Filament;
+use Filament\Panel;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Session;
@@ -14,9 +15,10 @@ trait ResolvesLoginRedirect
     /**
      * Build the redirect for a freshly authenticated user.
      *
-     * Honours an intended URL captured before login, except for admins whose
-     * intended URL is merely the dashboard they were bounced off on the way
-     * to logging in — sending them there would strand them outside the panel.
+     * Honours an intended URL captured before login, except for panel users
+     * whose intended URL is merely the dashboard they were bounced off on the
+     * way to logging in — sending them there would strand them outside the
+     * panel.
      */
     protected function loginRedirect(?Authenticatable $user): RedirectResponse
     {
@@ -30,36 +32,30 @@ trait ResolvesLoginRedirect
     /**
      * Resolve the default landing page for a freshly authenticated user.
      *
-     * Admins land on the Filament admin panel, everyone else on the regular
-     * dashboard. Any intended URL captured before login still takes
+     * Anyone who may use the admin panel -- administrators and staff roles
+     * alike -- lands there, everyone else on the regular dashboard. Any intended URL captured before login still takes
      * precedence, since this is only ever used as the fallback.
      */
     protected function defaultRedirect(?Authenticatable $user): string
     {
-        if ($this->isAdmin($user)) {
-            // getPanels()['admin'] rather than getPanel('admin'): the latter
-            // THROWS for an unregistered id instead of returning null, so a
-            // renamed or removed panel would turn every admin login into a
-            // 500. Looking the id up in the registry keeps the dashboard
-            // fallback below genuinely reachable; getUrl() is itself
-            // nullable when the panel has no base path to build from.
-            $panel = Filament::getPanels()['admin'] ?? null;
-
-            return $panel?->getUrl() ?? route('dashboard', absolute: false);
+        if ($this->usesAdminPanel($user)) {
+            // getUrl() is nullable when the panel has no base path to build
+            // from, so the dashboard fallback stays genuinely reachable.
+            return $this->adminPanel()?->getUrl() ?? route('dashboard', absolute: false);
         }
 
         return Fortify::redirects('login');
     }
 
     /**
-     * Determine whether an admin's captured intended URL should be dropped.
+     * Determine whether a panel user's captured intended URL should be dropped.
      *
-     * Only the non-admin default landing page is discarded. A deliberate deep
-     * link an admin followed before logging in is still honoured.
+     * Only the non-panel default landing page is discarded. A deliberate deep
+     * link a panel user followed before logging in is still honoured.
      */
     private function shouldDiscardIntendedUrl(?Authenticatable $user): bool
     {
-        if (! $this->isAdmin($user)) {
+        if (! $this->usesAdminPanel($user)) {
             return false;
         }
 
@@ -73,11 +69,30 @@ trait ResolvesLoginRedirect
     }
 
     /**
-     * Determine whether the given user may administer the application.
+     * Determine whether the given user works in the admin panel.
+     *
+     * Asked of canAccessPanel() -- the same question Filament asks at the
+     * panel's door -- rather than of is_admin, so the staff roles land where
+     * they work too, and a login never redirects anyone to a panel that
+     * would answer 403.
      */
-    private function isAdmin(?Authenticatable $user): bool
+    private function usesAdminPanel(?Authenticatable $user): bool
     {
-        return $user instanceof User && $user->is_admin;
+        $panel = $this->adminPanel();
+
+        return $user instanceof User && $panel !== null && $user->canAccessPanel($panel);
+    }
+
+    /**
+     * The admin panel, or null when no panel is registered under that id.
+     *
+     * getPanels()['admin'] rather than getPanel('admin'): the latter THROWS
+     * for an unregistered id instead of returning null, so a renamed or
+     * removed panel would turn every staff login into a 500.
+     */
+    private function adminPanel(): ?Panel
+    {
+        return Filament::getPanels()['admin'] ?? null;
     }
 
     /**

@@ -14,10 +14,21 @@ namespace App\Auth;
  * nothing outside this file checks a role name.
  *
  * Cases are ordered least to most privileged, which is what level() reads.
+ * The staff roles between User and Admin are not a chain, though -- compare
+ * roles with atLeast(), which reads their grants, not their position.
  */
 enum Role: string
 {
     case User = 'user';
+
+    /** Website content: pages, the media library and contact messages. */
+    case Editor = 'editor';
+
+    /** Read-only money: payments, refunds, subscriptions, disputes and tax rates. */
+    case Bookkeeper = 'bookkeeper';
+
+    /** Day-to-day operations: everything an Editor and a Bookkeeper do, plus acting on payments. */
+    case Manager = 'manager';
 
     case Admin = 'admin';
 
@@ -37,6 +48,9 @@ enum Role: string
     {
         return match ($this) {
             self::User => 'User',
+            self::Editor => 'Editor',
+            self::Bookkeeper => 'Bookkeeper',
+            self::Manager => 'Manager',
             self::Admin => 'Administrator',
         };
     }
@@ -48,6 +62,9 @@ enum Role: string
     {
         return match ($this) {
             self::User => 'Can sign in and manage their own account. No access to the admin panel.',
+            self::Editor => 'Manages the website\'s content in the admin panel: pages, uploaded files and contact messages. No access to payments, users or settings.',
+            self::Bookkeeper => 'Reads payments, refunds, subscriptions, disputes and tax rates. Cannot refund, capture or change any settings.',
+            self::Manager => 'Runs day-to-day operations: content, payments, refunds, holds, payment links, subscriptions and the user list. Cannot change settings, credentials, plans or roles.',
             self::Admin => 'Full access, including the admin panel, every user and all application settings.',
         };
     }
@@ -59,6 +76,9 @@ enum Role: string
     {
         return match ($this) {
             self::User => 'zinc',
+            self::Editor => 'sky',
+            self::Bookkeeper => 'emerald',
+            self::Manager => 'violet',
             self::Admin => 'amber',
         };
     }
@@ -78,6 +98,35 @@ enum Role: string
     {
         return match ($this) {
             self::Admin => Permission::cases(),
+            // Every Editor and Bookkeeper grant, plus acting on payments.
+            // SORT_REGULAR because enum cases are not strings; it compares
+            // them by identity, dropping the AccessAdminPanel both carry.
+            self::Manager => array_values(array_unique([
+                ...self::Editor->permissions(),
+                ...self::Bookkeeper->permissions(),
+                Permission::ViewUsers,
+                Permission::RefundPayments,
+                Permission::CapturePayments,
+                Permission::RecordManualPayments,
+                Permission::ManagePaymentLinks,
+                Permission::ManageSubscriptions,
+            ], SORT_REGULAR)),
+            self::Bookkeeper => [
+                Permission::AccessAdminPanel,
+                Permission::ViewPayments,
+            ],
+            self::Editor => [
+                Permission::AccessAdminPanel,
+                Permission::ViewPages,
+                Permission::CreatePages,
+                Permission::UpdatePages,
+                Permission::DeletePages,
+                Permission::ViewMedia,
+                Permission::DeleteMedia,
+                Permission::ViewContactSubmissions,
+                Permission::UpdateContactSubmissions,
+                Permission::DeleteContactSubmissions,
+            ],
             self::User => [],
         };
     }
@@ -93,10 +142,11 @@ enum Role: string
     /**
      * How privileged this role is, as its position in the case list.
      *
-     * Lets one role be compared against another ("at least an admin") without
-     * hardcoding the hierarchy at the call site. Ordinal rather than a literal
-     * number per case so a role inserted in the middle cannot be given a level
-     * that contradicts its position.
+     * An ordering for display and sorting only -- deciding whether one role
+     * covers another is atLeast()'s job, because the staff roles are parallel
+     * rather than nested. Ordinal rather than a literal number per case so a
+     * role inserted in the middle cannot be given a level that contradicts
+     * its position.
      */
     public function level(): int
     {
@@ -111,10 +161,21 @@ enum Role: string
     }
 
     /**
-     * Whether this role is at least as privileged as another.
+     * Whether this role can do everything another role can.
+     *
+     * Answered from the grants rather than from level(): the staff roles are
+     * not a chain -- a Bookkeeper holds none of an Editor's grants, though it
+     * is declared after it -- so "at least an Editor" by position would let a
+     * bookkeeper through a check meant for content editors.
      */
     public function atLeast(self $role): bool
     {
-        return $this->level() >= $role->level();
+        foreach ($role->permissions() as $permission) {
+            if (! $this->hasPermission($permission)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

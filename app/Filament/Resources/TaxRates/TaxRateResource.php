@@ -61,6 +61,10 @@ class TaxRateResource extends Resource
                     ->helperText(__('payments.tax_rates.name_help'))
                     ->required()
                     ->maxLength(50),
+                TextInput::make('registration_number')
+                    ->label(__('payments.tax_rates.registration_number'))
+                    ->helperText(__('payments.tax_rates.registration_number_help'))
+                    ->maxLength(50),
                 TextInput::make('percentage')
                     ->label(__('payments.tax_rates.percentage'))
                     ->helperText(__('payments.tax_rates.percentage_help'))
@@ -83,6 +87,10 @@ class TaxRateResource extends Resource
                 TextColumn::make('percentage')
                     ->label(__('payments.tax_rates.percentage'))
                     ->state(fn (TaxRate $record): string => $record->label()),
+                TextColumn::make('registration_number')
+                    ->label(__('payments.tax_rates.registration_number'))
+                    ->placeholder('—')
+                    ->fontFamily('mono'),
                 IconColumn::make('is_active')
                     ->label(__('payments.tax_rates.is_active'))
                     ->boolean(),

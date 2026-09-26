@@ -30,8 +30,10 @@ Route::get('sitemap.xml', SitemapController::class)->name('sitemap');
 // (registered in bootstrap/app.php). /up proves the framework booted and is
 // what the container HEALTHCHECK restarts on; this resolves the database,
 // cache and queue-worker heartbeat for an uptime monitor. Keeping them apart
-// is deliberate -- see config/health.php.
-Route::get('health', HealthController::class)->name('health');
+// is deliberate -- see config/health.php. Throttled generously per address:
+// the checks are cheap but the route is unauthenticated, and an uptime
+// endpoint that answers as fast as it is asked is a load generator.
+Route::get('health', HealthController::class)->name('health')->middleware('throttle:health');
 
 // Signed rather than merely authenticated: the signature bounds how long a
 // link survives being shared, and MediaController still consults the owning

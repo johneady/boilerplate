@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Payments;
 
+use App\Filament\Exports\PaymentExporter;
 use App\Filament\Resources\Payments\Pages\ListPayments;
 use App\Filament\Resources\Payments\Pages\ViewPayment;
 use App\Filament\Resources\Payments\RelationManagers\DisputesRelationManager;
@@ -14,17 +15,23 @@ use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\ManualPaymentMethod;
 use App\Payments\Enums\PaymentStatus;
 use App\Payments\PaymentManager;
+use App\Payments\ReceiptNumbers;
+use App\Payments\Tax\TaxLine;
 use App\Settings\Settings;
 use BackedEnum;
+use Filament\Actions\ExportAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use UnitEnum;
 
 /**
@@ -108,7 +115,9 @@ class PaymentResource extends Resource
                             ->label(__('payments.fields.tax'))
                             ->state(fn (Payment $record): string => $record->tax_lines === []
                                 ? '—'
-                                : collect($record->taxLines())->map(fn ($line): string => $line->label().': '.$line->amount->format())->implode(', ')),
+                                : collect($record->taxLines())->map(fn (TaxLine $line): string => $line->registrationNumber === null
+                                    ? __('payments.fields.tax_line', ['tax' => $line->label(), 'amount' => $line->amount->format()])
+                                    : __('payments.fields.tax_line_registered', ['tax' => $line->label(), 'amount' => $line->amount->format(), 'number' => $line->registrationNumber]))->implode(', ')),
                         TextEntry::make('amount')
                             ->label(__('payments.fields.total'))
                             ->state(fn (Payment $record): string => $record->total()->format())
@@ -156,6 +165,12 @@ class PaymentResource extends Resource
                             // The foreign key goes null when the account is deleted.
                             ->placeholder('—')
                             ->visible(fn (Payment $record): bool => $record->gateway === Gateway::Manual),
+                        TextEntry::make('receipt_number')
+                            ->label(__('payments.fields.receipt_number'))
+                            ->state(fn (Payment $record): ?string => $record->receiptNumber())
+                            ->fontFamily('mono')
+                            ->placeholder('—')
+                            ->copyable(),
                         TextEntry::make('uuid')
                             ->label(__('payments.fields.reference'))
                             ->fontFamily('mono')
@@ -182,6 +197,20 @@ class PaymentResource extends Resource
                     ->label(__('payments.fields.created'))
                     ->formatStateUsing(fn ($state): string => $settings->formatDateTime($state))
                     ->sortable(),
+                TextColumn::make('receipt_number')
+                    ->label(__('payments.fields.receipt_number'))
+                    ->formatStateUsing(fn (int $state): string => ReceiptNumbers::format($state))
+                    ->placeholder('—')
+                    ->fontFamily('mono')
+                    // "R-000123", "000123" and "123" all find receipt 123 (see
+                    // ReceiptNumbers::parse()). Filament wraps this in its own
+                    // OR group, so a search that is not a receipt number must
+                    // match nothing here rather than every row.
+                    ->searchable(query: fn (Builder $query, string $search): Builder => ($number = ReceiptNumbers::parse($search)) === null
+                        ? $query->whereRaw('1 = 0')
+                        : $query->where('receipt_number', $number))
+                    ->sortable()
+                    ->toggleable(),
                 TextColumn::make('customer_name')
                     ->label(__('payments.fields.customer'))
                     ->description(fn (Payment $record): string => $record->customer_email)
@@ -223,6 +252,23 @@ class PaymentResource extends Resource
                     ->label(__('payments.fields.mode'))
                     ->options(collect(GatewayMode::cases())->mapWithKeys(fn (GatewayMode $mode): array => [$mode->value => __($mode->label())])->all())
                     ->default(fn (): string => app(PaymentManager::class)->mode()->value),
+                Filter::make('paid_between')
+                    ->schema([
+                        DatePicker::make('paid_from')->label(__('payments.fields.paid_from')),
+                        DatePicker::make('paid_until')->label(__('payments.fields.paid_until')),
+                    ])
+                    ->query(fn (Builder $query, array $data): Builder => static::wherePaidBetween($query, $data['paid_from'] ?? null, $data['paid_until'] ?? null))
+                    ->indicateUsing(fn (array $data): array => array_values(array_filter([
+                        filled($data['paid_from'] ?? null) ? __('payments.fields.paid_from_indicator', ['date' => $data['paid_from']]) : null,
+                        filled($data['paid_until'] ?? null) ? __('payments.fields.paid_until_indicator', ['date' => $data['paid_until']]) : null,
+                    ]))),
+            ])
+            // Exports what the table shows, filters included: "last month's
+            // live payments" is the mode and date filters, then this.
+            ->headerActions([
+                ExportAction::make()
+                    ->label(__('payments.actions.export'))
+                    ->exporter(PaymentExporter::class),
             ])
             ->recordActions([
                 ViewAction::make(),
@@ -240,6 +286,41 @@ class PaymentResource extends Resource
             RefundsRelationManager::class,
             DisputesRelationManager::class,
         ];
+    }
+
+    /**
+     * Limit a query to payments paid between two dates, inclusive.
+     *
+     * The dates are the business's calendar days, so each is widened to
+     * that day's span in the business timezone before it meets the UTC
+     * column. A manual payment is dated by when the money arrived, as its
+     * receipt and the export are.
+     *
+     * @param  Builder<Payment>  $query
+     * @return Builder<Payment>
+     */
+    public static function wherePaidBetween(Builder $query, ?string $from, ?string $until): Builder
+    {
+        if (blank($from) && blank($until)) {
+            return $query;
+        }
+
+        $settings = app(Settings::class);
+
+        return $query->where(function (Builder $query) use ($from, $until, $settings): void {
+            $query
+                ->where(function (Builder $query) use ($from, $until): void {
+                    $query->whereNotNull('manual_received_on')
+                        ->when(filled($from), fn (Builder $query) => $query->whereDate('manual_received_on', '>=', (string) $from))
+                        ->when(filled($until), fn (Builder $query) => $query->whereDate('manual_received_on', '<=', (string) $until));
+                })
+                ->orWhere(function (Builder $query) use ($from, $until, $settings): void {
+                    $query->whereNull('manual_received_on')
+                        ->whereNotNull('paid_at')
+                        ->when(filled($from), fn (Builder $query) => $query->where('paid_at', '>=', $settings->startOfBusinessDay((string) $from)))
+                        ->when(filled($until), fn (Builder $query) => $query->where('paid_at', '<=', $settings->endOfBusinessDay((string) $until)));
+                });
+        });
     }
 
     public static function getPages(): array

@@ -13,6 +13,8 @@
 
 return [
 
+    'export' => 'Export users',
+
     'fields' => [
         'avatar' => 'Avatar',
         'email' => 'Email address',

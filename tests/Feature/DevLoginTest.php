@@ -1,6 +1,7 @@
 <?php
 
 use App\Auth\DevLoginAccounts;
+use App\Auth\Role;
 use App\Models\User;
 
 afterEach(function () {
@@ -24,7 +25,7 @@ test('the badge promises the admin panel only for a real admin', function () {
 
     $this->get(route('login'))
         ->assertSuccessful()
-        ->assertSee('Admin panel');
+        ->assertSee('Administrator');
 });
 
 test('a first user that was never promoted is not badged as an admin', function () {
@@ -32,14 +33,22 @@ test('a first user that was never promoted is not badged as an admin', function 
 
     $this->get(route('login'))
         ->assertSuccessful()
-        ->assertDontSee('Admin panel');
+        ->assertDontSee('Administrator');
+});
+
+test('a staff account is badged with the role it signs in as', function () {
+    User::factory()->role(Role::Bookkeeper)->create(['email' => 'bookkeeper@example.com']);
+
+    $this->get(route('login'))
+        ->assertSuccessful()
+        ->assertSeeInOrder(['bookkeeper@example.com', 'Bookkeeper']);
 });
 
 test('an account that has not been seeded yet is badged as missing', function () {
     $this->get(route('login'))
         ->assertSuccessful()
         ->assertSee('Not seeded')
-        ->assertDontSee('Admin panel');
+        ->assertDontSee('Administrator');
 });
 
 test('the badged name comes from the seeded account, not the config default', function () {

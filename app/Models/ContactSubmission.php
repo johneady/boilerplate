@@ -73,7 +73,9 @@ class ContactSubmission extends Model
     protected function casts(): array
     {
         return [
-            'handled_at' => 'datetime',
+            'handled_at' => 'immutable_datetime',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
         ];
     }
 

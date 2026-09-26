@@ -15,6 +15,9 @@ use App\Models\User;
  * gateway's copy stays on every subscription started with it and keeps being
  * charged, and the receipts of past invoices name the rate through this row.
  * Switching the rate off is how it is retired.
+ *
+ * Reading the rates needs only ViewPayments, so a bookkeeper can see what
+ * each receipt was charged against; changing them is payment settings.
  */
 class TaxRatePolicy extends BasePolicy
 {
@@ -24,8 +27,8 @@ class TaxRatePolicy extends BasePolicy
     protected function permissions(): array
     {
         return [
-            'viewAny' => Permission::ManagePaymentSettings,
-            'view' => Permission::ManagePaymentSettings,
+            'viewAny' => Permission::ViewPayments,
+            'view' => Permission::ViewPayments,
             'create' => Permission::ManagePaymentSettings,
             'update' => Permission::ManagePaymentSettings,
             'delete' => Permission::ManagePaymentSettings,

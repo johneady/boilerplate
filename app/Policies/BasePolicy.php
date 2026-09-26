@@ -19,9 +19,34 @@ use App\Models\User;
  * someone forgot to map, must refuse rather than allow. Administrators still
  * pass through the Gate::before bypass in AuthServiceProvider, so a missing
  * mapping shows up as "ordinary users cannot do X", never as a hole.
+ *
+ * The same default covers the abilities Filament asks beyond Laravel's seven
+ * -- bulk deletes, reordering, replicating, relation attach/associate. This
+ * matters because Filament ALLOWS an ability whose policy method is missing
+ * (outside strict mode), so without these every bulk action and reorderable
+ * table would be open to any staff role that can merely view the resource.
+ * Each "Any" variant and its siblings fall back to the permission of the
+ * single-record ability they batch (see FALLBACK_ABILITIES), so a policy
+ * mapping `delete` does not have to repeat itself for `deleteAny`.
  */
 abstract class BasePolicy
 {
+    /**
+     * The ability whose permission an unmapped ability borrows.
+     *
+     * Deleting in bulk is still deleting and reordering is updating; an
+     * ability absent here and from permissions() is denied.
+     *
+     * @var array<string, string>
+     */
+    private const array FALLBACK_ABILITIES = [
+        'deleteAny' => 'delete',
+        'restoreAny' => 'restore',
+        'forceDeleteAny' => 'forceDelete',
+        'reorder' => 'update',
+        'replicate' => 'create',
+    ];
+
     /**
      * The permission required for each ability, keyed by ability name.
      *
@@ -91,14 +116,91 @@ abstract class BasePolicy
     }
 
     /**
+     * Determine whether the user may delete these resources in bulk.
+     */
+    public function deleteAny(User $user): bool
+    {
+        return $this->allows($user, 'deleteAny');
+    }
+
+    /**
+     * Determine whether the user may restore these resources in bulk.
+     */
+    public function restoreAny(User $user): bool
+    {
+        return $this->allows($user, 'restoreAny');
+    }
+
+    /**
+     * Determine whether the user may irreversibly delete these resources in bulk.
+     */
+    public function forceDeleteAny(User $user): bool
+    {
+        return $this->allows($user, 'forceDeleteAny');
+    }
+
+    /**
+     * Determine whether the user may reorder these resources.
+     */
+    public function reorder(User $user): bool
+    {
+        return $this->allows($user, 'reorder');
+    }
+
+    /**
+     * Determine whether the user may replicate this resource.
+     */
+    public function replicate(User $user, mixed $model = null): bool
+    {
+        return $this->allows($user, 'replicate');
+    }
+
+    /**
+     * Relation-manager abilities: denied unless a policy maps them.
+     */
+    public function attach(User $user): bool
+    {
+        return $this->allows($user, 'attach');
+    }
+
+    public function detach(User $user, mixed $model = null): bool
+    {
+        return $this->allows($user, 'detach');
+    }
+
+    public function detachAny(User $user): bool
+    {
+        return $this->allows($user, 'detachAny');
+    }
+
+    public function associate(User $user): bool
+    {
+        return $this->allows($user, 'associate');
+    }
+
+    public function dissociate(User $user, mixed $model = null): bool
+    {
+        return $this->allows($user, 'dissociate');
+    }
+
+    public function dissociateAny(User $user): bool
+    {
+        return $this->allows($user, 'dissociateAny');
+    }
+
+    /**
      * Whether the user holds the permission guarding the given ability.
      *
-     * An ability with no declared permission denies, rather than falling
+     * An ability with no declared permission -- of its own, or borrowed from
+     * the single-record ability it batches -- denies, rather than falling
      * through to allow.
      */
     protected function allows(User $user, string $ability): bool
     {
-        $permission = $this->permissions()[$ability] ?? null;
+        $permissions = $this->permissions();
+
+        $permission = $permissions[$ability]
+            ?? (isset(self::FALLBACK_ABILITIES[$ability]) ? $permissions[self::FALLBACK_ABILITIES[$ability]] ?? null : null);
 
         return $permission !== null && $user->hasPermission($permission);
     }

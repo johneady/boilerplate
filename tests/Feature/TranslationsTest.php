@@ -1,5 +1,6 @@
 <?php
 
+use App\Auth\Role;
 use App\Payments\Enums\DisputeStatus;
 use App\Payments\Enums\Gateway;
 use App\Payments\Enums\GatewayMode;
@@ -127,6 +128,7 @@ test('every enum label translated at display has a catalogue entry', function (s
     PaymentLinkUsage::class,
     PaymentStatus::class,
     RefundStatus::class,
+    Role::class,
     SubscriptionStatus::class,
     TransactionSource::class,
     TransactionType::class,

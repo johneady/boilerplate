@@ -52,6 +52,7 @@ use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\HtmlString;
+use LogicException;
 use Throwable;
 use UnitEnum;
 
@@ -127,12 +128,14 @@ class ManageSettings extends Page
     ];
 
     /**
-     * The settings edited through a button's modal rather than a tab's form.
+     * The settings edited through a button's modal rather than a tab's form,
+     * or written only by the application itself (the last summary period).
      *
      * @var array<int, SettingKey>
      */
     private const ACTION_EDITED_KEYS = [
         SettingKey::Logo,
+        SettingKey::SummaryEmailLastPeriod,
     ];
 
     /**
@@ -989,6 +992,22 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->email()
                 ->maxLength(255),
+            SettingKey::SummaryEmailEnabled => Toggle::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->live(),
+            SettingKey::SummaryEmailLastPeriod => throw new LogicException('The last summary period is written by app:send-business-summary, never through the form.'),
+            SettingKey::SummaryEmailFrequency => Select::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->options([
+                    'weekly' => __('settings.summary.weekly'),
+                    'monthly' => __('settings.summary.monthly'),
+                ])
+                ->selectablePlaceholder(false)
+                ->visible(fn (Get $get): bool => (bool) $get(SettingKey::SummaryEmailEnabled->value)),
             SettingKey::Timezone => Select::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())

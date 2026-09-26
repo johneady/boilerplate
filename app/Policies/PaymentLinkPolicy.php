@@ -33,8 +33,17 @@ class PaymentLinkPolicy extends BasePolicy
 
     public function delete(User $user, mixed $model = null): bool
     {
-        if ($model instanceof PaymentLink && $model->payments()->exists()) {
-            return false;
+        if ($model instanceof PaymentLink) {
+            // The table that asks per row already carries payments_count
+            // (withCount), so this is a property read there; the query is the
+            // fallback for a model hydrated anywhere else.
+            $hasPayments = $model->payments_count !== null
+                ? $model->payments_count > 0
+                : $model->payments()->exists();
+
+            if ($hasPayments) {
+                return false;
+            }
         }
 
         return parent::delete($user, $model);

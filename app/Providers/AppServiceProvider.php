@@ -127,6 +127,23 @@ class AppServiceProvider extends ServiceProvider
             Limit::perMinute(120)->by('address:'.$request->route('gateway').':'.$request->ip()),
         ]);
 
+        // Each download renders a PDF, far heavier than a page view, and the
+        // signed link never expires -- so a forwarded receipt email must not
+        // be a way to keep workers busy. Per address and per receipt: nobody
+        // needs one receipt thirty times a minute.
+        RateLimiter::for('receipt-pdf', fn (Request $request) => [
+            Limit::perMinute(30)->by('ip:'.$request->ip()),
+            Limit::perMinute(10)->by('receipt:'.$request->route()?->originalParameter('payment')),
+        ]);
+
+        // The deep health check touches the database and the cache store on
+        // every call, and it is unauthenticated -- a generous per-address
+        // ceiling stops a scripted hammer turning an uptime endpoint into a
+        // load generator. External uptime monitors poll at most once a
+        // minute, and the container HEALTHCHECK polls /up (never this
+        // route), so nothing that can restart a container is affected.
+        RateLimiter::for('health', fn (Request $request) => Limit::perMinute(60)->by('ip:'.$request->ip()));
+
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(60)->by(
             // Namespaced so a user identifier can never collide with an IP.
             // Harmless while identifiers are integers and addresses are dotted,

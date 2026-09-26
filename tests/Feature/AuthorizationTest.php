@@ -58,6 +58,16 @@ test('is_admin stays in step with the role it derives from', function () {
     expect($user->is_admin)->toBeTrue();
 });
 
+test('assigning is_admin false leaves a staff role alone', function () {
+    // "Not an admin" says nothing about which staff role someone holds, so
+    // it must not quietly strip a Manager down to an ordinary user.
+    $manager = User::factory()->role(Role::Manager)->create();
+
+    $manager->is_admin = false;
+
+    expect($manager->role)->toBe(Role::Manager);
+});
+
 test('an unrecognised role name fails closed rather than throwing', function () {
     $user = User::factory()->admin()->create();
 

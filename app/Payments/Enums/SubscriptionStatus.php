@@ -65,6 +65,43 @@ enum SubscriptionStatus: string
         return in_array($this, [self::Trialing, self::Active, self::PastDue, self::Canceled], true);
     }
 
+    /**
+     * The values of the started statuses, for whereIn() filters.
+     *
+     * The one statement of "has this customer ever started a subscription",
+     * shared by the trial-burn check (User::isEligibleForTrial()) and the
+     * current-subscription ordering (Subscription::currentFirst).
+     *
+     * @return list<string>
+     */
+    public static function started(): array
+    {
+        return array_values(array_map(
+            fn (self $status): string => $status->value,
+            array_filter(self::cases(), fn (self $status): bool => $status->hasStarted()),
+        ));
+    }
+
+    /**
+     * The values of the statuses a subscription can grant access in, for
+     * whereIn() filters.
+     *
+     * Deliberately its own list rather than a share of started(): this is the
+     * access rule (a cancellation counts until the time already paid for runs
+     * out), and it must be able to drift from the trial-burn rule without one
+     * silently changing the other. Mirrors the non-false arms of
+     * Subscription::grantsAccess().
+     *
+     * @return list<string>
+     */
+    public static function grantingAccess(): array
+    {
+        return array_map(
+            fn (self $status): string => $status->value,
+            [self::Trialing, self::Active, self::PastDue, self::Canceled],
+        );
+    }
+
     public function isFinal(): bool
     {
         return in_array($this, [self::Canceled, self::Expired], true);

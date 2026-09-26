@@ -3,12 +3,15 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\BusinessOverview;
+use App\Filament\Widgets\NeedsAttention;
+use App\Filament\Widgets\RevenueChart;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 /**
- * The panel's landing page: a business overview built from widgets, plus the
- * introduction to John Eady's work shown in a modal that opens itself shortly
- * after arrival and stays reachable from a strip above the widgets.
+ * The panel's landing page: the business at a glance, built from widgets that
+ * each check the viewer may see them, plus -- outside production only -- the
+ * introduction to John Eady's work in a modal that opens itself shortly after
+ * arrival and stays reachable from a strip below the widgets.
  */
 class Dashboard extends BaseDashboard
 {
@@ -28,6 +31,8 @@ class Dashboard extends BaseDashboard
     {
         return [
             BusinessOverview::class,
+            NeedsAttention::class,
+            RevenueChart::class,
         ];
     }
 }

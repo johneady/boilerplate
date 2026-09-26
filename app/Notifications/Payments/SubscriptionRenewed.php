@@ -31,7 +31,7 @@ class SubscriptionRenewed extends PaymentNotification
             ->line(__('Subtotal: :amount', ['amount' => $payment->subtotalMoney()->format()]));
 
         foreach ($payment->taxLines() as $line) {
-            $message->line(__(':tax: :amount', ['tax' => $line->label(), 'amount' => $line->amount->format()]));
+            $message->line($this->taxLineText($line));
         }
 
         $message->line(__('Total paid: :amount', ['amount' => $payment->total()->format()]));
@@ -40,7 +40,11 @@ class SubscriptionRenewed extends PaymentNotification
             $message->line(__('Your subscription next renews :date.', ['date' => app(Settings::class)->formatDate($subscription->current_period_end)]));
         }
 
-        return $message
+        if ($payment->receiptNumber() !== null) {
+            $message->line(__('Receipt number: :number', ['number' => $payment->receiptNumber()]));
+        }
+
+        return $this->attachReceiptPdf($message, $payment)
             ->line(__('Reference: :reference', ['reference' => $payment->uuid]))
             ->action(__('View your receipt'), $payment->receiptUrl());
     }

@@ -37,7 +37,7 @@ use Carbon\CarbonImmutable;
  * can be changed on a plan in use, so a change to either creates a new
  * billing plan and deactivates the old one; existing subscribers stay on the
  * plan they approved. PayPal takes one tax percentage, so the configured
- * rates are combined into one line ("GST + PST", 12%).
+ * rates are combined into one line ("State Tax + City Tax", 8.875%).
  *
  * PayPal has no cancel-at-period-end. Scheduling one suspends the
  * subscription (so nothing more is billed) and payments:end-subscriptions
@@ -573,6 +573,11 @@ trait ManagesPayPalSubscriptions
         $end = CarbonImmutable::now()->addDay();
         $start = $this->transactionsSince($subscription);
 
+        // PayPal charges one combined tax, so its receipt line carries the
+        // registration number of every rate the plan charges -- named in the
+        // tax_name recorded when the plan was synced.
+        $registrationNumber = isset($tax['tax_name']) ? TaxRate::registrationNumbersFor($tax['tax_name']) : null;
+
         while ($start < $end) {
             $windowEnd = min($start->addDays(31), $end);
 
@@ -603,7 +608,7 @@ trait ManagesPayPalSubscriptions
                     paymentId: (string) $transaction['id'],
                     total: Money::fromDecimal((string) $gross, $currency),
                     taxLines: $taxAmount->isPositive()
-                        ? [new TaxLine($tax['tax_name'] ?? 'Tax', $tax['tax_percentage'] ?? '0', $taxAmount)]
+                        ? [new TaxLine($tax['tax_name'] ?? 'Tax', $tax['tax_percentage'] ?? '0', $taxAmount, $registrationNumber)]
                         : [],
                     paidAt: CarbonImmutable::parse((string) ($transaction['time'] ?? 'now')),
                 );

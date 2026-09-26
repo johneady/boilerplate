@@ -60,9 +60,13 @@
 
                     @if (Route::has('login'))
                         @auth
-                            @if (auth()->user()->is_admin)
+                            {{-- getPanels() rather than getPanel('admin'), which throws for an
+                                 unregistered id and would 500 every signed-in visitor here. --}}
+                            @php($adminPanel = filament()->getPanels()['admin'] ?? null)
+
+                            @if ($adminPanel !== null && auth()->user()->canAccessPanel($adminPanel))
                                 <flux:button
-                                    :href="filament()->getPanel('admin')->getUrl()"
+                                    :href="$adminPanel->getUrl()"
                                     size="sm"
                                     variant="primary"
                                     icon="wrench-screwdriver"

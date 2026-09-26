@@ -25,14 +25,16 @@ class PaymentReceipt extends PaymentNotification
             ->line(__('Subtotal: :amount', ['amount' => $payment->subtotalMoney()->format()]));
 
         foreach ($payment->taxLines() as $line) {
-            $message->line(__(':tax: :amount', [
-                'tax' => $line->label(),
-                'amount' => $line->amount->format(),
-            ]));
+            $message->line($this->taxLineText($line));
         }
 
-        return $message
-            ->line(__('Total paid: :amount', ['amount' => $payment->capturedMoney()->isZero() ? $payment->total()->format() : $payment->capturedMoney()->format()]))
+        $message->line(__('Total paid: :amount', ['amount' => $payment->paidMoney()->format()]));
+
+        if ($payment->receiptNumber() !== null) {
+            $message->line(__('Receipt number: :number', ['number' => $payment->receiptNumber()]));
+        }
+
+        return $this->attachReceiptPdf($message, $payment)
             ->line(__('Reference: :reference', ['reference' => $payment->uuid]))
             ->action(__('View your receipt'), $payment->receiptUrl());
     }

@@ -3,6 +3,7 @@
 use App\Auth\Role;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Resources\Users\UserResource;
+use App\Models\Media;
 use App\Models\User;
 use App\Settings\Settings;
 use Filament\Actions\CreateAction;
@@ -12,6 +13,7 @@ use Filament\Actions\EditAction;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -68,6 +70,32 @@ test('the table lists existing users', function () {
     Livewire::test(ManageUsers::class)
         ->assertCanSeeTableRecords($users);
 });
+
+test('the table reads avatars in a fixed number of media queries, however many users', function (int $users) {
+    Storage::fake('public');
+
+    User::factory()->count($users)->create()->each(fn (User $user) => Media::factory()->create([
+        'model_type' => $user->getMorphClass(),
+        'model_id' => $user->getKey(),
+    ]));
+
+    $queries = 0;
+    DB::listen(function ($query) use (&$queries): void {
+        // Eager loads of the avatar relation, not the site-logo lookup,
+        // which runs without a model on every admin page.
+        if (str_contains($query->sql, '"media"."model_id" in') || str_contains($query->sql, '`media`.`model_id` in')) {
+            $queries++;
+        }
+    });
+
+    Livewire::test(ManageUsers::class)->assertSuccessful();
+
+    // One eager load for the page's avatars and one for the cross-page
+    // select-all count (Filament materializes every record to filter the
+    // current user out of it) -- never one lookup per row behind the
+    // avatar column.
+    expect($queries)->toBe(2);
+})->with([3, 30]);
 
 test('a user can be created through the modal', function () {
     Livewire::test(ManageUsers::class)

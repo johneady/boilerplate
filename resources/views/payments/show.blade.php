@@ -48,6 +48,13 @@
                 @endswitch
             </p>
 
+            @if ($payment->mode !== \App\Payments\Enums\GatewayMode::Live)
+                <flux:callout variant="warning" icon="beaker" class="mt-6" data-test="test-payment">
+                    <flux:callout.text>
+                        {{ __('This is a test payment. No money was taken, and this is not a valid receipt.') }}</flux:callout.text>
+                </flux:callout>
+            @endif
+
             <dl class="mt-8 space-y-2 rounded-lg border border-neutral-200 p-4 text-sm dark:border-neutral-800">
                 <div class="flex justify-between gap-4">
                     <dt>{{ __('For') }}</dt>
@@ -61,8 +68,15 @@
                     </div>
 
                     @foreach ($payment->taxLines() as $line)
-                        <div class="flex justify-between text-neutral-600 dark:text-neutral-400">
-                            <dt>{{ $line->label() }}</dt>
+                        <div class="flex justify-between gap-4 text-neutral-600 dark:text-neutral-400">
+                            <dt>
+                                {{ $line->label() }}
+                                @if ($line->registrationNumber !== null)
+                                    <span class="block text-xs text-neutral-500" data-test="tax-registration">
+                                        {{ __('Registration no. :number', ['number' => $line->registrationNumber]) }}
+                                    </span>
+                                @endif
+                            </dt>
                             <dd>{{ $line->amount->format() }}</dd>
                         </div>
                     @endforeach
@@ -82,11 +96,31 @@
                     </div>
                 @endforeach
 
+                @if ($payment->receiptNumber() !== null)
+                    <div class="flex justify-between gap-4 pt-2 text-xs text-neutral-500">
+                        <dt>{{ __('Receipt number') }}</dt>
+                        <dd class="font-mono" data-test="receipt-number">{{ $payment->receiptNumber() }}</dd>
+                    </div>
+                @endif
+
                 <div class="flex justify-between gap-4 pt-2 text-xs text-neutral-500">
                     <dt>{{ __('Reference') }}</dt>
                     <dd class="font-mono">{{ $payment->uuid }}</dd>
                 </div>
             </dl>
+
+            @if (\App\Payments\ReceiptPdf::availableFor($payment))
+                <flux:button
+                    :href="$payment->receiptPdfUrl()"
+                    icon="arrow-down-tray"
+                    variant="ghost"
+                    size="sm"
+                    class="mt-4"
+                    data-test="receipt-pdf"
+                >
+                    {{ __('Download PDF receipt') }}
+                </flux:button>
+            @endif
 
             @if (! $status->isPaid() && $status !== \App\Payments\Enums\PaymentStatus::Authorized && $retryUrl !== null)
                 <flux:button :href="$retryUrl" variant="primary" class="mt-8">{{ __('Try again') }}</flux:button>

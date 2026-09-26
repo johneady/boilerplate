@@ -61,6 +61,17 @@ $user->can('update', $otherUser);                // through UserPolicy
 User::withRole(Role::Admin)->get();
 ```
 
+| Role | Admin panel | Can do |
+| --- | --- | --- |
+| User | no | Their own account, billing and subscription |
+| Editor | yes | Pages, media library, contact messages |
+| Bookkeeper | yes | Read payments, refunds, subscriptions, disputes and tax rates |
+| Manager | yes | Editor + Bookkeeper, plus refunds, capture/void, manual payments, payment links, cancelling subscriptions, and reading the user list |
+| Administrator | yes | Everything, including settings, payment credentials, plans, users and roles, the audit trail and logs |
+
+Staff roles land on the panel after signing in, and each sees only the screens
+its permissions reach.
+
 Check permissions rather than role names. `Role::Admin->permissions()` returns
 `Permission::cases()` by enumeration, so a permission added later is granted to
 administrators rather than silently denied.
@@ -93,6 +104,26 @@ Filament 5 serves an admin panel at `/admin`. Access is gated on the
 `FilamentUser` contract) and
 [`FilamentAuthenticate`](app/Http/Middleware/FilamentAuthenticate.php), which
 403s non-admins and sends guests to Fortify's login page.
+
+**The dashboard** shows the business at a glance from real data
+([`BusinessMetrics`](app/Payments/BusinessMetrics.php)): revenue this month
+against the same point last month (net of refunds, read from the ledger), new
+customers, active subscriptions and monthly recurring revenue, twelve months
+of revenue, and a *Needs attention* list — disputes awaiting a response,
+failed renewals, holds about to lapse, unanswered messages. Each widget and
+item appears only to someone with the permission to act on it. Outside
+production, `DemoBusinessSeeder` fills a fresh install with a year of demo
+trading through the real payment actions (sandbox, Demo gateway), and the
+dashboard carries the introduction to the author's work; production never
+shows it.
+
+**The business summary** (`app:send-business-summary`, checked hourly) emails
+every administrator the same figures at 8am on Monday for the week just
+ended — or on the 1st for the month — in the display timezone. It is on by
+default and set under Settings → Email, skips a period with no activity, and
+records each period sent in the settings table (not the cache, which every
+container start clears), so a redeploy never sends it twice. `--force` sends
+the last period now.
 
 **The panel has no login page of its own.** `filament:install --panels`
 scaffolds `->login()` in the panel provider, which would register a second login
@@ -139,18 +170,23 @@ captured, else the admin panel for admins and the dashboard for everyone else.
 php artisan migrate:fresh --seed
 ```
 
-Two demo accounts, with **fixed credentials** defined in
-[`config/first.php`](config/first.php) — no environment variables, so a fresh
-clone and a fresh deployment both come up usable with nothing to configure:
+Demo accounts with **fixed credentials** — the admin's in
+[`config/first.php`](config/first.php), the rest (with their roles) in
+[`config/dev-login.php`](config/dev-login.php) — no environment
+variables, so a fresh clone and a fresh deployment both come up usable with
+nothing to configure:
 
 | Account | Email | Password | Access |
 | --- | --- | --- | --- |
 | Admin | `admin@example.com` | `password` | Filament panel at `/admin` |
 | User | `test@example.com` | `password` | `/dashboard` only |
+| Editor | `editor@example.com` | `password` | Panel: pages, media, contact messages |
+| Bookkeeper | `bookkeeper@example.com` | `password` | Panel: payments, subscriptions, disputes, tax rates (read-only) |
+| Manager | `manager@example.com` | `password` | Panel: editor + bookkeeper, plus refunds, holds, payment links, subscriptions, users (read-only) |
 
 `AdminUserSeeder` is idempotent: an existing account is promoted to admin but
 its name and password are left alone, so a password you change is never reset by
-a redeploy. `DatabaseSeeder` adds the non-admin user wherever the quick logins
+a redeploy. `DatabaseSeeder` adds the other accounts wherever the quick logins
 are offered — every environment except `production`.
 
 `SettingsSeeder` adds placeholder business contact details (address, phone,
@@ -317,9 +353,34 @@ customer-entered amount, single-use (an invoice) or reusable. A project's own
 adds manual payments to its resource.
 
 **Tax.** Admin → Payments → Tax rates. Every active rate is added on top of a
-taxable item's price, each rounded on its own (so GST 5% + PST 7% print as two
-lines, as a Canadian receipt does). The lines charged are snapshotted onto the
-payment, so editing a rate never changes a past receipt.
+taxable item's price, each rounded on its own (so a 5% and a 7% tax, such as
+GST + PST or state + city sales tax, print as two lines on the receipt). The
+lines charged are snapshotted onto the payment, so editing a rate never
+changes a past receipt. Each rate takes an optional **registration number**
+(a GST/HST, QST or VAT number), printed beside its line on receipts.
+
+**Receipt numbers.** Every payment is numbered `R-000123` when it is first
+seen paid, in the same transaction, from a locked counter in the `sequences`
+table — so the series is gap-free (a rolled-back payment hands its number
+back) and never shared. Sandbox and live count separately. The prefix is
+`payments.receipt_prefix`; the UUID stays the internal reference.
+
+**PDF receipts.** Rendered on demand with dompdf
+([`ReceiptPdf`](app/Payments/ReceiptPdf.php)): downloadable from the receipt
+page, the customer's billing page and the admin payment view, and attached to
+receipt and renewal emails. They carry the business details and logo from
+Settings, the receipt number and each tax's registration number. Sandbox
+receipts are stamped as test payments and named `…-test.pdf`. Paper size is
+`payments.receipt_paper` (`letter` or `a4`).
+
+**Exports.** Payments (paid ones, with a column per tax and a *Paid between*
+filter), refunds (succeeded, with a date range) and users export to CSV or
+Excel through Filament's exporter, from the Payments and Users screens, for
+anyone who can view that list. The file is built on the queue and its
+download link arrives in the panel's notification bell. Dates are ISO in the
+business timezone, amounts plain decimals, and customer-typed text is guarded
+against spreadsheet formula injection. `app:prune-exports` deletes exports,
+their files and their notifications after a week.
 
 **Credentials** are entered in the panel, one set for sandbox and one for
 live, and are encrypted with `APP_KEY`, never sent back to the browser, and
@@ -574,10 +635,15 @@ vendor/bin/pest --ci
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
 `main` and every pull request:
 
-- **Pint & PHPStan** — `pint --test` and `phpstan analyse` (level 8).
+- **Pint, PHPStan & Prettier** — `pint --test`, `phpstan analyse` (level 8)
+  and `npm run format:check`. Every Pest job waits for this one.
 - **Pest** — the suite on sqlite, in parallel.
-- **Pest (mysql / mariadb)** — the same suite against `mysql:8.4` and
-  `mariadb:11`.
+- **Pest (browser)** — the browser suite.
+- **Pest (mysql / mariadb / pgsql)** — the same suite against `mysql:8.4`,
+  `mariadb:11` and `postgres:17`.
+- **Docker** — on pushes to `main` only, once every job above is green, calls
+  [`.github/workflows/docker.yml`](.github/workflows/docker.yml) to build and
+  publish the image to GHCR.
 
 That last job exists because production runs MySQL or MariaDB (the Dockerfile
 installs `pdo_mysql`) while the fast job runs sqlite, which tolerates looser

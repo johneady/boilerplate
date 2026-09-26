@@ -2,9 +2,14 @@
 
 namespace App\Notifications\Payments;
 
+use App\Models\Payment;
 use App\Notifications\BaseNotification;
+use App\Payments\ReceiptPdf;
+use App\Payments\Tax\TaxLine;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
+use Throwable;
 
 /**
  * Base class for every email the payments module sends.
@@ -42,5 +47,42 @@ abstract class PaymentNotification extends BaseNotification implements ShouldQue
     public function __construct()
     {
         $this->afterCommit();
+    }
+
+    /**
+     * Attach the payment's PDF receipt, when it has one.
+     *
+     * A receipt that fails to render is reported and left off: the email
+     * still carries every figure and the link to the receipt page, and
+     * failing the whole send over the attachment would lose both.
+     */
+    protected function attachReceiptPdf(MailMessage $message, Payment $payment): MailMessage
+    {
+        if (! ReceiptPdf::availableFor($payment)) {
+            return $message;
+        }
+
+        $receipt = app(ReceiptPdf::class);
+
+        try {
+            $pdf = $receipt->render($payment);
+        } catch (Throwable $e) {
+            report($e);
+
+            return $message;
+        }
+
+        return $message->attachData($pdf, $receipt->filename($payment), ['mime' => 'application/pdf']);
+    }
+
+    /**
+     * One tax line as an email prints it, with the business's registration
+     * number for that tax when it has one.
+     */
+    protected function taxLineText(TaxLine $line): string
+    {
+        return $line->registrationNumber === null
+            ? __(':tax: :amount', ['tax' => $line->label(), 'amount' => $line->amount->format()])
+            : __(':tax: :amount (registration no. :number)', ['tax' => $line->label(), 'amount' => $line->amount->format(), 'number' => $line->registrationNumber]);
     }
 }

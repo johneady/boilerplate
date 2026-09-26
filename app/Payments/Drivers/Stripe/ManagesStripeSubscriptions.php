@@ -2,7 +2,6 @@
 
 namespace App\Payments\Drivers\Stripe;
 
-use App\Models\BillingCustomer;
 use App\Models\Payment;
 use App\Models\Plan;
 use App\Models\PlanPrice;
@@ -396,8 +395,7 @@ trait ManagesStripeSubscriptions
     {
         $user = $subscription->user ?? throw new GatewayException('The subscription has no user.');
 
-        $existing = BillingCustomer::query()
-            ->where('user_id', $user->id)
+        $existing = $user->billingCustomers()
             ->where('gateway', Gateway::Stripe->value)
             ->where('mode', $this->mode->value)
             ->value('gateway_customer_id');
@@ -416,8 +414,7 @@ trait ManagesStripeSubscriptions
             // In its own transaction, like every insert here that may lose a
             // race: a savepoint when the caller holds one open, so PostgreSQL
             // does not abort the caller's transaction along with the insert.
-            DB::transaction(fn () => BillingCustomer::query()->create([
-                'user_id' => $user->id,
+            DB::transaction(fn () => $user->billingCustomers()->create([
                 'gateway' => Gateway::Stripe,
                 'mode' => $this->mode,
                 'gateway_customer_id' => (string) $customer->id,
@@ -426,8 +423,7 @@ trait ManagesStripeSubscriptions
             // A concurrent checkout recorded a customer first. Usually the
             // same one (the idempotency key returned it to both), but not
             // once the key has expired, so the recorded one is what is used.
-            return (string) BillingCustomer::query()
-                ->where('user_id', $user->id)
+            return (string) $user->billingCustomers()
                 ->where('gateway', Gateway::Stripe->value)
                 ->where('mode', $this->mode->value)
                 ->value('gateway_customer_id');
@@ -499,7 +495,7 @@ trait ManagesStripeSubscriptions
      * Every Stripe TaxRate this installation has created in this mode, with
      * the name and percentage it was created with.
      *
-     * @return array<string, array{0: string, 1: string}>
+     * @return array<string, array{0: string, 1: string, 2: ?string}>
      */
     private function knownTaxRates(): array
     {
@@ -508,7 +504,10 @@ trait ManagesStripeSubscriptions
         foreach (TaxRate::query()->whereNotNull('gateway_refs')->get() as $rate) {
             foreach ($rate->gateway_refs[Gateway::Stripe->value][$this->mode->value]['known'] ?? [] as $id => $signature) {
                 $parts = explode('|', (string) $signature, 2);
-                $known[(string) $id] = [$parts[0], $parts[1] ?? '0'];
+                // The registration number is the rate's current one: Stripe's
+                // copy carries no such field, and it is the business's
+                // registration for the tax, not a term of the charge.
+                $known[(string) $id] = [$parts[0], $parts[1] ?? '0', $rate->registration_number];
             }
         }
 
@@ -520,7 +519,7 @@ trait ManagesStripeSubscriptions
      * when charged.
      *
      * @param  array<string, mixed>  $invoice
-     * @param  array<string, array{0: string, 1: string}>  $known
+     * @param  array<string, array{0: string, 1: string, 2: ?string}>  $known
      * @return list<TaxLine>
      */
     private function invoiceTaxLines(array $invoice, Currency $currency, array $known): array
@@ -554,8 +553,8 @@ trait ManagesStripeSubscriptions
         $lines = [];
 
         foreach ($shares as $id => $share) {
-            [$name, $percentage] = $known[$id] ?? ['Tax', '0'];
-            $lines[] = new TaxLine($name, $percentage, $share);
+            [$name, $percentage, $registrationNumber] = $known[$id] ?? ['Tax', '0', null];
+            $lines[] = new TaxLine($name, $percentage, $share, $registrationNumber);
         }
 
         return $lines;

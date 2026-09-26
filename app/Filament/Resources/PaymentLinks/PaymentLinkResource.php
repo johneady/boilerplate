@@ -99,15 +99,15 @@ class PaymentLinkResource extends Resource
                 MoneyInput::make('amount', $currency)
                     ->label(__('payments.links.amount'))
                     ->required(fn (Get $get): bool => ! $isCustomerEntered($get))
-                    ->rule(fn (): Closure => static::positiveAmountRule())
+                    ->positive()
                     ->visible(fn (Get $get): bool => ! $isCustomerEntered($get)),
                 MoneyInput::make('min_amount', $currency)
                     ->label(__('payments.links.min_amount'))
-                    ->rule(fn (): Closure => static::positiveAmountRule())
+                    ->positive()
                     ->visible($isCustomerEntered),
                 MoneyInput::make('max_amount', $currency)
                     ->label(__('payments.links.max_amount'))
-                    ->rule(fn (): Closure => static::positiveAmountRule())
+                    ->positive()
                     ->rule(fn (Get $get): Closure => function (string $attribute, mixed $value, Closure $fail) use ($get): void {
                         $minimum = $get('min_amount');
 
@@ -192,21 +192,6 @@ class PaymentLinkResource extends Resource
                     ->authorizationMessage(__('payments.links.delete_taken')),
             ])
             ->toolbarActions([]);
-    }
-
-    /**
-     * A money field that, when filled, must be more than zero.
-     *
-     * Validated on the typed decimal string, before it is converted to minor
-     * units -- a zero-priced link would open checkouts every gateway refuses.
-     */
-    protected static function positiveAmountRule(): Closure
-    {
-        return function (string $attribute, mixed $value, Closure $fail): void {
-            if (filled($value) && is_numeric($value) && (float) $value <= 0) {
-                $fail(__('payments.links.amount_positive'));
-            }
-        };
     }
 
     /**

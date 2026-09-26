@@ -43,6 +43,9 @@ return new class extends Migration
             $table->unsignedBigInteger('amount_refunded')->default(0);
             $table->json('tax_lines');
 
+            // Gateway-assigned ids stay at the string default: Stripe
+            // documents that its ids may grow to 255 characters, and a
+            // narrower column rejects the insert under strict mode.
             $table->string('gateway_checkout_id')->nullable();
             $table->string('gateway_payment_id')->nullable();
             $table->string('gateway_authorization_id')->nullable();
@@ -56,6 +59,12 @@ return new class extends Migration
             // payment is reconciled. receipt_sent_at is the same for the email,
             // and expiry_alerted_at for the authorization-expiry warning.
             $table->timestamp('paid_at')->nullable();
+            // The sequential, gap-free receipt number, assigned in the same
+            // transaction that claims paid_at. Null until then, so unpaid,
+            // failed and expired checkouts take no number. Counted per mode
+            // (unique with it, below), so sandbox payments never punch holes
+            // in the live series an accountant reads.
+            $table->unsignedBigInteger('receipt_number')->nullable();
             $table->timestamp('receipt_sent_at')->nullable();
             $table->timestamp('expiry_alerted_at')->nullable();
             $table->timestamp('failed_at')->nullable();
@@ -75,6 +84,20 @@ return new class extends Migration
             // is written here.
             $table->json('metadata')->nullable();
             $table->timestamps();
+
+            $table->unique(['mode', 'receipt_number']);
+
+            // Explicit rather than left to MySQL's implicit foreign-key index:
+            // SQLite and PostgreSQL create none. user_id backs the customer's
+            // own payment history (Livewire billing settings reads the latest
+            // paid payment per user); recorded_by is the same portability
+            // sweep, read through the recorder relation.
+            $table->index('user_id');
+            $table->index('recorded_by');
+            // The payments table's default sort is created_at desc under the
+            // default mode filter, which the ['status', 'created_at'] index
+            // cannot serve because status is not filtered by default.
+            $table->index(['mode', 'created_at']);
 
             // Unique per gateway: a webhook or return naming a gateway id
             // resolves to exactly one payment. MySQL, MariaDB, PostgreSQL and

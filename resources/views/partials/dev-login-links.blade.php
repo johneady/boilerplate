@@ -35,8 +35,12 @@
 
                 @if (! $devUser['exists'])
                     <flux:badge size="sm" color="zinc" inset="top bottom">{{ __('Not seeded') }}</flux:badge>
-                @elseif ($devUser['admin'])
-                    <flux:badge size="sm" color="amber" inset="top bottom">{{ __('Admin panel') }}</flux:badge>
+                @elseif ($devUser['panel'])
+                    <flux:badge
+                        size="sm"
+                        :color="$devUser['role']->color()"
+                        inset="top bottom"
+                    >{{ __($devUser['role']->label()) }}</flux:badge>
                 @else
                     <flux:badge size="sm" color="zinc" inset="top bottom">{{ __('Dashboard') }}</flux:badge>
                 @endif
@@ -45,6 +49,6 @@
     </div>
 
     <p class="mt-3 text-[0.7rem] leading-relaxed text-zinc-500 dark:text-zinc-400">
-        {{ __('Admins land on the admin panel, everyone else on the dashboard — unless you were redirected here, in which case you continue to where you were headed.') }}
+        {{ __('Admins and staff land on the admin panel, everyone else on the dashboard — unless you were redirected here, in which case you continue to where you were headed.') }}
     </p>
 </div>

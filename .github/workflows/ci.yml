@@ -13,8 +13,11 @@ permissions:
   contents: read
 
 jobs:
+  # Every Pest job below `needs` this one: it takes a couple of minutes where
+  # the suites take far longer, so a style or type failure stops the run
+  # before it spends runner time proving nothing new.
   static-analysis:
-    name: Pint & PHPStan
+    name: Pint, PHPStan & Prettier
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -60,13 +63,6 @@ jobs:
       - name: Analyse types
         run: vendor/bin/phpstan analyse --no-progress
 
-  format:
-    name: Prettier
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-
       - name: Set up Node
         uses: actions/setup-node@v7
         with:
@@ -79,12 +75,17 @@ jobs:
       # The stylesheets, scripts and Vite config only; .prettierrc holds the
       # house style. Blade is not formatted: prettier-plugin-blade would rewrite
       # every view in one pass, which is a change to make deliberately rather
-      # than as a side effect of a CI gate.
+      # than as a side effect of a CI gate. This lives in this job rather than
+      # its own because prettier-plugin-tailwindcss loads resources/css/app.css
+      # (tailwindStylesheet in .prettierrc), which imports Flux's CSS from
+      # vendor/ -- without the Composer install above every file fails with
+      # "Can't resolve flux.css".
       - name: Check formatting
         run: npm run format:check
 
   tests:
     name: Pest (sqlite)
+    needs: static-analysis
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -142,6 +143,7 @@ jobs:
 
   browser:
     name: Pest (browser)
+    needs: static-analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -225,6 +227,7 @@ jobs:
 
   database:
     name: Pest (${{ matrix.database }})
+    needs: static-analysis
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -342,3 +345,23 @@ jobs:
         # is 151 and the whole run peaked at 10 concurrent connections. Do not
         # lower this on the theory that the service container is saturated.
         run: vendor/bin/pest --ci --parallel --processes=4 --testsuite=Unit,Feature
+
+  # Publishing lives here rather than on docker.yml's own push trigger so that
+  # an image only reaches GHCR once every job above is green -- docker.yml
+  # used to fire on the same push in parallel and published regardless.
+  #
+  # A called workflow runs with the CALLER's github context (event_name push,
+  # ref refs/heads/main, sha), so docker.yml's tag derivation, push condition
+  # and deploy summary behave exactly as they did on a direct push.
+  #
+  # packages: write must be granted here: a called workflow cannot raise its
+  # permissions above what the calling job allows, and the top-level default
+  # in this file is contents: read.
+  publish:
+    name: Docker
+    needs: [static-analysis, tests, browser, database]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/docker.yml

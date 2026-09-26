@@ -138,7 +138,14 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
+            // Immutable, as the @property docblocks above promise and the
+            // payment models already do -- nothing here is ever mutated in
+            // place. Fortify's markEmailAsVerified() assigns now(), which the
+            // cast accepts and converts.
+            'email_verified_at' => 'immutable_datetime',
+            'two_factor_confirmed_at' => 'immutable_datetime',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
             'role' => Role::class,
             'password' => 'hashed',
         ];
@@ -273,6 +280,32 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     }
 
     /**
+     * Payments attributed to this user's account, whatever they were for.
+     *
+     * The payable a payment actually settles is the morphTo on Payment
+     * itself; this is only the "the customer's own payment history" path
+     * (the billing settings page).
+     *
+     * @return HasMany<Payment, $this>
+     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * This user's customer records at the gateways, one per gateway and
+     * mode, created on first subscribe so repeat checkouts and the billing
+     * portal have one to attach to.
+     *
+     * @return HasMany<BillingCustomer, $this>
+     */
+    public function billingCustomers(): HasMany
+    {
+        return $this->hasMany(BillingCustomer::class);
+    }
+
+    /**
      * The subscription this user's access and billing page are about: the
      * live one, or failing that the most recent one that started.
      */
@@ -280,12 +313,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     {
         return $this->subscriptions()
             ->with(['plan', 'price', 'pendingPrice'])
-            ->whereIn('status', array_map(
-                fn (SubscriptionStatus $status): string => $status->value,
-                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
-            ))
-            ->orderByRaw('active_user_id IS NULL')
-            ->latest('id')
+            ->currentFirst()
             ->first();
     }
 
@@ -300,10 +328,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     {
         return ! $this->subscriptions()
             ->where('mode', $mode->value)
-            ->whereIn('status', array_map(
-                fn (SubscriptionStatus $status): string => $status->value,
-                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
-            ))
+            ->whereIn('status', SubscriptionStatus::started())
             ->exists();
     }
 
@@ -329,12 +354,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
         return $this->subscriptions()
             ->with('plan')
             ->whereIn('mode', $modes)
-            ->whereIn('status', [
-                SubscriptionStatus::Trialing->value,
-                SubscriptionStatus::Active->value,
-                SubscriptionStatus::PastDue->value,
-                SubscriptionStatus::Canceled->value,
-            ])
+            ->whereIn('status', SubscriptionStatus::grantingAccess())
             ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>', now()))
             ->get()
             ->contains(fn (Subscription $subscription): bool => $subscription->grantsAccess($graceDays)

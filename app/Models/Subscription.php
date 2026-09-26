@@ -11,6 +11,8 @@ use App\Payments\Enums\SubscriptionStatus;
 use Carbon\CarbonImmutable;
 use Database\Factories\SubscriptionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -271,5 +273,26 @@ class Subscription extends Model
     public function swapIdempotencyKey(PlanPrice $to): string
     {
         return $this->gatewayKey("swap:{$this->plan_price_id}:{$to->id}:".($this->updated_at?->getTimestamp() ?? 0));
+    }
+
+    /**
+     * Subscriptions that have started, the current one first: the live one,
+     * or failing that the most recent.
+     *
+     * The one statement of which subscription is "current". A single user's
+     * takes the first of these (User::currentSubscription()); eager-loaded
+     * for many users at once, the order holds within each user, so the first
+     * of each user's loaded subscriptions is theirs -- one query for all of
+     * them instead of one each.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function currentFirst(Builder $query): void
+    {
+        $query
+            ->whereIn('status', SubscriptionStatus::started())
+            ->orderByRaw('active_user_id IS NULL')
+            ->latest('id');
     }
 }

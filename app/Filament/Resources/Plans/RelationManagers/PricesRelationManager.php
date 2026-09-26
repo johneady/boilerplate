@@ -6,7 +6,6 @@ use App\Filament\Forms\MoneyInput;
 use App\Models\PlanPrice;
 use App\Payments\Enums\BillingInterval;
 use App\Payments\PaymentManager;
-use Closure;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
 use Filament\Forms\Components\Select;
@@ -41,11 +40,7 @@ class PricesRelationManager extends RelationManager
                 MoneyInput::make('amount', app(PaymentManager::class)->currency())
                     ->label(__('payments.plans.amount'))
                     ->required()
-                    ->rule(fn (): Closure => function (string $attribute, mixed $value, Closure $fail): void {
-                        if (is_numeric($value) && (float) $value <= 0) {
-                            $fail(__('payments.links.amount_positive'));
-                        }
-                    }),
+                    ->positive(),
                 Select::make('interval')
                     ->label(__('payments.plans.interval'))
                     ->options(array_map(fn (string $label): string => __($label), BillingInterval::options()))

@@ -28,6 +28,17 @@ return [
     'checkout_expiry_minutes' => 60,
 
     /*
+     * Printed before every receipt number, which is zero-padded to six digits:
+     * "R-000123". The numbers themselves come from App\Payments\ReceiptNumbers.
+     */
+    'receipt_prefix' => 'R-',
+
+    /*
+     * The paper size of the PDF receipt: 'letter' (North America) or 'a4'.
+     */
+    'receipt_paper' => 'letter',
+
+    /*
      * How long a checkout may sit unpaid before it is marked expired, in hours.
      *
      * Deliberately longer than checkout_expiry_minutes: payments:expire-checkouts

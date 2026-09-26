@@ -1,10 +1,9 @@
 <?php
 
 use App\Filament\Pages\Dashboard;
-use App\Filament\Widgets\BusinessOverview;
 use App\Models\User;
 use Filament\Facades\Filament;
-use Livewire\Livewire;
+use Tests\Support\Payments;
 
 test('the panel uses the overview dashboard rather than the base one', function () {
     expect(Filament::getPanel('admin')->getPages())->toContain(Dashboard::class);
@@ -34,24 +33,34 @@ test('a control on the landing page reopens the work overview', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
-        ->assertSee('The widgets above are generic examples')
-        ->assertSee('In the finished product they are replaced with widgets built around your real business data.')
+        ->assertSee('The figures above are demo data')
+        ->assertSee('In the finished product they come from your real sales, customers and messages.')
         ->assertSee('Show introduction')
         ->assertSee("x-on:click=\"\$dispatch('open-modal', { id: 'work-overview' })\"", escape: false);
 });
 
 test('the landing page embeds the business overview widget', function () {
+    Payments::enable();
+
     $this->actingAs(User::factory()->admin()->create())
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
         ->assertSee('Widgets\BusinessOverview', escape: false);
 });
 
-test('the business overview widget renders its sample data', function () {
-    Livewire::test(BusinessOverview::class)
-        ->assertSee('This month at a glance')
-        ->assertSee('Revenue this month')
-        ->assertSee('$48,650');
+test('a production instance never carries the work overview', function () {
+    app()->detectEnvironment(fn () => 'production');
+
+    try {
+        $response = $this->actingAs(User::factory()->admin()->create())
+            ->get(Filament::getPanel('admin')->getUrl());
+    } finally {
+        app()->detectEnvironment(fn () => 'testing');
+    }
+
+    $response->assertSuccessful()
+        ->assertDontSee('John Eady')
+        ->assertDontSee('The figures above are demo data');
 });
 
 test('the hero portrait is present on disk', function () {

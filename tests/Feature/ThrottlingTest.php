@@ -180,3 +180,15 @@ test('the throttling middleware leaves other routes alone', function () {
         $this->get('/')->assertOk();
     }
 });
+
+test('the deep health check is rate limited by ip', function () {
+    // Unauthenticated and touching the database on every call: the check
+    // must have a per-address ceiling, or an uptime endpoint becomes a load
+    // generator anyone can aim. Asserting the header rather than driving 60
+    // requests keeps the test fast and states the limit it expects, the same
+    // way the api test above does. The container HEALTHCHECK polls /up, so
+    // this limit can never cycle a container.
+    $this->getJson(route('health'))
+        ->assertOk()
+        ->assertHeader('X-RateLimit-Limit', 60);
+});

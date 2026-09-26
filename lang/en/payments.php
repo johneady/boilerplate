@@ -60,6 +60,13 @@ return [
 
     'fields' => [
         'reference' => 'Reference',
+        'receipt_number' => 'Receipt number',
+        'paid_from' => 'Paid from',
+        'paid_until' => 'Paid until',
+        'paid_from_indicator' => 'Paid from :date',
+        'paid_until_indicator' => 'Paid until :date',
+        'tax_line' => ':tax: :amount',
+        'tax_line_registered' => ':tax: :amount (registration no. :number)',
         'created' => 'Created',
         'customer' => 'Customer',
         'customer_name' => 'Customer name',
@@ -129,15 +136,19 @@ return [
 
     'tax_rates' => [
         'name' => 'Name',
-        'name_help' => 'As it should appear on a receipt, e.g. HST, GST, PST or QST.',
+        'name_help' => 'As it should appear on a receipt, e.g. Sales Tax, State Tax, GST or HST.',
         'delete_synced' => 'This rate has been sent to the payment provider, where subscriptions started with it keep charging it. Switch it off instead.',
         'percentage' => 'Rate (%)',
-        'percentage_help' => 'Up to three decimal places, e.g. 13 or 9.975.',
+        'percentage_help' => 'Up to three decimal places, e.g. 13 or 8.875.',
+        'registration_number' => 'Registration number',
+        'registration_number_help' => 'Your business\'s registration for this tax, printed beside it on receipts, e.g. a GST/HST number like 123456789 RT0001. Leave blank if you are not registered.',
         'is_active' => 'Active',
         'none_active' => 'No active tax rates: taxable items are charged no tax.',
     ],
 
     'actions' => [
+        'download_receipt' => 'Download receipt',
+        'export' => 'Export payments',
         'refund' => 'Refund',
         'refund_heading' => 'Refund this payment',
         'refund_amount' => 'Amount to refund',

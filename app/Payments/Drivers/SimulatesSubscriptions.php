@@ -185,6 +185,7 @@ trait SimulatesSubscriptions
                     (string) $line['name'],
                     (string) $line['percentage'],
                     Money::of((int) $line['amount'], $currency),
+                    $line['registration_number'] ?? null,
                 ), $invoice['tax_lines'])),
                 paidAt: CarbonImmutable::parse($invoice['at']),
             ), $state['invoices'] ?? [])),
@@ -255,7 +256,7 @@ trait SimulatesSubscriptions
 
         $breakdown = app(TaxCalculator::class)->calculate(
             $price->money(),
-            ($subscription->plan->taxable ?? false) ? TaxRate::query()->active()->get()->map->toCalculatorRate() : [],
+            ($subscription->plan->taxable ?? false) ? TaxRate::activeCalculatorRates() : [],
         );
 
         $state['invoices'][] = [
