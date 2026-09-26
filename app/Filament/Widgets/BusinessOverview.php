@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Auth\Permission;
 use App\Payments\BusinessMetrics;
+use App\Payments\Money;
 use App\Payments\PaymentManager;
 use Filament\Support\Enums\IconPosition;
 use Filament\Widgets\StatsOverviewWidget;
@@ -19,6 +20,8 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 class BusinessOverview extends StatsOverviewWidget
 {
+    use CachesWidgetMetrics;
+
     protected static ?int $sort = 1;
 
     /**
@@ -40,47 +43,71 @@ class BusinessOverview extends StatsOverviewWidget
 
     protected function getStats(): array
     {
-        $metrics = app(BusinessMetrics::class);
-
-        $now = $metrics->now()->utc();
-        $thisMonth = $metrics->monthStart();
-        $lastMonth = $metrics->monthStart(1);
-        // Last month, up to the moment this month has reached -- never past
-        // its own end, which on the 31st of a month after a 30-day one would
-        // count this month's first day as last month's too.
-        $lastMonthSoFar = $lastMonth->add($thisMonth->diff($now))->min($thisMonth);
-
-        $revenue = $metrics->netRevenue($thisMonth, $now);
-        $previousRevenue = $metrics->netRevenue($lastMonth, $lastMonthSoFar);
-        $customers = $metrics->newCustomers($thisMonth, $now);
-        $previousCustomers = $metrics->newCustomers($lastMonth, $lastMonthSoFar);
-        $gross = $metrics->grossRevenue($thisMonth, $now);
-        $refunded = $metrics->refunded($thisMonth, $now);
+        $figures = $this->figures();
+        $currency = app(PaymentManager::class)->currency();
 
         return [
             $this->compared(
-                Stat::make(__('dashboard.overview.revenue'), $revenue->format())
+                Stat::make(__('dashboard.overview.revenue'), Money::of($figures['revenue'], $currency)->format())
                     ->icon('heroicon-m-banknotes')
-                    ->chart(array_map(fn (int $minor): float => $minor / 100.0, $metrics->dailyNetRevenue(30))),
-                $revenue->amount,
-                $previousRevenue->amount,
+                    ->chart(array_map(fn (int $minor): float => $minor / 100.0, $figures['daily'])),
+                $figures['revenue'],
+                $figures['previous_revenue'],
             ),
             $this->compared(
-                Stat::make(__('dashboard.overview.new_customers'), number_format($customers))
+                Stat::make(__('dashboard.overview.new_customers'), number_format($figures['customers']))
                     ->icon('heroicon-m-user-plus'),
-                $customers,
-                $previousCustomers,
+                $figures['customers'],
+                $figures['previous_customers'],
             ),
-            Stat::make(__('dashboard.overview.subscriptions'), number_format($metrics->activeSubscriptions()))
+            Stat::make(__('dashboard.overview.subscriptions'), number_format($figures['subscriptions']))
                 ->icon('heroicon-m-arrow-path')
-                ->description(__('dashboard.overview.mrr', ['amount' => $metrics->monthlyRecurringRevenue()->format()])),
+                ->description(__('dashboard.overview.mrr', ['amount' => Money::of($figures['mrr'], $currency)->format()])),
             // An amount rather than a rate: a refund this month may be for a
             // sale in an earlier one, so dividing by this month's sales can
             // read over 100% on the 2nd.
-            Stat::make(__('dashboard.overview.refunded'), $refunded->format())
+            Stat::make(__('dashboard.overview.refunded'), Money::of($figures['refunded'], $currency)->format())
                 ->icon('heroicon-m-receipt-refund')
-                ->description(__('dashboard.overview.taken', ['amount' => $gross->format()])),
+                ->description(__('dashboard.overview.taken', ['amount' => Money::of($figures['gross'], $currency)->format()])),
         ];
+    }
+
+    /**
+     * The month's figures behind the widget's short TTL, as minor units and
+     * counts: the cache stores plain scalars, and the Stat objects are built
+     * fresh above either way.
+     *
+     * @return array{revenue: int, previous_revenue: int, customers: int, previous_customers: int, gross: int, refunded: int, subscriptions: int, mrr: int, daily: list<int>}
+     */
+    private function figures(): array
+    {
+        $metrics = app(BusinessMetrics::class);
+        $payments = app(PaymentManager::class);
+
+        return $this->rememberMetrics(
+            'overview.'.$payments->mode()->value.'.'.$payments->currency()->value.'.'.$metrics->monthStart()->toDateString(),
+            function () use ($metrics): array {
+                $now = $metrics->now()->utc();
+                $thisMonth = $metrics->monthStart();
+                $lastMonth = $metrics->monthStart(1);
+                // Last month, up to the moment this month has reached -- never past
+                // its own end, which on the 31st of a month after a 30-day one would
+                // count this month's first day as last month's too.
+                $lastMonthSoFar = $lastMonth->add($thisMonth->diff($now))->min($thisMonth);
+
+                return [
+                    'revenue' => $metrics->netRevenue($thisMonth, $now)->amount,
+                    'previous_revenue' => $metrics->netRevenue($lastMonth, $lastMonthSoFar)->amount,
+                    'customers' => $metrics->newCustomers($thisMonth, $now),
+                    'previous_customers' => $metrics->newCustomers($lastMonth, $lastMonthSoFar),
+                    'gross' => $metrics->grossRevenue($thisMonth, $now)->amount,
+                    'refunded' => $metrics->refunded($thisMonth, $now)->amount,
+                    'subscriptions' => $metrics->activeSubscriptions(),
+                    'mrr' => $metrics->monthlyRecurringRevenue()->amount,
+                    'daily' => $metrics->dailyNetRevenue(30),
+                ];
+            },
+        );
     }
 
     /**

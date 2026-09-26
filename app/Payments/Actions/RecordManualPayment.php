@@ -67,7 +67,7 @@ class RecordManualPayment
 
         $breakdown = $this->taxCalculator->calculate(
             $subtotal,
-            $payable->isTaxable() ? TaxRate::query()->active()->get()->map->toCalculatorRate() : [],
+            $payable->isTaxable() ? TaxRate::activeCalculatorRates() : [],
         );
 
         try {

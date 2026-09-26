@@ -44,6 +44,7 @@ use Illuminate\Support\Str;
  * @property int|null $created_by
  * @property CarbonImmutable|null $created_at
  * @property CarbonImmutable|null $updated_at
+ * @property int|null $payments_count Present only when the query counted payments (withCount); null otherwise.
  */
 #[Fillable(['title', 'description', 'amount_type', 'amount', 'min_amount', 'max_amount', 'currency', 'taxable', 'usage', 'expires_at', 'is_active'])]
 class PaymentLink extends Model implements Payable

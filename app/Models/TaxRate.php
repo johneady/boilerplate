@@ -125,6 +125,22 @@ class TaxRate extends Model
     }
 
     /**
+     * The rates charged today, in the shape the tax calculator takes.
+     *
+     * Read fresh at every charge rather than cached: charging a stale rate
+     * after an admin edit is worse than one small query.
+     *
+     * @return list<array{name: string, percentage: string, registration_number: ?string}>
+     */
+    public static function activeCalculatorRates(): array
+    {
+        return array_values(array_map(
+            fn (TaxRate $rate): array => $rate->toCalculatorRate(),
+            self::query()->active()->get()->all(),
+        ));
+    }
+
+    /**
      * "Sales Tax (8.875%)": how this rate reads on a receipt.
      */
     public function label(): string

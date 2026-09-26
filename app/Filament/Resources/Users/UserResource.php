@@ -47,18 +47,10 @@ class UserResource extends Resource
                 // show one for, and an admin does not upload another person's
                 // photo -- every avatar write goes through MediaManager on the
                 // owner's own profile page.
-                //
-                // The state is passed through url() for the same reason the
-                // table column does it: avatarUrl() returns a root-relative
-                // "/storage/..." string, which ImageEntry would otherwise treat
-                // as a path on its own disk, fail the existence check on, and
-                // render as the initials fallback for every user who has one.
                 ImageEntry::make('avatar')
                     ->label(__('users.fields.avatar'))
                     ->hiddenOn('create')
-                    ->getStateUsing(fn (User $record): ?string => filled($url = $record->avatarUrl('full'))
-                        ? url($url)
-                        : null)
+                    ->getStateUsing(fn (User $record): ?string => static::avatarState($record, 'full'))
                     ->circular()
                     ->imageSize(96)
                     ->defaultImageUrl(fn (User $record): string => static::initialsAvatarUrl($record)),
@@ -113,18 +105,9 @@ class UserResource extends Resource
                 // still in flight and when the conversion is missing, which is
                 // what makes the initials fallback below correct rather than a
                 // broken image.
-                //
-                // The state is passed through url() because ImageColumn treats
-                // anything that is not already an absolute URL as a path on its
-                // own disk. avatarUrl() returns a root-relative "/storage/..."
-                // string, which would otherwise be looked up as a FILE of that
-                // name, silently fail the existence check, and fall back to
-                // initials for every user who has an avatar.
                 ImageColumn::make('avatar')
                     ->label(__('users.fields.avatar'))
-                    ->getStateUsing(fn (User $record): ?string => filled($url = $record->avatarUrl())
-                        ? url($url)
-                        : null)
+                    ->getStateUsing(fn (User $record): ?string => static::avatarState($record))
                     ->circular()
                     // The cell is wrapped in the row-click button, whose only
                     // content is this image -- so without an alt the button has
@@ -201,6 +184,24 @@ class UserResource extends Resource
             ->checkIfRecordIsSelectableUsing(
                 fn (User $record): bool => ! static::isCurrentUser($record),
             );
+    }
+
+    /**
+     * One avatar conversion as an absolute URL, or null when there is no
+     * uploaded photo to show.
+     *
+     * Shared by the form entry and the table column. The state is passed
+     * through url() because ImageEntry and ImageColumn treat anything that is
+     * not already an absolute URL as a path on their own disk: avatarUrl()
+     * returns a root-relative "/storage/..." string, which would otherwise be
+     * looked up as a FILE of that name, silently fail the existence check,
+     * and fall back to initials for every user who has an avatar. Null still
+     * falls through to the initials fallback below, as it does while
+     * processing is in flight.
+     */
+    public static function avatarState(User $record, string $conversion = 'thumb'): ?string
+    {
+        return filled($url = $record->avatarUrl($conversion)) ? url($url) : null;
     }
 
     /**

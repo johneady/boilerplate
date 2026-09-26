@@ -110,7 +110,7 @@ class PayPaymentLink extends Component
 
         return app(TaxCalculator::class)->calculate(
             $subtotal,
-            $this->paymentLink->isTaxable() ? TaxRate::query()->active()->get()->map->toCalculatorRate() : [],
+            $this->paymentLink->isTaxable() ? TaxRate::activeCalculatorRates() : [],
         );
     }
 

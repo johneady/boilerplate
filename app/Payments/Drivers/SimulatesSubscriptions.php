@@ -256,7 +256,7 @@ trait SimulatesSubscriptions
 
         $breakdown = app(TaxCalculator::class)->calculate(
             $price->money(),
-            ($subscription->plan->taxable ?? false) ? TaxRate::query()->active()->get()->map->toCalculatorRate() : [],
+            ($subscription->plan->taxable ?? false) ? TaxRate::activeCalculatorRates() : [],
         );
 
         $state['invoices'][] = [

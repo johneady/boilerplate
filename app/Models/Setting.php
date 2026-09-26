@@ -31,6 +31,8 @@ class Setting extends Model
     {
         return [
             'value' => 'json',
+            'created_at' => 'immutable_datetime',
+            'updated_at' => 'immutable_datetime',
         ];
     }
 }

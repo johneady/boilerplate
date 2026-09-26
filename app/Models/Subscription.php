@@ -291,10 +291,7 @@ class Subscription extends Model
     protected function currentFirst(Builder $query): void
     {
         $query
-            ->whereIn('status', array_map(
-                fn (SubscriptionStatus $status): string => $status->value,
-                array_filter(SubscriptionStatus::cases(), fn (SubscriptionStatus $status): bool => $status->hasStarted()),
-            ))
+            ->whereIn('status', SubscriptionStatus::started())
             ->orderByRaw('active_user_id IS NULL')
             ->latest('id');
     }

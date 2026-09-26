@@ -68,8 +68,7 @@ class Billing extends Component
     #[Computed]
     public function payments(): Collection
     {
-        return Payment::query()
-            ->where('user_id', $this->user()->id)
+        return $this->user()->payments()
             ->whereNotNull('paid_at')
             ->latest('paid_at')
             ->limit(24)

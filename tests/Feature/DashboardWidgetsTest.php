@@ -19,6 +19,7 @@ use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\Payments;
 
@@ -103,6 +104,28 @@ test('the overview shows this month\'s real figures', function () {
     Livewire::test(BusinessOverview::class)
         ->assertSee('Revenue this month')
         ->assertSee('CA$1,234.00');
+});
+
+test('a second dashboard load within the TTL reads no ledger at all', function () {
+    Payments::payWithDemo(PaymentLink::factory()->costing(10000)->create());
+    $this->travel(1)->minute();
+
+    $this->actingAs(User::factory()->role(Role::Bookkeeper)->create());
+
+    Livewire::test(BusinessOverview::class)->assertSee('CA$100.00');
+
+    $ledgerQueries = 0;
+    DB::listen(function ($query) use (&$ledgerQueries): void {
+        if (str_contains($query->sql, 'payment_transactions')) {
+            $ledgerQueries++;
+        }
+    });
+
+    Livewire::test(BusinessOverview::class)->assertSee('CA$100.00');
+
+    // The figures came from the widget cache; the summary email reads
+    // BusinessMetrics directly and stays uncached.
+    expect($ledgerQueries)->toBe(0);
 });
 
 test('money widgets are hidden from staff who cannot see payments, and while payments are off', function () {

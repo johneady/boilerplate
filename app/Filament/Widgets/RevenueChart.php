@@ -15,6 +15,8 @@ use Filament\Widgets\ChartWidget;
  */
 class RevenueChart extends ChartWidget
 {
+    use CachesWidgetMetrics;
+
     protected static ?int $sort = 3;
 
     protected int|string|array $columnSpan = 2;
@@ -49,7 +51,7 @@ class RevenueChart extends ChartWidget
 
     protected function getData(): array
     {
-        $months = app(BusinessMetrics::class)->monthlyNetRevenue(12);
+        $months = $this->monthlyNetRevenue();
         $settings = app(Settings::class);
 
         return [
@@ -66,6 +68,22 @@ class RevenueChart extends ChartWidget
                 array_keys($months),
             ),
         ];
+    }
+
+    /**
+     * The chart's twelve months behind the widget's short TTL.
+     *
+     * @return array<string, Money>
+     */
+    private function monthlyNetRevenue(): array
+    {
+        $metrics = app(BusinessMetrics::class);
+        $payments = app(PaymentManager::class);
+
+        return $this->rememberMetrics(
+            'revenue-chart.'.$payments->mode()->value.'.'.$payments->currency()->value.'.'.$metrics->monthStart()->toDateString(),
+            fn (): array => $metrics->monthlyNetRevenue(12),
+        );
     }
 
     protected function getOptions(): array

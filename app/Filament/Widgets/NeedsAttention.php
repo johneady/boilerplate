@@ -23,6 +23,8 @@ use Filament\Widgets\Widget;
  */
 class NeedsAttention extends Widget
 {
+    use CachesWidgetMetrics;
+
     protected static ?int $sort = 2;
 
     protected string $view = 'filament.widgets.needs-attention';
@@ -48,7 +50,7 @@ class NeedsAttention extends Widget
         $user = auth()->user();
         $items = [];
 
-        foreach (app(BusinessMetrics::class)->attentionCounts() as $item => $count) {
+        foreach ($this->attentionCounts() as $item => $count) {
             $definition = $this->definition($item);
 
             if (! ($user?->hasPermission($definition['permission']) ?? false)) {
@@ -65,6 +67,26 @@ class NeedsAttention extends Widget
         }
 
         return $items;
+    }
+
+    /**
+     * The outstanding counts behind the widget's short TTL.
+     *
+     * The per-viewer filtering happens above, outside the cache, so one warm
+     * entry serves every permission level. The summary email calls
+     * BusinessMetrics::attentionCounts() directly and so keeps reading
+     * fresh figures.
+     *
+     * @return array<'disputes'|'past_due'|'holds'|'messages', int>
+     */
+    private function attentionCounts(): array
+    {
+        $payments = app(PaymentManager::class);
+
+        return $this->rememberMetrics(
+            'attention.'.$payments->mode()->value.'.payments-'.($payments->enabled() ? 'on' : 'off'),
+            fn (): array => app(BusinessMetrics::class)->attentionCounts(),
+        );
     }
 
     /**
