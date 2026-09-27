@@ -9,6 +9,8 @@ use App\Models\User;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Database\Seeders\BlogSeeder;
+use Database\Seeders\DatabaseSeeder;
+use Illuminate\Support\Facades\Storage;
 
 test('it seeds the sample content', function () {
     // The accounts its authors are drawn from: DatabaseSeeder creates these
@@ -129,6 +131,11 @@ test('it seeds no cover images in the test environment', function () {
  * and served back as a URL -- the same pipeline an uploaded cover follows.
  */
 test('it attaches generated covers through the media pipeline', function () {
+    // The pipeline stages on the private disk and publishes on the public
+    // one; unfaked, every run left its covers in the real storage tree.
+    Storage::fake('local');
+    Storage::fake('public');
+
     app()->detectEnvironment(fn () => 'local');
 
     $seeder = new BlogSeeder;

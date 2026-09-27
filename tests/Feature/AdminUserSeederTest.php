@@ -144,6 +144,7 @@ test('seeding twice is idempotent', function () {
  */
 test('the non-admin demo user is seeded wherever quick logins are offered', function (string $environment) {
     app()->detectEnvironment(fn () => $environment);
+    $this->withoutSlowDemoSeeders();
 
     $this->seed(DatabaseSeeder::class);
 
