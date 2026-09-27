@@ -74,11 +74,13 @@ return new class extends Migration
             $table->timestamp('last_reconciled_at')->nullable();
 
             // Manual payments only: how and when the money arrived, and who
-            // recorded it.
+            // recorded it. restrictOnDelete because recorded_by is write-once
+            // (Payment::writeOnceAttributes): a null-on-delete would erase the
+            // recorder behind the model's back. Staff are deactivated instead.
             $table->string('manual_method', 30)->nullable();
             $table->string('manual_reference')->nullable();
             $table->date('manual_received_on')->nullable();
-            $table->foreignId('recorded_by')->nullable()->constrained('users')->nullOnDelete();
+            $table->foreignId('recorded_by')->nullable()->constrained('users')->restrictOnDelete();
 
             // The Demo gateway's simulated "server-side" state. Nothing else
             // is written here.

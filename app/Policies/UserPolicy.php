@@ -39,6 +39,10 @@ class UserPolicy extends BasePolicy
             'create' => Permission::CreateUsers,
             'update' => Permission::UpdateUsers,
             'delete' => Permission::DeleteUsers,
+            // Removing someone's access is the same decision as removing the
+            // account, so it takes the same permission.
+            'deactivate' => Permission::DeleteUsers,
+            'reactivate' => Permission::DeleteUsers,
         ];
     }
 
@@ -47,8 +51,12 @@ class UserPolicy extends BasePolicy
      *
      * Deleting your own account from the admin panel would sign you out mid
      * request and, on a single-administrator instance, leave nobody able to
-     * reach the panel at all. Account closure belongs in the user's own
-     * settings, not here.
+     * reach the panel at all.
+     *
+     * An account named on payments or refunds is never deleted -- those
+     * columns are write-once -- so it is deactivated instead. AuthServiceProvider
+     * sends every delete of a user here, for administrators too, so this holds
+     * for them as well.
      *
      * The model is nullable because the Gate may call this with no model at
      * all (a class-form check); there is no self to protect in that case, so
@@ -56,11 +64,39 @@ class UserPolicy extends BasePolicy
      */
     public function delete(User $user, mixed $model = null): bool
     {
-        if ($model instanceof User && $user->is($model)) {
+        if ($model instanceof User && ($user->is($model) || $model->hasFinancialRecords())) {
             return false;
         }
 
         return parent::delete($user, $model);
+    }
+
+    /**
+     * Determine whether the user may deactivate this account.
+     *
+     * Not your own, for delete()'s reason. Not one that is already
+     * deactivated, and not one with a running subscription: the customer would
+     * go on being billed with no way to sign in and cancel it.
+     */
+    public function deactivate(User $user, mixed $model = null): bool
+    {
+        if ($model instanceof User && ($user->is($model) || $model->isDeactivated() || $model->hasRunningSubscription())) {
+            return false;
+        }
+
+        return $this->allows($user, 'deactivate');
+    }
+
+    /**
+     * Determine whether the user may reactivate this account.
+     */
+    public function reactivate(User $user, mixed $model = null): bool
+    {
+        if ($model instanceof User && ! $model->isDeactivated()) {
+            return false;
+        }
+
+        return $this->allows($user, 'reactivate');
     }
 
     /**

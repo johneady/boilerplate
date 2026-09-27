@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureAccountIsActive;
 use App\Http\Middleware\EnsureRegistrationIsEnabled;
 use App\Http\Middleware\EnsureUserIsSubscribed;
 use App\Http\Middleware\ThrottleSensitiveAuthRequests;
@@ -41,6 +42,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // POSTs are the Fortify routes that ship with no limiter and no config
         // key to add one.
         $middleware->appendToGroup('web', ThrottleSensitiveAuthRequests::class);
+
+        // Signs a deactivated account out whichever way it signed in -- the
+        // password form, a passkey, a remember-me cookie. See User::deactivate().
+        $middleware->appendToGroup('web', EnsureAccountIsActive::class);
 
         // Route::middleware(['auth', 'subscribed:pro']) -- see User::subscribed().
         $middleware->alias(['subscribed' => EnsureUserIsSubscribed::class]);

@@ -29,8 +29,10 @@ return new class extends Migration
             $table->string('status', 20);
             $table->string('failure_reason')->nullable();
             // Null when the refund was issued in the gateway's own dashboard
-            // and learned about by webhook.
-            $table->foreignId('initiated_by')->nullable()->constrained('users')->nullOnDelete();
+            // and learned about by webhook. restrictOnDelete for the reason
+            // payments.recorded_by is: the column is write-once, so deleting
+            // the user who issued a refund must not quietly blank it.
+            $table->foreignId('initiated_by')->nullable()->constrained('users')->restrictOnDelete();
             $table->timestamp('notified_at')->nullable();
             $table->timestamps();
 

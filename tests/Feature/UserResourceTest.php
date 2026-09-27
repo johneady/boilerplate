@@ -1,16 +1,24 @@
 <?php
 
+use App\Audit\AuditEvent;
 use App\Auth\Role;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Filament\Resources\Users\UserResource;
+use App\Models\AuditLog;
 use App\Models\Media;
+use App\Models\Refund;
+use App\Models\Subscription;
 use App\Models\User;
+use App\Payments\Actions\EndSubscriptionsForDeletedUser;
+use App\Payments\Enums\SubscriptionStatus;
+use App\Payments\Exceptions\GatewayUnavailable;
 use App\Settings\Settings;
 use Filament\Actions\CreateAction;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Notifications\Notification as FilamentNotification;
 use Filament\Schemas\Schema;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
@@ -317,6 +325,123 @@ test('a bulk delete of every row spares the current user', function () {
 
     expect(User::whereKey($this->admin->getKey())->exists())->toBeTrue()
         ->and(User::whereIn('id', $otherIds)->exists())->toBeFalse();
+});
+
+test('an account named on a refund cannot be deleted from the table', function () {
+    $staff = User::factory()->role(Role::Manager)->create();
+    Refund::factory()->create(['initiated_by' => $staff->id]);
+
+    Livewire::test(ManageUsers::class)
+        ->assertTableActionDisabled(DeleteAction::class, $staff);
+
+    $this->assertModelExists($staff);
+});
+
+test('staff who may only view users do not see the refusal tooltips meant for administrators', function () {
+    $staff = User::factory()->role(Role::Manager)->create();
+    Refund::factory()->create(['initiated_by' => $staff->id]);
+    $subscriber = Subscription::factory()->create()->user;
+
+    $this->actingAs(User::factory()->role(Role::Manager)->create());
+
+    Livewire::test(ManageUsers::class)
+        ->assertTableActionHidden(DeleteAction::class, $staff)
+        ->assertTableActionHidden('deactivate', $subscriber);
+});
+
+test('a user deleted from the table is audited without the table\'s exists flags', function () {
+    $user = User::factory()->create();
+
+    Livewire::test(ManageUsers::class)
+        ->callTableAction(DeleteAction::class, $user);
+
+    $entry = AuditLog::query()->ofEvent(AuditEvent::Deleted)->forRecord($user)->sole();
+
+    expect($entry->old_values)
+        ->toHaveKey('email', $user->email)
+        ->not->toHaveKeys(['recorded_payments_exists', 'initiated_refunds_exists', 'running_subscription_exists']);
+});
+
+test('a delete refused to protect the last administrator says so, rather than advising deactivation', function () {
+    // Unreachable through the table, which never offers the acting admin
+    // their own row; this is the message a concurrent removal would get.
+    expect(UserResource::deleteUser($this->admin))->toBeFalse();
+
+    FilamentNotification::assertNotified(__('users.delete.last_administrator'));
+    $this->assertModelExists($this->admin);
+});
+
+test('a bulk delete leaves out accounts named on a refund', function () {
+    $staff = User::factory()->role(Role::Manager)->create();
+    Refund::factory()->create(['initiated_by' => $staff->id]);
+    $customer = User::factory()->create();
+
+    Livewire::test(ManageUsers::class)
+        ->callTableBulkAction(DeleteBulkAction::class, [$staff->getKey(), $customer->getKey()]);
+
+    $this->assertModelExists($staff);
+    $this->assertModelMissing($customer);
+});
+
+test('a delete the gateway refuses keeps the account and says why', function () {
+    $user = User::factory()->create();
+    $this->mock(EndSubscriptionsForDeletedUser::class)
+        ->shouldReceive('handle')
+        ->andThrow(new GatewayUnavailable('Stripe could not be reached.'));
+
+    Livewire::test(ManageUsers::class)
+        ->callTableAction(DeleteAction::class, $user)
+        ->assertNotified(__('users.delete.gateway_failed'));
+
+    $this->assertModelExists($user);
+});
+
+test('an account can be deactivated from the table', function () {
+    $user = User::factory()->role(Role::Editor)->create();
+
+    Livewire::test(ManageUsers::class)
+        ->callTableAction('deactivate', $user)
+        ->assertNotified(__('users.deactivate.done'));
+
+    expect($user->fresh()->isDeactivated())->toBeTrue();
+});
+
+test('an admin cannot deactivate their own account from the table', function () {
+    Livewire::test(ManageUsers::class)
+        ->assertTableActionHidden('deactivate', $this->admin);
+});
+
+test('an account with a running subscription cannot be deactivated from the table', function () {
+    $subscriber = Subscription::factory()->create()->user;
+
+    Livewire::test(ManageUsers::class)
+        ->assertTableActionDisabled('deactivate', $subscriber);
+
+    expect($subscriber->fresh()->isDeactivated())->toBeFalse();
+});
+
+test('deactivating an account with an unfinished checkout expires the checkout first', function () {
+    $checkout = Subscription::factory()->status(SubscriptionStatus::Incomplete)->create();
+
+    Livewire::test(ManageUsers::class)
+        ->callTableAction('deactivate', $checkout->user)
+        ->assertNotified(__('users.deactivate.done'));
+
+    expect($checkout->user->fresh()->isDeactivated())->toBeTrue()
+        ->and($checkout->fresh())
+        ->status->toBe(SubscriptionStatus::Expired)
+        ->active_user_id->toBeNull();
+});
+
+test('a deactivated account can be reactivated from the table', function () {
+    $user = User::factory()->deactivated()->create();
+
+    Livewire::test(ManageUsers::class)
+        ->assertTableActionHidden('deactivate', $user)
+        ->callTableAction('reactivate', $user)
+        ->assertNotified(__('users.reactivate.done'));
+
+    expect($user->fresh()->isDeactivated())->toBeFalse();
 });
 
 test('the role select is disabled when editing your own account', function () {

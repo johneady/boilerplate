@@ -59,6 +59,24 @@ class AuthServiceProvider extends ServiceProvider
         'delete',
         'forceDelete',
         'updateRole',
+        'deactivate',
+    ];
+
+    /**
+     * Abilities on ANOTHER user's account that UserPolicy decides, for
+     * administrators too.
+     *
+     * The integrity rules live there: an account named on payments or
+     * refunds is deactivated rather than deleted, and one with a running
+     * subscription is not deactivated. The bypass would answer true over both.
+     *
+     * @var list<string>
+     */
+    private const array GUARDED_ACCOUNT_ABILITIES = [
+        'delete',
+        'forceDelete',
+        'deactivate',
+        'reactivate',
     ];
 
     /**
@@ -220,6 +238,13 @@ class AuthServiceProvider extends ServiceProvider
     private function registerAdministratorBypass(): void
     {
         Gate::before(function (User $user, string $ability, array $arguments = []): ?bool {
+            // A deactivated account may do nothing at all, whatever its role.
+            // Sessions are purged on deactivation, so this is the backstop for
+            // anything that authorizes without going through them.
+            if ($user->isDeactivated()) {
+                return false;
+            }
+
             if (! $user->is_admin) {
                 return null;
             }
@@ -274,6 +299,10 @@ class AuthServiceProvider extends ServiceProvider
         if ($target instanceof Plan || $target instanceof PlanPrice
             || (is_string($target) && (is_a($target, Plan::class, true) || is_a($target, PlanPrice::class, true)))) {
             return in_array($ability, ['delete', 'deleteAny', 'forceDelete', 'forceDeleteAny'], true);
+        }
+
+        if ($target instanceof User && in_array($ability, self::GUARDED_ACCOUNT_ABILITIES, true)) {
+            return true;
         }
 
         if (! in_array($ability, self::SELF_PROTECTED_ABILITIES, true)) {

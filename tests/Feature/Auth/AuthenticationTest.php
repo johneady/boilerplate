@@ -1,6 +1,10 @@
 <?php
 
+use App\Audit\AuditEvent;
+use App\Models\AuditLog;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Fortify\Features;
 
 test('login screen can be rendered', function () {
@@ -35,6 +39,47 @@ test('users can not authenticate with invalid password', function () {
     $response->assertSessionHasErrorsIn('email');
 
     $this->assertGuest();
+});
+
+test('a deactivated account is refused at the login form, never signed in', function () {
+    $user = User::factory()->deactivated()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $response->assertSessionHasErrors(['email' => 'This account has been deactivated.']);
+    $this->assertGuest();
+    expect(AuditLog::query()->ofEvent(AuditEvent::Login)->exists())->toBeFalse();
+});
+
+test('a wrong password on a deactivated account gets the ordinary failure, not its status', function () {
+    $user = User::factory()->deactivated()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'wrong-password',
+    ]);
+
+    $response->assertSessionHasErrors(['email' => trans('auth.failed')]);
+    $this->assertGuest();
+});
+
+test('signing in rehashes a password stored under older hashing settings', function () {
+    $user = User::factory()->create();
+    // Written past the model: its hashed cast refuses a hash made under
+    // settings other than the current ones, which is the very case here.
+    $staleHash = Hash::make('password', ['rounds' => 5]);
+    DB::table('users')->where('id', $user->id)->update(['password' => $staleHash]);
+
+    $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $this->assertAuthenticated();
+    expect($user->fresh()->getRawOriginal('password'))->not->toBe($staleHash);
 });
 
 test('users with two factor enabled are redirected to two factor challenge', function () {
