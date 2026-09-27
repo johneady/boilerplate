@@ -34,6 +34,20 @@ enum Permission: string
 
     case DeletePages = 'pages.delete';
 
+    case ViewPosts = 'posts.view';
+
+    case CreatePosts = 'posts.create';
+
+    case UpdatePosts = 'posts.update';
+
+    case DeletePosts = 'posts.delete';
+
+    /**
+     * Editing and deleting posts written by somebody else. Without it the
+     * post permissions reach only the holder's own posts (see PostPolicy).
+     */
+    case ManageAnyPost = 'posts.manage-any';
+
     case ViewContactSubmissions = 'contact-submissions.view';
 
     case UpdateContactSubmissions = 'contact-submissions.update';
@@ -86,6 +100,11 @@ enum Permission: string
             self::CreatePages => 'Create public content pages',
             self::UpdatePages => 'Update public content pages',
             self::DeletePages => 'Delete public content pages',
+            self::ViewPosts => 'View blog posts',
+            self::CreatePosts => 'Create blog posts',
+            self::UpdatePosts => 'Edit blog posts',
+            self::DeletePosts => 'Delete blog posts',
+            self::ManageAnyPost => 'Edit and delete blog posts written by others',
             self::ViewContactSubmissions => 'View contact form submissions',
             self::UpdateContactSubmissions => 'Mark contact form submissions handled',
             self::DeleteContactSubmissions => 'Delete contact form submissions',

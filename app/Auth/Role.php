@@ -62,7 +62,7 @@ enum Role: string
     {
         return match ($this) {
             self::User => 'Can sign in and manage their own account. No access to the admin panel.',
-            self::Editor => 'Manages the website\'s content in the admin panel: pages, uploaded files and contact messages. No access to payments, users or settings.',
+            self::Editor => 'Manages the website\'s content in the admin panel: pages, the blog, uploaded files and contact messages. No access to payments, users or settings.',
             self::Bookkeeper => 'Reads payments, refunds, subscriptions, disputes and tax rates. Cannot refund, capture or change any settings.',
             self::Manager => 'Runs day-to-day operations: content, payments, refunds, holds, payment links, subscriptions and the user list. Cannot change settings, credentials, plans or roles.',
             self::Admin => 'Full access, including the admin panel, every user and all application settings.',
@@ -98,7 +98,8 @@ enum Role: string
     {
         return match ($this) {
             self::Admin => Permission::cases(),
-            // Every Editor and Bookkeeper grant, plus acting on payments.
+            // Every Editor and Bookkeeper grant, plus acting on payments and
+            // on any author's blog posts.
             // SORT_REGULAR because enum cases are not strings; it compares
             // them by identity, dropping the AccessAdminPanel both carry.
             self::Manager => array_values(array_unique([
@@ -110,6 +111,7 @@ enum Role: string
                 Permission::RecordManualPayments,
                 Permission::ManagePaymentLinks,
                 Permission::ManageSubscriptions,
+                Permission::ManageAnyPost,
             ], SORT_REGULAR)),
             self::Bookkeeper => [
                 Permission::AccessAdminPanel,
@@ -121,6 +123,10 @@ enum Role: string
                 Permission::CreatePages,
                 Permission::UpdatePages,
                 Permission::DeletePages,
+                Permission::ViewPosts,
+                Permission::CreatePosts,
+                Permission::UpdatePosts,
+                Permission::DeletePosts,
                 Permission::ViewMedia,
                 Permission::DeleteMedia,
                 Permission::ViewContactSubmissions,

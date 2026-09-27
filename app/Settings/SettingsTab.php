@@ -25,6 +25,8 @@ enum SettingsTab: string
 
     case Registration = 'registration';
 
+    case Blog = 'blog';
+
     case Mail = 'mail';
 
     case LocaleTime = 'locale_time';
@@ -38,7 +40,7 @@ enum SettingsTab: string
     /**
      * The heading shown on the tab in the admin panel.
      *
-     * Deliberately single words where the group allows it: seven tabs share
+     * Deliberately single words where the group allows it: every tab shares
      * one strip, and a compound label on each is what made it wrap.
      */
     public function label(): string
@@ -47,6 +49,7 @@ enum SettingsTab: string
             self::BusinessDetails => 'Business',
             self::SeoBrand => 'Brand',
             self::Registration => 'Registration',
+            self::Blog => 'Blog',
             self::Mail => 'Email',
             self::LocaleTime => 'Locale',
             self::Payments => 'Payments',
@@ -64,6 +67,7 @@ enum SettingsTab: string
             self::BusinessDetails => Heroicon::OutlinedBuildingOffice2,
             self::SeoBrand => Heroicon::OutlinedGlobeAlt,
             self::Registration => Heroicon::OutlinedUserPlus,
+            self::Blog => Heroicon::OutlinedNewspaper,
             self::Mail => Heroicon::OutlinedEnvelope,
             self::LocaleTime => Heroicon::OutlinedClock,
             self::Payments => Heroicon::OutlinedCreditCard,

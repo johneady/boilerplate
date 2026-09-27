@@ -34,6 +34,18 @@
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     @include('partials.head', array_filter(['seoDescription' => $pageDescription]))
+
+    {{-- Feed autodiscovery, here rather than in partials.head so only the
+         public shell advertises it, and gated like the header link so it
+         never points a reader at a route EnsureBlogEnabled would 404. --}}
+    @blogEnabled
+        <link
+            rel="alternate"
+            type="application/atom+xml"
+            title="{{ __(':business — Blog', ['business' => $businessName]) }}"
+            href="{{ route('blog.feed') }}"
+        />
+    @endblogEnabled
 </head>
 <body class="antialiased">
     <div class="relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
@@ -54,6 +66,15 @@
                 </a>
 
                 <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
+                    {{-- Shown only while the blog is switched on: the link
+                         disappears alongside the routes EnsureBlogEnabled
+                         closes, the same pairing as the sign-up link. --}}
+                    @blogEnabled
+                        <flux:button :href="route('blog.index')" size="sm" variant="ghost" wire:navigate>
+                            {{ __('Blog') }}
+                        </flux:button>
+                    @endblogEnabled
+
                     <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
                         {{ __('Contact') }}
                     </flux:button>

@@ -905,13 +905,17 @@ class ManageSettings extends Page
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->rules($this->imageRules())
-                ->acceptedFileTypes(static::acceptedIconMimeTypes())
+                ->acceptedFileTypes(static::acceptedImageMimeTypes())
                 // Staged on the private disk, never the public one: the
                 // unprocessed original must not be reachable over HTTP (see
                 // the avatar upload in App\Livewire\Settings\Profile).
                 ->disk('local')
                 ->directory('uploads/pending'),
             SettingKey::AllowRegistration => Toggle::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default()),
+            SettingKey::BlogEnabled => Toggle::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())
                 ->default($key->default()),
@@ -1142,29 +1146,6 @@ class ManageSettings extends Page
     protected static function sampleDate(): CarbonInterface
     {
         return CarbonImmutable::parse('2021-03-05 14:07');
-    }
-
-    /**
-     * The file-picker types matching config('images.accepted_extensions').
-     *
-     * Derived from the same config the server-side rules use, so the browser
-     * picker and the validation never disagree about what is accepted.
-     *
-     * @return array<int, string>
-     */
-    protected static function acceptedIconMimeTypes(): array
-    {
-        /** @var array<int, string> $extensions */
-        $extensions = config('images.accepted_extensions');
-
-        return collect($extensions)
-            ->map(fn (string $extension): string => match ($extension) {
-                'jpg', 'jpeg' => 'image/jpeg',
-                default => 'image/'.$extension,
-            })
-            ->unique()
-            ->values()
-            ->all();
     }
 
     /**

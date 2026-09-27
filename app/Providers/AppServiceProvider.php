@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Audit\AuditLogger;
 use App\Auth\DevLoginAccounts;
+use App\Blog\BlogManager;
 use App\Models\Page;
+use App\Models\Post;
 use App\Models\User;
 use App\Notifications\PasswordChanged;
 use App\Payments\PaymentCredentials;
@@ -53,6 +55,11 @@ class AppServiceProvider extends ServiceProvider
         // since it booted, not the ones it started with.
         $this->app->scoped(PaymentManager::class);
         $this->app->scoped(PaymentCredentials::class);
+
+        // Scoped for the same reason as the managers above: the blog switch
+        // is read by middleware and views, and a queue worker must notice an
+        // administrator flipping it.
+        $this->app->scoped(BlogManager::class);
     }
 
     /**
@@ -168,6 +175,11 @@ class AppServiceProvider extends ServiceProvider
     {
         Blade::if('registrationEnabled', fn (): bool => app(Settings::class)
             ->boolean(SettingKey::AllowRegistration));
+
+        // Views ask @blogEnabled rather than reaching for BlogManager
+        // themselves, so the header link disappears alongside the routes that
+        // EnsureBlogEnabled closes -- the same pairing as @registrationEnabled.
+        Blade::if('blogEnabled', fn (): bool => app(BlogManager::class)->enabled());
     }
 
     /**
@@ -216,6 +228,26 @@ class AppServiceProvider extends ServiceProvider
             // the public header, falling back to the bundled SVG when null.
             $view->with('businessName', $settings->businessName())
                 ->with('logoMarkUrl', $settings->logoUrl('mark'));
+        });
+
+        // The home page's "from the blog" section. Composed onto the one view
+        // that renders it, like the footer's links, and the posts travel as a
+        // CLOSURE for the same reason: the composer runs for every render of
+        // the view, the query must not, and a blog that is switched off (or
+        // empty) must leave the home page rendering with nothing queried.
+        //
+        // Only the columns the section renders. The body is among them because
+        // excerpt() falls back to it when a post has no search description,
+        // and updated_at because that fallback reads the rendered body from a
+        // cache keyed on it.
+        View::composer('welcome', function (ViewContract $view): void {
+            $view->with('latestPosts', fn (): ?Collection => app(BlogManager::class)->enabled()
+                ? Post::query()
+                    ->published()
+                    ->orderByDesc('published_at')
+                    ->limit(3)
+                    ->get(['id', 'slug', 'title', 'seo_description', 'body', 'published_at', 'updated_at'])
+                : null);
         });
 
         // The head partial carries the SEO settings and the processed logo's

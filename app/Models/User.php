@@ -294,6 +294,19 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     }
 
     /**
+     * Blog posts credited to this user as their author.
+     *
+     * author_id is nullable and null on delete: the posts outlive the
+     * account, and the public byline falls back to the business name.
+     *
+     * @return HasMany<Post, $this>
+     */
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class, 'author_id');
+    }
+
+    /**
      * This user's customer records at the gateways, one per gateway and
      * mode, created on first subscribe so repeat checkouts and the billing
      * portal have one to attach to.

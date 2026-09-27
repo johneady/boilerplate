@@ -4,6 +4,7 @@ use App\Media\MediaCollection;
 use App\Media\StagedUpload;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\Post;
 use App\Models\User;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -114,6 +115,22 @@ test('it spares a row a page body still names, ownerless or not', function () {
 
     expect(Media::query()->count())->toBe(1)
         ->and(Storage::disk('public')->exists($media->path.'/wide.webp'))->toBeTrue();
+});
+
+test('it spares a row a post body still names', function () {
+    $media = Media::factory()->create([
+        'model_type' => null,
+        'model_id' => null,
+        'created_at' => now()->subDays(2),
+    ]);
+
+    Storage::disk('public')->put($media->path.'/wide.webp', 'x');
+
+    Post::factory()->create(['body' => '![x]('.Storage::disk('public')->url($media->path.'/wide.webp').')']);
+
+    $this->artisan('app:prune-orphaned-media')->assertSuccessful();
+
+    expect(Media::query()->count())->toBe(1);
 });
 
 test('it never collects the installation logo, however old', function () {

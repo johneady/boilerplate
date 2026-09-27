@@ -105,6 +105,16 @@ return [
             'wide' => ['width' => 1600, 'height' => 1600, 'fit' => 'scale'],
         ],
 
+        // A blog post's cover image. "cover" crops rather than scales: the
+        // card grid and the post hero both size the cover to a fixed 16:9
+        // rectangle, so preserving an author's chosen aspect ratio would put
+        // a different-shaped hole in every card. Two sizes for the two slots
+        // it renders in.
+        'post-cover' => [
+            'card' => ['width' => 800, 'height' => 450, 'fit' => 'cover'],
+            'wide' => ['width' => 1600, 'height' => 900, 'fit' => 'cover'],
+        ],
+
     ],
 
     /*

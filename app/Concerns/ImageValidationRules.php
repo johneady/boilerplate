@@ -38,4 +38,26 @@ trait ImageValidationRules
             'max:'.$maxKilobytes,
         ];
     }
+
+    /**
+     * The mime types an image picker should offer, for the browser's file
+     * dialog and Filament's own upload fields.
+     *
+     * Derived from config('images.accepted_extensions') rather than listed
+     * again, so no uploader can drift from what the rest of the application
+     * accepts. SVG is absent from that list on purpose and must stay absent --
+     * it is a scriptable document served from this application's own origin.
+     *
+     * @return array<int, string>
+     */
+    protected static function acceptedImageMimeTypes(): array
+    {
+        /** @var array<int, string> $extensions */
+        $extensions = config('images.accepted_extensions');
+
+        return array_values(array_unique(array_map(
+            fn (string $extension): string => 'image/'.($extension === 'jpg' ? 'jpeg' : $extension),
+            $extensions,
+        )));
+    }
 }

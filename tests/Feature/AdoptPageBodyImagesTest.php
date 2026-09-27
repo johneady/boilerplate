@@ -3,11 +3,14 @@
 use App\Console\Commands\AdoptPageBodyImages;
 use App\Filament\Resources\Pages\PageResource;
 use App\Filament\Resources\Pages\Pages\ManagePages;
+use App\Filament\Resources\Posts\Pages\ManagePosts;
+use App\Filament\Resources\Posts\PostResource;
 use App\Jobs\ProcessUploadedImage;
 use App\Media\MediaCollection;
 use App\Media\StagedUpload;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\Post;
 use Filament\Forms\Components\MarkdownEditor;
 use Filament\Schemas\Schema;
 use Illuminate\Http\UploadedFile;
@@ -43,6 +46,33 @@ test('the scan directory matches where the editor actually writes', function () 
     // If these drift the scan silently looks at an empty directory and every
     // body upload goes uncollected forever.
     expect($body->getFileAttachmentsDirectory())->toBe(AdoptPageBodyImages::DIRECTORY);
+});
+
+test('the post scan directory matches where the post editor writes', function () {
+    $body = collect(PostResource::form(new Schema(new ManagePosts))->getComponents())
+        ->first(fn ($c): bool => method_exists($c, 'getName') && $c->getName() === 'body');
+
+    expect($body)->toBeInstanceOf(MarkdownEditor::class);
+
+    expect($body->getFileAttachmentsDirectory())->toBe(AdoptPageBodyImages::POST_DIRECTORY);
+});
+
+test('a post-body upload is re-encoded and its post body rewritten', function () {
+    $path = AdoptPageBodyImages::POST_DIRECTORY.'/photo.png';
+
+    Storage::disk('public')->put($path, UploadedFile::fake()->image('photo.png', 900, 600)->getContent());
+
+    $post = Post::factory()->create(['body' => "![shot](/storage/{$path})"]);
+
+    $this->artisan('app:adopt-page-body-images')->assertSuccessful();
+
+    $body = (string) $post->refresh()->body;
+
+    expect(Media::query()->inCollection(MediaCollection::PageImage)->count())->toBe(1)
+        ->and($body)->not->toContain($path)
+        ->and($body)->toContain('page-images/');
+
+    Storage::disk('public')->assertMissing($path);
 });
 
 test('a referenced upload is re-encoded, tracked, and its body rewritten', function () {
@@ -230,7 +260,7 @@ test('a non-numeric hours option is refused rather than treated as a sweep', fun
 
 test('it does nothing when the directory is empty', function () {
     $this->artisan('app:adopt-page-body-images')
-        ->expectsOutputToContain('No page-body uploads found')
+        ->expectsOutputToContain('No body uploads found')
         ->assertSuccessful();
 });
 

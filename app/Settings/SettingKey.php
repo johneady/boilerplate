@@ -124,6 +124,8 @@ enum SettingKey: string
 
     case AllowRegistration = 'allow_registration';
 
+    case BlogEnabled = 'blog_enabled';
+
     case MailMailer = 'mail_mailer';
 
     case MailHost = 'mail_host';
@@ -212,6 +214,7 @@ enum SettingKey: string
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
+            self::BlogEnabled => SettingsTab::Blog,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod => SettingsTab::Mail,
             self::Timezone, self::Locale, self::DateFormat, self::TimeFormat => SettingsTab::LocaleTime,
             self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
@@ -231,6 +234,10 @@ enum SettingKey: string
             self::SeoTitle, self::SeoDescription, self::Logo => '',
             self::AllowSearchIndexing => true,
             self::AllowRegistration => false,
+            // Off until an administrator turns the blog on, the same stance
+            // payments take: every installation inherits this module, and a
+            // site that wants no blog should not have to find links to hide.
+            self::BlogEnabled => false,
             self::MailMailer => 'log',
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => '',
             // On by default: the summary is for the owner, who should not
@@ -269,6 +276,7 @@ enum SettingKey: string
             self::SeoTitle, self::SeoDescription, self::Logo => self::toFilledString($value, ''),
             self::AllowSearchIndexing => self::toBoolean($value),
             self::AllowRegistration => self::toBoolean($value),
+            self::BlogEnabled => self::toBoolean($value),
             self::MailMailer => self::toOneOf($value, ['log', 'smtp'], 'log'),
             self::MailEncryption => self::toOneOf($value, ['', 'tls', 'ssl', 'none'], ''),
             self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail => self::toFilledString($value, ''),
@@ -385,7 +393,7 @@ enum SettingKey: string
             self::MailPassword, self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
-            self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
+            self::AllowRegistration, self::BlogEnabled, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
             self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod, self::Timezone, self::Locale, self::DateFormat,
             self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
@@ -412,7 +420,7 @@ enum SettingKey: string
             self::MailPassword, self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
-            self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
+            self::AllowRegistration, self::BlogEnabled, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress,
             self::MailFromName, self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod, self::Timezone, self::Locale, self::DateFormat,
             self::TimeFormat, self::PaymentsEnabled, self::PaymentsMode, self::PaymentsCurrency, self::StripeEnabled, self::PayPalEnabled, self::DemoGatewayEnabled, self::ManualPaymentsEnabled, self::PastDueGraceDays,
@@ -435,6 +443,7 @@ enum SettingKey: string
             self::AllowSearchIndexing => 'Allow search engines to index the site',
             self::Logo => 'Logo',
             self::AllowRegistration => 'Allow new user registrations',
+            self::BlogEnabled => 'Enable the blog',
             self::MailMailer => 'Mailer',
             self::MailHost => 'Host',
             self::MailPort => 'Port',
@@ -487,6 +496,7 @@ enum SettingKey: string
             self::AllowSearchIndexing => 'When off, every page asks search engines not to index it or follow its links. Turn off while a site is under development.',
             self::Logo => 'Shown as the brand mark across the site and in the admin panel, and re-encoded into the favicon, Apple touch icon and social sharing image. Square artwork works best.',
             self::AllowRegistration => 'When off, the sign-up page is unavailable and only an administrator can create accounts.',
+            self::BlogEnabled => 'When off, the blog\'s pages answer 404 and its screens are hidden from the admin panel. Posts are kept and come back unchanged when it is turned on again.',
             self::MailMailer => 'How outgoing email is delivered. "Log" writes messages to the application log; "SMTP" sends through the server below. A from address must be set on the Email tab before SMTP can be chosen.',
             self::MailHost => 'The SMTP server to send through, e.g. smtp.fastmail.com. Required before SMTP delivery is used.',
             self::MailPort => 'The port to connect on. Leave blank for the default of 587.',

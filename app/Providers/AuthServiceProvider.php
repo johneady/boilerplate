@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Auth\Permission;
 use App\Models\AuditLog;
+use App\Models\Category;
 use App\Models\ContactSubmission;
 use App\Models\Dispute;
 use App\Models\Media;
@@ -13,19 +14,24 @@ use App\Models\PaymentLink;
 use App\Models\PaymentTransaction;
 use App\Models\Plan;
 use App\Models\PlanPrice;
+use App\Models\Post;
 use App\Models\Refund;
 use App\Models\Subscription;
+use App\Models\Tag;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Policies\AuditLogPolicy;
+use App\Policies\CategoryPolicy;
 use App\Policies\ContactSubmissionPolicy;
 use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
+use App\Policies\PostPolicy;
 use App\Policies\SubscriptionPolicy;
+use App\Policies\TagPolicy;
 use App\Policies\TaxRatePolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WebhookEventPolicy;
@@ -114,6 +120,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     private const array POLICIES = [
         AuditLog::class => AuditLogPolicy::class,
+        Category::class => CategoryPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
         Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
@@ -124,10 +131,12 @@ class AuthServiceProvider extends ServiceProvider
         PaymentTransaction::class => PaymentPolicy::class,
         Refund::class => PaymentPolicy::class,
         Dispute::class => PaymentPolicy::class,
+        Post::class => PostPolicy::class,
         // A price is managed as part of its plan.
         Plan::class => PlanPolicy::class,
         PlanPrice::class => PlanPolicy::class,
         Subscription::class => SubscriptionPolicy::class,
+        Tag::class => TagPolicy::class,
         TaxRate::class => TaxRatePolicy::class,
         User::class => UserPolicy::class,
         WebhookEvent::class => WebhookEventPolicy::class,
