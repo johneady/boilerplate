@@ -61,7 +61,9 @@ test('the database refuses to delete an account named on a refund, whatever skip
     $staff = User::factory()->role(Role::Manager)->create();
     Refund::factory()->create(['initiated_by' => $staff->id]);
 
-    expect(fn () => DB::table('users')->where('id', $staff->id)->delete())->toThrow(QueryException::class);
+    // In its own transaction so the failed statement rolls back to a
+    // savepoint: PostgreSQL otherwise aborts the test's whole transaction.
+    expect(fn () => DB::transaction(fn () => DB::table('users')->where('id', $staff->id)->delete()))->toThrow(QueryException::class);
 
     $this->assertModelExists($staff);
 });

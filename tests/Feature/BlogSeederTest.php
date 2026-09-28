@@ -57,13 +57,14 @@ test('it leaves an installation that has posts alone', function () {
 
     $count = Post::query()->count();
 
-    Post::query()->first()->update(['title' => 'An Edited Title']);
+    $post = Post::query()->first();
+    $post->update(['title' => 'An Edited Title']);
 
     $this->seed(BlogSeeder::class);
 
     // A re-seed neither duplicates nor resets: redeploying must be a no-op.
     expect(Post::query()->count())->toBe($count)
-        ->and(Post::query()->first()->title)->toBe('An Edited Title');
+        ->and($post->fresh()->title)->toBe('An Edited Title');
 });
 
 /**
