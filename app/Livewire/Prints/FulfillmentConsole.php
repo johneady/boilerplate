@@ -144,13 +144,19 @@ class FulfillmentConsole extends Component
     {
         $counts = $this->counts();
 
-        return collect(PrintOrderStatus::cases())
-            ->map(fn (PrintOrderStatus $status): array => [
+        // Built by appending rather than collect()->map() so the list type
+        // is carried literally: the tabs render in exactly this order.
+        $tabs = [];
+
+        foreach (PrintOrderStatus::cases() as $status) {
+            $tabs[] = [
                 'value' => $status->value,
                 'label' => $status->label(),
                 'count' => (int) ($counts[$status->value] ?? 0),
-            ])
-            ->all();
+            ];
+        }
+
+        return $tabs;
     }
 
     /**

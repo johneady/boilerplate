@@ -4,6 +4,7 @@ namespace App\Filament\Widgets;
 
 use App\Auth\Permission;
 use App\Models\PrintOrder;
+use App\Models\PrintOrderItem;
 use App\Prints\PrintPricing;
 use Filament\Support\Enums\IconPosition;
 use Filament\Widgets\StatsOverviewWidget;
@@ -42,11 +43,11 @@ class PrintsOverview extends StatsOverviewWidget
             ->groupBy('status')
             ->pluck('aggregate', 'status');
 
-        $printsToday = (int) PrintOrder::query()
-            ->whereDate('created_at', today())
-            ->withSum('items as prints', 'quantity')
-            ->get()
-            ->sum('prints');
+        // One aggregate over the items table rather than hydrating every
+        // order placed today: the dashboard re-renders on every visit.
+        $printsToday = (int) PrintOrderItem::query()
+            ->whereRelation('order', 'created_at', '>=', today())
+            ->sum('quantity');
 
         $takenThisWeek = PrintPricing::money((int) PrintOrder::query()
             ->where('payment_status', 'paid')

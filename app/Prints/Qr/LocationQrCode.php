@@ -38,7 +38,9 @@ final class LocationQrCode
         $foreground = new Gradient(
             new Rgb(15, 90, 96), // teal-800-ish
             new Rgb(12, 49, 65), // the harbour navy
-            GradientType::DIAGONAL,
+            // DASPRiD enum, not a PHP enum: the constants are protected and
+            // reached through the magic static method of the same name.
+            GradientType::DIAGONAL(),
         );
 
         $renderer = new ImageRenderer(

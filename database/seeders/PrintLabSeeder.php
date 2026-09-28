@@ -193,7 +193,9 @@ class PrintLabSeeder extends Seeder
         $manager = app(MediaManager::class);
 
         foreach ($quantities as $quantity) {
-            $path = $this->frames[$frameIndex] ?? $this->frames[array_key_last($this->frames)];
+            // The frame list is built to cover every slot; the [0] fallback
+            // only guards an off-by-one in the spec tables above.
+            $path = $this->frames[$frameIndex] ?? $this->frames[0];
             $frameIndex++;
 
             $media = $manager->attach(
@@ -281,10 +283,14 @@ class PrintLabSeeder extends Seeder
 
             $color = imagecolorallocate(
                 $image,
-                (int) round($from[0] + ($to[0] - $from[0]) * $t),
-                (int) round($from[1] + ($to[1] - $from[1]) * $t),
-                (int) round($from[2] + ($to[2] - $from[2]) * $t),
+                max(0, min(255, (int) round($from[0] + ($to[0] - $from[0]) * $t))),
+                max(0, min(255, (int) round($from[1] + ($to[1] - $from[1]) * $t))),
+                max(0, min(255, (int) round($from[2] + ($to[2] - $from[2]) * $t))),
             );
+
+            if ($color === false) {
+                continue;
+            }
 
             imagefilledrectangle($image, (int) $x, 0, (int) $x + 4, 900, $color);
         }

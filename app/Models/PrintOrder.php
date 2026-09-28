@@ -98,9 +98,17 @@ class PrintOrder extends Model implements HoldsMedia
 
     /**
      * The total number of prints across the order's photos.
+     *
+     * Uses the loaded relation when the caller already eager-loaded items
+     * (the console and the panel's tables both do), so a board of cards is
+     * one query rather than one per card.
      */
     public function printCount(): int
     {
+        if ($this->relationLoaded('items')) {
+            return (int) $this->items->sum('quantity');
+        }
+
         return (int) $this->items()->sum('quantity');
     }
 

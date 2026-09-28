@@ -25,6 +25,12 @@ class PrintQueue extends TableWidget
 
     protected int|string|array $columnSpan = 'full';
 
+    /**
+     * Not polled: the console polls, and the dashboard re-renders whenever a
+     * staff member returns to it.
+     */
+    protected ?string $pollingInterval = null;
+
     public static function canView(): bool
     {
         return auth()->user()?->hasPermission(Permission::ViewPrintOrders) ?? false;
@@ -39,7 +45,6 @@ class PrintQueue extends TableWidget
                 ->open()
                 ->with(['location'])
                 ->orderBy('created_at'))
-            ->pollingInterval(null)
             ->columns([
                 TextColumn::make('code')
                     ->label(__('print-orders.fields.code'))

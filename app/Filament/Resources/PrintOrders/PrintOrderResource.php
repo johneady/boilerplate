@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PrintOrders;
 
 use App\Filament\Resources\PrintOrders\Pages\ListPrintOrders;
+use App\Filament\Resources\PrintOrders\Pages\ViewPrintOrders;
 use App\Livewire\Prints\FulfillmentConsole;
 use App\Models\PrintOrder;
 use App\Models\PrintOrderItem;
@@ -14,9 +15,9 @@ use BackedEnum;
 use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\RepeatableEntry;
-use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
@@ -104,7 +105,7 @@ class PrintOrderResource extends Resource
                             ->columnSpanFull(),
                         TextEntry::make('placed')
                             ->label(__('print-orders.fields.placed'))
-                            ->state(fn (PrintOrder $record): string => $record->created_at->toDayDateTimeString()),
+                            ->state(fn (PrintOrder $record): string => $record->created_at?->toDayDateTimeString() ?? ''),
                     ])
                     ->columns(3),
                 Section::make(__('print-orders.fields.photos'))
@@ -124,7 +125,9 @@ class PrintOrderResource extends Resource
                                 TextEntry::make('printer')
                                     ->label(__('print-orders.fields.printer'))
                                     ->placeholder('—')
-                                    ->formatStateUsing(fn (?string $state): string => FulfillmentConsole::PRINTERS[$state] ?? (string) $state),
+                                    ->formatStateUsing(fn (?string $state): string => $state !== null
+                                        ? FulfillmentConsole::PRINTERS[$state] ?? $state
+                                        : '—'),
                             ])
                             ->columns([
                                 'default' => 4,
@@ -225,6 +228,7 @@ class PrintOrderResource extends Resource
     {
         return [
             'index' => ListPrintOrders::route('/'),
+            'view' => ViewPrintOrders::route('/{record}'),
         ];
     }
 }

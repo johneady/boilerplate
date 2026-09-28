@@ -75,9 +75,13 @@ final class PrintPricing
 
     /**
      * Format minor units the way the shop talks: "$9.99".
+     *
+     * Number::currency is documented to return false when the underlying
+     * formatter fails; the fallback keeps a till display from ever showing
+     * an empty string over a price that is otherwise fine.
      */
     public static function money(int $cents): string
     {
-        return Number::currency($cents / 100, 'USD', 'en');
+        return Number::currency($cents / 100, 'USD', 'en') ?: '$0.00';
     }
 }

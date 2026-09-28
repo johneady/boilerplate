@@ -16,7 +16,7 @@ use Illuminate\Contracts\View\View;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Computed;
 use Livewire\Component;
-use Livewire\TemporaryUploadedFile;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 use Livewire\WithFileUploads;
 
 /**
@@ -40,7 +40,7 @@ class PhotoOrder extends Component
      */
     public ?PrintLocation $counter = null;
 
-    /** @var list<TemporaryUploadedFile> */
+    /** @var array<int, TemporaryUploadedFile> */
     public array $photos = [];
 
     /** @var array<int, int> print counts, keyed by photo position */

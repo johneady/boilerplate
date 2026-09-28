@@ -7,14 +7,14 @@ use App\Models\PrintLocation;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\EditAction;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Actions\DeleteAction;
-use Filament\Tables\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -72,7 +72,11 @@ class PrintLocationResource extends Resource
                     ->label(__('print-locations.fields.slug'))
                     ->required()
                     ->maxLength(255)
-                    ->alphaDash()
+                    // Exactly the route's pattern: lowercase letters, digits
+                    // and single dashes. alphaDash() would also pass
+                    // underscores and capitals, which the QR landing route
+                    // would then 404 -- a sign that looks fine until scanned.
+                    ->regex('/^[a-z0-9]+(?:-[a-z0-9]+)*$/')
                     ->unique(ignoreRecord: true)
                     ->helperText(__('print-locations.fields.slug_helper')),
                 TextInput::make('address')
