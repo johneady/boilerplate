@@ -26,14 +26,19 @@ trait GuardsFinancialRecord
     public static function bootGuardsFinancialRecord(): void
     {
         static::updating(function (self $model): void {
+            // Computed once: isDirty() rebuilds the whole dirty set per call,
+            // re-casting every date column, and a payment guards twenty-odd
+            // attributes -- that was most of the cost of each save.
+            $dirty = $model->getDirty();
+
             foreach ($model->writeOnceAttributes() as $attribute) {
-                if ($model->isDirty($attribute)) {
+                if (array_key_exists($attribute, $dirty)) {
                     throw ImmutableRecordException::attributeChanged($model, $attribute);
                 }
             }
 
             foreach ($model->setOnceAttributes() as $attribute) {
-                if ($model->isDirty($attribute) && $model->getRawOriginal($attribute) !== null) {
+                if (array_key_exists($attribute, $dirty) && $model->getRawOriginal($attribute) !== null) {
                     throw ImmutableRecordException::attributeChanged($model, $attribute);
                 }
             }

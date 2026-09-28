@@ -34,6 +34,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Queue;
@@ -61,6 +62,17 @@ class DemoBusinessSeeder extends Seeder
      * Months of trading to create, this one included.
      */
     private const int MONTHS = 12;
+
+    /**
+     * What the demo customers' throwaway passwords are hashed at.
+     *
+     * Random passwords nobody types: 4 is bcrypt's minimum at about a
+     * millisecond, where the deployed default of 12 is ~200ms a hash -- eight
+     * seconds across forty customers, on the first boot of every demo
+     * instance. The login accounts are seeded before this runs, at the full
+     * configured cost.
+     */
+    private const int PASSWORD_ROUNDS = 4;
 
     /**
      * @var list<string>
@@ -130,9 +142,18 @@ class DemoBusinessSeeder extends Seeder
         // has no gateway to talk to. Restored afterwards, so the rest of the
         // process behaves normally.
         $originals = [Notification::getFacadeRoot(), Mail::getFacadeRoot(), Queue::getFacadeRoot()];
+        $rounds = config('hashing.bcrypt.rounds');
+
         Notification::fake();
         Mail::fake();
         Queue::fake();
+
+        // The forty customers' passwords are hashed at PASSWORD_ROUNDS: the
+        // configuration is swapped rather than only the driver because the
+        // 'hashed' cast passes a value through only if it matches what is
+        // configured. Restored below, with the rest.
+        config(['hashing.bcrypt.rounds' => self::PASSWORD_ROUNDS]);
+        Hash::forgetDrivers();
 
         try {
             $this->switchOnDemoPayments();
@@ -170,6 +191,8 @@ class DemoBusinessSeeder extends Seeder
             Notification::swap($originals[0]);
             Mail::swap($originals[1]);
             Queue::swap($originals[2]);
+            config(['hashing.bcrypt.rounds' => $rounds]);
+            Hash::forgetDrivers();
         }
     }
 

@@ -41,6 +41,14 @@ class BlogSeeder extends Seeder
     public bool $withCovers = true;
 
     /**
+     * Covers already drawn this run, encoded, keyed by palette: sixteen posts
+     * share six palettes, and the same palette always draws the same image.
+     *
+     * @var array<int, string>
+     */
+    private array $covers = [];
+
+    /**
      * The categories, seeded first so posts can point at them.
      *
      * @var array<int, array{name: string, slug: string}>
@@ -515,38 +523,11 @@ MD,
     }
 
     /**
-     * Generate a gradient cover and attach it through MediaManager.
-     *
-     * Built with Intervention Image, a runtime dependency, so this runs
-     * inside the --no-dev production image too. The gradient is drawn one
-     * pixel wide and stretched -- 900 rectangle draws on a 1px column is
-     * hundreds of times cheaper than on a 1600px one, and a gradient
-     * stretches without anyone noticing.
+     * Attach a generated gradient cover through MediaManager.
      */
     private function attachGeneratedCover(Post $post): void
     {
-        [$from, $to] = self::COVER_PALETTES[crc32($post->slug) % count(self::COVER_PALETTES)];
-
-        /** @var string $driver */
-        $driver = config('images.driver');
-
-        $gradient = ImageManager::usingDriver($driver)
-            ->createImage(1, 900);
-
-        for ($y = 0; $y < 900; $y++) {
-            $position = $y / 899;
-
-            $gradient->drawRectangle(function (RectangleFactory $rectangle) use ($from, $to, $position, $y): void {
-                $rectangle->at(0, $y);
-                $rectangle->size(1, 1);
-                $rectangle->background(sprintf(
-                    '#%02x%02x%02x',
-                    (int) round($from[0] + ($to[0] - $from[0]) * $position),
-                    (int) round($from[1] + ($to[1] - $from[1]) * $position),
-                    (int) round($from[2] + ($to[2] - $from[2]) * $position),
-                ));
-            });
-        }
+        $palette = crc32($post->slug) % count(self::COVER_PALETTES);
 
         // A real temp path rather than one in the storage disks: the file is
         // an input, not stored state, and MediaManager::attach() stages it
@@ -560,7 +541,7 @@ MD,
         // attach() copies the file onto the private disk rather than moving
         // it, so the temp file is removed here or it outlives every seed.
         try {
-            file_put_contents($tempPath, (string) $gradient->resize(1600, 900)->encodeUsingFileExtension('png'));
+            file_put_contents($tempPath, $this->covers[$palette] ??= $this->drawCover(...self::COVER_PALETTES[$palette]));
 
             app(MediaManager::class)->attach(
                 file: new UploadedFile($tempPath, $post->slug.'-cover.png', 'image/png', null, true),
@@ -570,5 +551,54 @@ MD,
         } finally {
             @unlink($tempPath);
         }
+    }
+
+    /**
+     * Draw a 1600x900 vertical gradient between two colours, as a PNG.
+     *
+     * Built with Intervention Image, a runtime dependency, so this runs
+     * inside the --no-dev production image too. Each run of rows that rounds
+     * to the same colour is drawn as one full-width band -- about a hundred
+     * draws rather than one per row -- and drawn at full size, because
+     * stretching a narrower image up costs more than drawing it.
+     *
+     * @param  array{int, int, int}  $from
+     * @param  array{int, int, int}  $to
+     */
+    private function drawCover(array $from, array $to): string
+    {
+        /** @var list<array{colour: string, top: int, height: int}> $bands */
+        $bands = [];
+
+        for ($y = 0; $y < 900; $y++) {
+            $position = $y / 899;
+            $colour = sprintf(
+                '#%02x%02x%02x',
+                (int) round($from[0] + ($to[0] - $from[0]) * $position),
+                (int) round($from[1] + ($to[1] - $from[1]) * $position),
+                (int) round($from[2] + ($to[2] - $from[2]) * $position),
+            );
+
+            if ($bands !== [] && $bands[array_key_last($bands)]['colour'] === $colour) {
+                $bands[array_key_last($bands)]['height']++;
+            } else {
+                $bands[] = ['colour' => $colour, 'top' => $y, 'height' => 1];
+            }
+        }
+
+        /** @var string $driver */
+        $driver = config('images.driver');
+
+        $gradient = ImageManager::usingDriver($driver)->createImage(1600, 900);
+
+        foreach ($bands as $band) {
+            $gradient->drawRectangle(function (RectangleFactory $rectangle) use ($band): void {
+                $rectangle->at(0, $band['top']);
+                $rectangle->size(1600, $band['height']);
+                $rectangle->background($band['colour']);
+            });
+        }
+
+        return (string) $gradient->encodeUsingFileExtension('png');
     }
 }
