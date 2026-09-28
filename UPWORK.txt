@@ -13,7 +13,7 @@ WHAT IS IN THE DEMO
 
 YOUR FIRST QUESTION — IS MY BUDGET CRAZY?
 
-No. The flow is mostly one well-built web app and three tables. The genuinely unsolved cost is the printer integration: a tablet "sending to a printer" needs either small print-station software at each location or a network-printer protocol (e.g. IPP) decision from you. That is the piece worth budgeting a spike for, and I would recommend we prove it in week one.
+No. The flow is mostly one well-built web app and three tables. The one genuinely open piece is the printer link: a web page can't reach a printer in your shop on its own, so each location needs a small print-station program (on a mini PC or your existing counter computer) that picks up jobs and sends them to your printers. If your lab software already uses hot folders, it plugs straight into that. It's the piece I'd budget a spike for, and I'd prove it end to end in week one. What make and model are your printers?
 
 RELEVANT TRACK RECORD
 
