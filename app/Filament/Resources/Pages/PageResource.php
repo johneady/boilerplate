@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Pages;
 
+use App\Concerns\ImageValidationRules;
 use App\Filament\Resources\Pages\Pages\ManagePages;
 use App\Models\Page;
 use App\Settings\Settings;
@@ -29,6 +30,8 @@ use UnitEnum;
 
 class PageResource extends Resource
 {
+    use ImageValidationRules;
+
     protected static ?string $model = Page::class;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
@@ -119,7 +122,7 @@ class PageResource extends Resource
                     //    scriptable document served from our own origin
                     //  - a size ceiling, since no validator elsewhere runs
                     ->fileAttachmentsDirectory('page-body')
-                    ->fileAttachmentsAcceptedFileTypes(static::attachmentMimeTypes())
+                    ->fileAttachmentsAcceptedFileTypes(static::acceptedImageMimeTypes())
                     ->fileAttachmentsMaxSize((int) config('images.max_kilobytes'))
                     ->columnSpanFull(),
                 Textarea::make('seo_description')
@@ -265,26 +268,5 @@ class PageResource extends Resource
         return [
             'index' => ManagePages::route('/'),
         ];
-    }
-
-    /**
-     * The mime types the body editor accepts for an attachment.
-     *
-     * Derived from config('images.accepted_extensions') rather than listed
-     * again, so the editor cannot drift from what the rest of the application
-     * accepts. SVG is absent from that list on purpose and must stay absent --
-     * it is a scriptable document served from this application's own origin.
-     *
-     * @return array<int, string>
-     */
-    protected static function attachmentMimeTypes(): array
-    {
-        /** @var array<int, string> $extensions */
-        $extensions = config('images.accepted_extensions');
-
-        return array_values(array_unique(array_map(
-            fn (string $extension): string => 'image/'.($extension === 'jpg' ? 'jpeg' : $extension),
-            $extensions,
-        )));
     }
 }

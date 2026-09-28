@@ -4,7 +4,6 @@ namespace App\Actions\Fortify;
 
 use App\Concerns\PasswordValidationRules;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\ResetsUserPasswords;
@@ -32,10 +31,6 @@ class ResetUserPassword implements ResetsUserPasswords
 
         // ...and any session the user still holds elsewhere, since the reset
         // flow cannot know which of them is trustworthy.
-        if (config('session.driver') === 'database') {
-            DB::table('sessions')
-                ->where('user_id', $user->getAuthIdentifier())
-                ->delete();
-        }
+        $user->endSessions();
     }
 }

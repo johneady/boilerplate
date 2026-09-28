@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Blog\BlogManager;
 use App\Models\Page;
+use App\Models\Post;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Illuminate\Http\Response;
@@ -43,6 +45,17 @@ class SitemapController extends Controller
      * @var array{changefreq: string, priority: string}
      */
     private const array PAGE_DEFAULTS = ['changefreq' => 'yearly', 'priority' => '0.5'];
+
+    /**
+     * The change frequency and priority given to a blog post.
+     *
+     * Fresher than a content page -- the blog is the part of the site that
+     * changes -- but never more important than the pages that introduce the
+     * business itself.
+     *
+     * @var array{changefreq: string, priority: string}
+     */
+    private const array POST_DEFAULTS = ['changefreq' => 'weekly', 'priority' => '0.6'];
 
     /**
      * Render the sitemap.
@@ -108,6 +121,34 @@ class SitemapController extends Controller
                 'changefreq' => self::PAGE_DEFAULTS['changefreq'],
                 'priority' => self::PAGE_DEFAULTS['priority'],
             ];
+        }
+
+        // The blog's URLs follow the same rule its routes do: absent unless
+        // the module is switched on. Nothing here queries when it is off.
+        if (app(BlogManager::class)->enabled()) {
+            $urls[route('blog.index')] = [
+                'loc' => route('blog.index'),
+                'changefreq' => 'daily',
+                'priority' => '0.8',
+            ];
+
+            // Published posts only -- a draft or scheduled post is a 404 to
+            // the public (see BlogPostController), and pointing a crawler at
+            // a URL that 404s is worse than omitting it. Newest first, so
+            // the feed and the sitemap agree on what the blog's front is.
+            foreach (Post::query()->published()->orderByDesc('published_at')->get(['id', 'slug']) as $post) {
+                $loc = route('blog.show', $post);
+
+                if (array_key_exists($loc, $urls)) {
+                    continue;
+                }
+
+                $urls[$loc] = [
+                    'loc' => $loc,
+                    'changefreq' => self::POST_DEFAULTS['changefreq'],
+                    'priority' => self::POST_DEFAULTS['priority'],
+                ];
+            }
         }
 
         return array_values($urls);

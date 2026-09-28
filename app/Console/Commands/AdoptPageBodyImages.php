@@ -7,6 +7,7 @@ use App\Media\MediaManager;
 use App\Media\StagedUpload;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\Post;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -14,7 +15,8 @@ use Illuminate\Support\Str;
 use Throwable;
 
 /**
- * Bring page-body image uploads under the media library, or collect them.
+ * Bring page- and post-body image uploads under the media library, or
+ * collect them.
  *
  * The body editor uploads straight to the public disk and writes no media row
  * -- a deliberate trade so an author can add an image while writing (see
@@ -23,7 +25,8 @@ use Throwable;
  * URL, and untracked, so app:prune-orphaned-media cannot collect one after the
  * body stops referencing it. This command closes both gaps after the fact.
  *
- * Two outcomes, decided by whether any page body still points at the file:
+ * Two outcomes, decided by whether any page or post body still points at the
+ * file:
  *
  * - REFERENCED: re-encoded through App\Media\MediaManager, given a media row,
  *   and every body URL rewritten to the processed one. The original is deleted
@@ -38,9 +41,13 @@ use Throwable;
  * does the rewrite. The row is what carries that state between runs, so a file
  * is adopted once however many times this command runs.
  *
- * Scoped to the page-body directory alone. A wider sweep would have to decide
- * what every other file on the disk is for, and the directories it would walk
- * are precisely the ones media rows already account for.
+ * Scoped to the two body-editor directories alone. A wider sweep would have to
+ * decide what every other file on the disk is for, and the directories it
+ * would walk are precisely the ones media rows already account for. The
+ * command keeps its page-body name so the schedule and operators' habits
+ * survive; post bodies are the same gap and are closed the same way.
+ * References are looked for in BOTH tables whichever directory a file sits
+ * in: a URL copied from a page into a post is still in use.
  */
 class AdoptPageBodyImages extends Command
 {
@@ -58,14 +65,21 @@ class AdoptPageBodyImages extends Command
      *
      * @var string
      */
-    protected $description = 'Re-encode referenced page-body uploads into the media library, and collect the rest';
+    protected $description = 'Re-encode referenced page- and post-body uploads into the media library, and collect the rest';
 
     /**
-     * The directory the body editor writes its attachments to.
+     * The directory the page body editor writes its attachments to.
      *
      * Must match PageResource's fileAttachmentsDirectory(); a test asserts it.
      */
     public const string DIRECTORY = 'page-body';
+
+    /**
+     * The directory the post body editor writes its attachments to.
+     *
+     * Must match PostResource's fileAttachmentsDirectory(); a test asserts it.
+     */
+    public const string POST_DIRECTORY = 'post-body';
 
     /**
      * Execute the console command.
@@ -86,10 +100,13 @@ class AdoptPageBodyImages extends Command
 
         $disk = $this->imageDisk();
 
-        $files = Storage::disk($disk)->files(self::DIRECTORY);
+        $files = [
+            ...Storage::disk($disk)->files(self::DIRECTORY),
+            ...Storage::disk($disk)->files(self::POST_DIRECTORY),
+        ];
 
         if ($files === []) {
-            $this->info('No page-body uploads found.');
+            $this->info('No body uploads found.');
 
             return self::SUCCESS;
         }
@@ -116,7 +133,7 @@ class AdoptPageBodyImages extends Command
             $existing = $this->adoptedRow($path);
 
             if ($existing !== null) {
-                $pages = $this->pagesReferencing($path);
+                $pages = $this->bodiesReferencing($path);
 
                 if ($pages === []) {
                     $this->line("keep:   {$path} (adopted, no longer referenced)");
@@ -141,7 +158,7 @@ class AdoptPageBodyImages extends Command
                 continue;
             }
 
-            $pages = $this->pagesReferencing($path);
+            $pages = $this->bodiesReferencing($path);
 
             if ($pages !== []) {
                 $this->line("adopt:  {$path} (referenced by ".count($pages).')');
@@ -192,7 +209,7 @@ class AdoptPageBodyImages extends Command
      * the old URL after the original is deleted is a broken image on a live
      * page, which is the one outcome worth a transaction here.
      *
-     * @param  array<int, Page>  $pages
+     * @param  array<int, Page|Post>  $pages
      */
     protected function adopt(string $path, array $pages, string $disk): bool
     {
@@ -230,7 +247,7 @@ class AdoptPageBodyImages extends Command
      * pointing at a deleted file is a broken image on a live page, whereas the
      * reverse just means the next run tries again.
      *
-     * @param  array<int, Page>  $pages
+     * @param  array<int, Page|Post>  $pages
      */
     protected function rewriteTo(Media $media, string $path, array $pages, string $disk): bool
     {
@@ -254,7 +271,7 @@ class AdoptPageBodyImages extends Command
         // none of the candidates matched still counts as a reference, and
         // deleting the original would break a live page. Leaving the file
         // costs one more run; deleting it wrongly costs the image.
-        if ($this->pagesReferencing($path) !== []) {
+        if ($this->bodiesReferencing($path) !== []) {
             $this->line('  a body still names the original; leaving it in place');
 
             return false;
@@ -357,20 +374,20 @@ class AdoptPageBodyImages extends Command
     }
 
     /**
-     * The pages whose body still names this file.
+     * The pages and posts whose body still names this file.
      *
      * Matched on the stored path rather than a full URL, so a body written
      * against a different host still counts as a reference -- missing one would
      * delete a file a live page is using.
      *
-     * @return array<int, Page>
+     * @return array<int, Page|Post>
      */
-    protected function pagesReferencing(string $path): array
+    protected function bodiesReferencing(string $path): array
     {
-        return Page::query()
-            ->where('body', 'like', '%'.$path.'%')
-            ->get()
-            ->all();
+        return [
+            ...Page::query()->where('body', 'like', '%'.$path.'%')->get()->all(),
+            ...Post::query()->where('body', 'like', '%'.$path.'%')->get()->all(),
+        ];
     }
 
     /**

@@ -6,6 +6,9 @@ use App\Media\MediaCollection;
 use App\Models\Media;
 use App\Models\User;
 use App\Settings\Settings;
+use Database\Seeders\BlogSeeder;
+use Database\Seeders\DemoBusinessSeeder;
+use Illuminate\Database\Seeder;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Illuminate\Support\Facades\Http;
@@ -43,6 +46,30 @@ abstract class TestCase extends BaseTestCase
         parent::setUp();
 
         Http::preventStrayRequests();
+    }
+
+    /**
+     * Stand in for the two demo-content seeders DatabaseSeeder runs outside
+     * the testing environment.
+     *
+     * A test that switches the environment to exercise DatabaseSeeder's
+     * non-production gate would otherwise replay a year of demo trading and
+     * render a cover image per blog post -- 10-18s a test, and the tail of a
+     * parallel run -- to check something unrelated. DemoBusinessSeederTest
+     * and BlogSeederTest cover both seeders for real. The blog's rows are
+     * still seeded; only its covers are skipped.
+     */
+    protected function withoutSlowDemoSeeders(): void
+    {
+        $this->app->instance(DemoBusinessSeeder::class, new class extends Seeder
+        {
+            public function run(): void {}
+        });
+
+        $blogSeeder = new BlogSeeder;
+        $blogSeeder->withCovers = false;
+
+        $this->app->instance(BlogSeeder::class, $blogSeeder);
     }
 
     protected function skipUnlessFortifyHas(string $feature, ?string $message = null): void

@@ -2,13 +2,17 @@
 
 namespace App\Filament\Resources\Users;
 
+use App\Auth\AccountRemovalRefused;
+use App\Auth\Permission;
 use App\Auth\Role;
 use App\Filament\Exports\UserExporter;
 use App\Filament\Resources\Users\Pages\ManageUsers;
 use App\Media\MediaCollection;
 use App\Models\User;
+use App\Payments\Exceptions\GatewayException;
 use App\Settings\Settings;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -17,8 +21,10 @@ use Filament\Actions\ExportAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Infolists\Components\ImageEntry;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
+use Filament\Support\Exceptions\Halt;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\ImageColumn;
@@ -27,8 +33,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class UserResource extends Resource
@@ -94,9 +99,13 @@ class UserResource extends Resource
             // would otherwise run one media query per row of this table.
             // getMedia() filters the loaded relation in memory, and skipping
             // the other collections keeps the eager load to one row per user.
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query->with(
-                ['media' => fn ($media) => $media->inCollection(MediaCollection::Avatar)],
-            ))
+            //
+            // The three exists flags feed the per-row delete and deactivate
+            // checks (User::hasFinancialRecords(), hasRunningSubscription()), which
+            // would otherwise query once per row for each action rendered.
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->with(['media' => fn ($media) => $media->inCollection(MediaCollection::Avatar)])
+                ->withExists(['recordedPayments', 'initiatedRefunds', 'runningSubscription']))
             ->columns([
                 // State is resolved through User::avatarUrl() rather than from
                 // the media row directly: the row's `path` holds the conversion
@@ -130,6 +139,13 @@ class UserResource extends Resource
                     ->formatStateUsing(fn (Role $state): string => __($state->label()))
                     ->color(fn (Role $state): string => $state->color())
                     ->sortable(),
+                TextColumn::make('status')
+                    ->label(__('users.status.label'))
+                    ->state(fn (User $record): string => $record->isDeactivated()
+                        ? __('users.status.deactivated')
+                        : __('users.status.active'))
+                    ->badge()
+                    ->color(fn (User $record): string => $record->isDeactivated() ? 'danger' : 'success'),
                 IconColumn::make('email_verified_at')
                     ->label(__('users.fields.verified'))
                     ->boolean()
@@ -154,6 +170,11 @@ class UserResource extends Resource
                 TernaryFilter::make('email_verified_at')
                     ->label(__('users.fields.email_verified'))
                     ->nullable(),
+                TernaryFilter::make('deactivated_at')
+                    ->label(__('users.status.label'))
+                    ->nullable()
+                    ->trueLabel(__('users.status.deactivated'))
+                    ->falseLabel(__('users.status.active')),
             ])
             ->headerActions([
                 ExportAction::make()
@@ -162,20 +183,93 @@ class UserResource extends Resource
             ])
             ->recordActions([
                 EditAction::make()
-                    ->using(fn (User $record, array $data): User => static::saveUser($record, $data)),
+                    ->using(function (User $record, array $data): User {
+                        try {
+                            return static::saveUser($record, $data);
+                        } catch (AccountRemovalRefused) {
+                            // Only reachable when another administrator was
+                            // demoted or removed since this form opened.
+                            Notification::make()->danger()->title(__('users.demote.last_administrator'))->send();
+
+                            // What EditAction::halt() throws, raised here so
+                            // the closure visibly never returns.
+                            throw new Halt;
+                        }
+                    }),
+                // How staff are offboarded: the account stops working but
+                // stays, so their name stays on what they worked on. Shown
+                // disabled for a customer with a running subscription, so the
+                // administrator learns to cancel it first (UserPolicy).
+                Action::make('deactivate')
+                    ->label(__('users.deactivate.label'))
+                    ->icon(Heroicon::OutlinedNoSymbol)
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('users.deactivate.heading'))
+                    ->modalDescription(__('users.deactivate.description'))
+                    ->modalSubmitActionLabel(__('users.deactivate.label'))
+                    ->hidden(fn (User $record): bool => $record->isDeactivated() || static::isCurrentUser($record))
+                    ->authorize('deactivate')
+                    ->authorizationTooltip(fn (User $record): bool => static::canRemoveAccounts() && $record->hasRunningSubscription())
+                    ->authorizationMessage(__('users.deactivate.has_running_subscription'))
+                    ->successNotificationTitle(__('users.deactivate.done'))
+                    ->action(function (Action $action, User $record): void {
+                        try {
+                            $record->deactivate();
+                        } catch (GatewayException $e) {
+                            // An unfinished checkout could not be expired.
+                            report($e);
+
+                            Notification::make()->danger()->title(__('users.deactivate.gateway_failed'))->send();
+
+                            return;
+                        } catch (AccountRemovalRefused $e) {
+                            // The account changed since the row rendered --
+                            // a subscription started, say.
+                            Notification::make()->danger()->title($e->protectsLastAdministrator()
+                                ? __('users.deactivate.last_administrator')
+                                : __('users.deactivate.has_running_subscription'))->send();
+
+                            return;
+                        }
+
+                        $action->success();
+                    }),
+                Action::make('reactivate')
+                    ->label(__('users.reactivate.label'))
+                    ->icon(Heroicon::OutlinedArrowPath)
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->modalHeading(__('users.reactivate.heading'))
+                    ->modalDescription(__('users.reactivate.description'))
+                    ->modalSubmitActionLabel(__('users.reactivate.label'))
+                    ->visible(fn (User $record): bool => $record->isDeactivated())
+                    ->authorize('reactivate')
+                    ->successNotificationTitle(__('users.reactivate.done'))
+                    ->action(function (Action $action, User $record): void {
+                        $record->reactivate();
+
+                        $action->success();
+                    }),
+                // Shown disabled on an account named on payments or refunds,
+                // rather than hidden, so the administrator learns to
+                // deactivate it instead (UserPolicy::delete).
                 DeleteAction::make()
-                    ->hidden(fn (User $record): bool => static::isCurrentUser($record)),
+                    ->hidden(fn (User $record): bool => static::isCurrentUser($record))
+                    ->authorizationTooltip(fn (User $record): bool => static::canRemoveAccounts() && $record->hasFinancialRecords())
+                    ->authorizationMessage(__('users.delete.has_financial_records'))
+                    ->using(fn (User $record): bool => static::deleteUser($record)),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    // The current user is filtered out of the selection server
-                    // side, not merely made unselectable in the UI, so a forged
-                    // request naming their own ID still cannot delete them.
+                    // Each selected account is asked UserPolicy::delete() on
+                    // its own, server side: the current user and anyone named
+                    // on financial records drop out of the selection whatever
+                    // the request names. Filament's default bulk delete then
+                    // deletes through the model one at a time, so a gateway
+                    // refusing one account is reported and the rest proceed.
                     DeleteBulkAction::make()
-                        ->action(fn (Collection $records) => $records
-                            ->reject(fn (Model $record): bool => $record instanceof User
-                                && static::isCurrentUser($record))
-                            ->each->delete()),
+                        ->authorizeIndividualRecords('delete'),
                 ]),
             ])
             // The current user's row cannot be selected at all, so even
@@ -249,6 +343,46 @@ class UserResource extends Resource
     }
 
     /**
+     * Whether the signed-in user may delete and deactivate accounts at all.
+     *
+     * The delete and deactivate tooltips explain an integrity refusal to
+     * someone who could otherwise act. Staff who may only view users are
+     * refused for want of the permission, so for them the actions stay hidden
+     * rather than disabled with a reason that is not theirs.
+     */
+    public static function canRemoveAccounts(): bool
+    {
+        $user = auth()->user();
+
+        return $user instanceof User && $user->hasPermission(Permission::DeleteUsers);
+    }
+
+    /**
+     * Delete one account from the table, telling the administrator if it was kept.
+     *
+     * User's deleting event refuses when the gateway will not cancel a live
+     * subscription, and when the account became undeletable after the row was
+     * rendered. Either would otherwise surface as an error page; returning
+     * false leaves the account in place with the reason shown.
+     */
+    public static function deleteUser(User $record): bool
+    {
+        try {
+            return (bool) $record->delete();
+        } catch (GatewayException $e) {
+            report($e);
+
+            Notification::make()->danger()->title(__('users.delete.gateway_failed'))->send();
+        } catch (AccountRemovalRefused $e) {
+            Notification::make()->danger()->title($e->protectsLastAdministrator()
+                ? __('users.delete.last_administrator')
+                : __('users.delete.refused'))->send();
+        }
+
+        return false;
+    }
+
+    /**
      * Persist the modal form's data onto a user.
      *
      * The role is not mass-assignable (see the User model's Fillable
@@ -287,7 +421,10 @@ class UserResource extends Resource
                 ?? ($user->exists ? $user->role : Role::DEFAULT);
         }
 
-        $user->save();
+        // In a transaction so the model's last-administrator guard can hold
+        // the administrators' rows while it checks: two administrators
+        // demoting each other at once must not both succeed.
+        DB::transaction(fn (): bool => $user->save());
 
         return $user;
     }

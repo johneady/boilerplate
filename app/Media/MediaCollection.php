@@ -28,6 +28,8 @@ enum MediaCollection: string
 
     case PageImage = 'page-image';
 
+    case PostCover = 'post-cover';
+
     case Attachment = 'attachment';
 
     /**
@@ -45,6 +47,7 @@ enum MediaCollection: string
             self::Avatar => 'avatar',
             self::Logo => 'logo',
             self::PageImage => 'page-image',
+            self::PostCover => 'post-cover',
             self::Attachment => null,
         };
     }
@@ -60,7 +63,7 @@ enum MediaCollection: string
     public function isSingle(): bool
     {
         return match ($this) {
-            self::Avatar, self::Logo => true,
+            self::Avatar, self::Logo, self::PostCover => true,
             // A page may carry several images -- a hero and whatever the body
             // references -- so this one accumulates.
             self::PageImage, self::Attachment => false,
@@ -78,6 +81,7 @@ enum MediaCollection: string
             self::Avatar => 'thumb',
             self::Logo => 'mark',
             self::PageImage => 'wide',
+            self::PostCover => 'card',
             self::Attachment => null,
         };
     }
@@ -95,6 +99,7 @@ enum MediaCollection: string
             self::Avatar => 'avatars',
             self::Logo => 'logo',
             self::PageImage => 'page-images',
+            self::PostCover => 'post-covers',
             self::Attachment => 'attachments',
         };
     }
@@ -125,7 +130,7 @@ enum MediaCollection: string
     {
         return match ($this) {
             self::Logo => true,
-            self::Avatar, self::PageImage, self::Attachment => false,
+            self::Avatar, self::PageImage, self::PostCover, self::Attachment => false,
         };
     }
 

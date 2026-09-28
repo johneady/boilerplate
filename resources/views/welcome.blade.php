@@ -45,5 +45,51 @@
                 </div>
             @endforeach
         </div>
+
+        {{--
+            The latest posts, rendered only while the blog is switched on and
+            holding at least one published post. $latestPosts arrives as a
+            closure (see AppServiceProvider) so a blog that is off costs the
+            home page no query at all.
+        --}}
+        {{-- Resolved once here rather than invoked in the condition and again
+             in the loop: the closure runs the query each time it is called. --}}
+        @php($latestPosts = $latestPosts())
+
+        @if ($latestPosts !== null && $latestPosts->isNotEmpty())
+            <section class="mt-24">
+                <div class="flex items-end justify-between gap-4">
+                    <h2 class="text-2xl font-semibold tracking-tight">{{ __('From the blog') }}</h2>
+
+                    <a
+                        href="{{ route('blog.index') }}"
+                        class="text-sm font-medium text-sky-700 hover:underline dark:text-sky-400"
+                        wire:navigate
+                    >
+                        {{ __('View all posts') }}
+                    </a>
+                </div>
+
+                <div class="mt-8 grid gap-8 sm:grid-cols-3">
+                    @foreach ($latestPosts as $post)
+                        <div class="rounded-xl border border-neutral-200 bg-white/60 p-6 dark:border-neutral-800 dark:bg-neutral-900/40">
+                            <p class="text-xs text-neutral-500 dark:text-neutral-400">
+                                {{ app(\App\Settings\Settings::class)->formatDate($post->published_at) }}
+                            </p>
+
+                            <h3 class="mt-2 font-semibold tracking-tight">
+                                <a href="{{ route('blog.show', $post) }}" class="hover:underline" wire:navigate>
+                                    {{ $post->title }}
+                                </a>
+                            </h3>
+
+                            <p class="mt-2 line-clamp-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+                                {{ $post->excerpt() }}
+                            </p>
+                        </div>
+                    @endforeach
+                </div>
+            </section>
+        @endif
     </main>
 </x-layouts::public>

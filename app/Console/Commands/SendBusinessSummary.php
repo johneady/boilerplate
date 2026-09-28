@@ -72,7 +72,9 @@ class SendBusinessSummary extends Command
         }
 
         $summary = $this->summarize($frequency, $from, $to, $previousFrom, $settings, $metrics, $payments);
-        $administrators = User::query()->withRole(Role::Admin)->get();
+
+        // A deactivated administrator has left; their inbox is not the business's.
+        $administrators = User::query()->withRole(Role::Admin)->active()->get();
 
         // Queued on the database connection, so the notification jobs and
         // the record of the period commit together or not at all.

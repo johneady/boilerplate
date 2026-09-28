@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Auth\AccountRemovalRefused;
 use App\Auth\Permission;
 use App\Auth\Role;
 use App\Concerns\Auditable;
@@ -10,8 +11,10 @@ use App\Concerns\HasRoles;
 use App\Media\HoldsMedia;
 use App\Media\MediaCollection;
 use App\Payments\Actions\EndSubscriptionsForDeletedUser;
+use App\Payments\Actions\ReconcileSubscription;
 use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\SubscriptionStatus;
+use App\Payments\Exceptions\GatewayException;
 use App\Settings\SettingKey;
 use App\Settings\Settings;
 use Carbon\CarbonImmutable;
@@ -22,11 +25,15 @@ use Filament\Panel;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\PasskeyUser;
 use Laravel\Fortify\Contracts\TwoFactorAuthenticationProvider;
@@ -40,6 +47,7 @@ use RuntimeException;
  * @property string $name
  * @property string $email
  * @property CarbonImmutable|null $email_verified_at
+ * @property CarbonImmutable|null $deactivated_at
  * @property Role $role
  * @property bool $is_admin Derived from $role; see App\Concerns\HasRoles.
  * @property string $password
@@ -99,18 +107,88 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
      * canAccessPanel() makes -- fails on a null dereference rather than
      * reading as the least-privileged role.
      *
+     * deactivated_at is here for the same reason: a freshly created instance
+     * holds only what was inserted, and isDeactivated() -- asked on every
+     * request by EnsureAccountIsActive -- would otherwise hit the strict
+     * missing-attribute check until the model was reloaded.
+     *
      * @var array<string, mixed>
      */
     protected $attributes = [
         'role' => Role::DEFAULT->value,
+        'deactivated_at' => null,
     ];
 
     protected static function booted(): void
     {
         // Every deletion path -- the settings page, the admin panel, tinker --
-        // stops the gateway billing the account first, and a gateway that
-        // refuses stops the deletion. See EndSubscriptionsForDeletedUser.
-        static::deleting(fn (User $user) => app(EndSubscriptionsForDeletedUser::class)->handle($user));
+        // passes through here. The integrity checks come first so a refused
+        // deletion never cancels a subscription on its way to failing; then
+        // the gateway stops billing the account, and a gateway that refuses
+        // stops the deletion. See EndSubscriptionsForDeletedUser.
+        static::deleting(function (User $user): void {
+            if ($user->isLastActiveAdministrator()) {
+                throw AccountRemovalRefused::lastAdministrator($user);
+            }
+
+            // Also enforced by the restrictOnDelete foreign keys; refusing
+            // here turns a constraint violation into an error that says why.
+            if ($user->hasFinancialRecords()) {
+                throw AccountRemovalRefused::holdsFinancialRecords($user);
+            }
+
+            app(EndSubscriptionsForDeletedUser::class)->handle($user);
+        });
+
+        // Demoting or deactivating the last active administrator locks
+        // everyone out as surely as deleting them. The panel already stops an
+        // administrator doing either to themselves; this covers deactivate(),
+        // seeders, commands and tinker, whichever column they write. Compared
+        // against the ORIGINAL role and deactivation, since those are what
+        // the account held until this save.
+        static::updating(function (User $user): void {
+            $wasActiveAdministrator = $user->getOriginal('role') === Role::Admin && $user->getOriginal('deactivated_at') === null;
+
+            if (! $wasActiveAdministrator || ($user->role === Role::Admin && ! $user->isDeactivated())) {
+                return;
+            }
+
+            // Takes effect only when the save runs inside a transaction, as
+            // UserResource::saveUser()'s does; see lockActiveAdministrators().
+            $user->lockActiveAdministrators();
+
+            if (! static::query()->withRole(Role::Admin)->active()->whereKeyNot($user->getKey())->exists()) {
+                throw AccountRemovalRefused::lastAdministrator($user);
+            }
+        });
+    }
+
+    /**
+     * Delete the account.
+     *
+     * Overridden only to declare what the deleting event above can throw:
+     * callers such as the admin panel catch both to keep the account and say
+     * why, and without this nothing on the call path shows they can happen.
+     *
+     * @throws AccountRemovalRefused when the account is the last active administrator, or is named on financial records
+     * @throws GatewayException when a gateway cannot confirm a live subscription was cancelled
+     */
+    public function delete(): ?bool
+    {
+        // Only removing an administrator can race into a lockout: two
+        // administrators deleting each other at the same moment would each
+        // pass the last-administrator check in the deleting event. Holding
+        // the active administrators' rows serializes the two, so the second
+        // re-reads after the first commits and is refused.
+        if ($this->role !== Role::Admin) {
+            return parent::delete();
+        }
+
+        return DB::transaction(function (): ?bool {
+            $this->lockActiveAdministrators();
+
+            return parent::delete();
+        });
     }
 
     /**
@@ -123,11 +201,21 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
      * enrolment, and updated_at changes on every save, so an entry would list
      * them alongside whatever actually changed.
      *
+     * The `*_exists` flags are not columns at all: the admin table loads them
+     * with withExists() (see hasFinancialRecords()), and a user deleted from
+     * there would otherwise carry them into the entry's captured attributes.
+     *
      * @return list<string>
      */
     protected function auditExclude(): array
     {
-        return ['two_factor_confirmed_at', 'updated_at'];
+        return [
+            'two_factor_confirmed_at',
+            'updated_at',
+            'recorded_payments_exists',
+            'initiated_refunds_exists',
+            'running_subscription_exists',
+        ];
     }
 
     /**
@@ -143,6 +231,7 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             // place. Fortify's markEmailAsVerified() assigns now(), which the
             // cast accepts and converts.
             'email_verified_at' => 'immutable_datetime',
+            'deactivated_at' => 'immutable_datetime',
             'two_factor_confirmed_at' => 'immutable_datetime',
             'created_at' => 'immutable_datetime',
             'updated_at' => 'immutable_datetime',
@@ -175,7 +264,183 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
      */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->hasPermission(Permission::AccessAdminPanel);
+        // The panel runs its own middleware stack rather than the web group,
+        // so EnsureAccountIsActive never sees its requests: this is the
+        // panel's half of that check.
+        return ! $this->isDeactivated() && $this->hasPermission(Permission::AccessAdminPanel);
+    }
+
+    /**
+     * Whether an administrator has deactivated this account.
+     */
+    public function isDeactivated(): bool
+    {
+        return $this->deactivated_at !== null;
+    }
+
+    /**
+     * Scope a query to accounts that have not been deactivated.
+     *
+     * @param  Builder<self>  $query
+     */
+    #[Scope]
+    protected function active(Builder $query): void
+    {
+        $query->whereNull('deactivated_at');
+    }
+
+    /**
+     * Whether this is the only active administrator left.
+     *
+     * Deleting or deactivating that account leaves nobody able to reach the
+     * users table or the settings, with no way back short of the database.
+     */
+    public function isLastActiveAdministrator(): bool
+    {
+        return $this->role === Role::Admin
+            && ! $this->isDeactivated()
+            && ! static::query()->withRole(Role::Admin)->active()->whereKeyNot($this->getKey())->exists();
+    }
+
+    /**
+     * Whether payments or refunds name this account as who recorded or issued them.
+     *
+     * Those columns are write-once on the financial records, so the account
+     * cannot be deleted while they point at it -- only deactivated. Reads the
+     * `*_exists` attributes when the admin table has loaded them with
+     * withExists(), so rendering a page of users costs no query per row.
+     */
+    public function hasFinancialRecords(): bool
+    {
+        if (array_key_exists('recorded_payments_exists', $this->attributes)
+            && array_key_exists('initiated_refunds_exists', $this->attributes)) {
+            return (bool) $this->attributes['recorded_payments_exists']
+                || (bool) $this->attributes['initiated_refunds_exists'];
+        }
+
+        return $this->recordedPayments()->exists() || $this->initiatedRefunds()->exists();
+    }
+
+    /**
+     * Whether a subscription is trialing, active or past due -- billing, or
+     * about to -- for this account.
+     *
+     * An unfinished checkout is not counted: deactivate() expires those at the
+     * gateway itself. Like hasFinancialRecords(), reads a loaded
+     * `running_subscription_exists` before falling back to a query.
+     */
+    public function hasRunningSubscription(): bool
+    {
+        if (array_key_exists('running_subscription_exists', $this->attributes)) {
+            return (bool) $this->attributes['running_subscription_exists'];
+        }
+
+        return $this->runningSubscription()->exists();
+    }
+
+    /**
+     * Deactivate the account: it can no longer sign in, and is signed out now.
+     *
+     * The offboarding path for staff. Unlike delete(), the row stays, so every
+     * post, payment, refund and audit entry naming this person keeps naming
+     * them. The remember token is rotated and database sessions are purged so
+     * access ends immediately rather than on the next sign-in;
+     * EnsureAccountIsActive and canAccessPanel() catch anything that slips by.
+     *
+     * A running subscription must be cancelled first: the customer would go
+     * on being billed with no way to sign in and stop it. An unfinished
+     * checkout is expired at the gateway here instead, as deleting the
+     * account does, so it cannot be completed after the account is locked.
+     *
+     * @throws AccountRemovalRefused
+     * @throws GatewayException when a gateway cannot confirm an unfinished checkout was expired
+     */
+    public function deactivate(): void
+    {
+        // Before the transaction, so the gateway call holds no locks. A
+        // checkout finished at the last moment comes back started, and the
+        // running-subscription check below then refuses.
+        $reconcile = app(ReconcileSubscription::class);
+
+        Subscription::query()
+            ->where('active_user_id', $this->getKey())
+            ->where('status', SubscriptionStatus::Incomplete->value)
+            ->get()
+            ->each(fn (Subscription $checkout): Subscription => $reconcile->expire($checkout));
+
+        // In a transaction so the updating event's last-administrator guard
+        // can hold the active administrators' rows, for the race delete()
+        // describes: two administrators deactivating each other.
+        DB::transaction(function (): void {
+            // Queried, not read from a flag the admin table loaded: the
+            // expiry above may have found the checkout completed.
+            if ($this->runningSubscription()->exists()) {
+                throw AccountRemovalRefused::hasRunningSubscription($this);
+            }
+
+            $this->forceFill([
+                'deactivated_at' => now(),
+                'remember_token' => Str::ulid(),
+            ])->save();
+        });
+
+        $this->endSessions();
+    }
+
+    /**
+     * End this user's database-backed sessions, optionally keeping one.
+     *
+     * Shared by the password change (which keeps the session making the
+     * change), the password reset and deactivation. A session driver other
+     * than `database` needs its own handler here, not deletion of the guard --
+     * see .ai/rules/auth-gates.md.
+     */
+    public function endSessions(?string $except = null): void
+    {
+        if (config('session.driver') !== 'database') {
+            return;
+        }
+
+        DB::table('sessions')
+            ->where('user_id', $this->getKey())
+            ->when($except !== null, fn ($query) => $query->whereNot('id', $except))
+            ->delete();
+    }
+
+    /**
+     * Lock the active administrators' rows for the rest of the transaction.
+     *
+     * A locking read waits for any other transaction holding them, then reads
+     * what that one committed -- so the last-administrator check that follows
+     * sees a concurrent removal instead of racing it. SQLite has no row locks
+     * and ignores this, but serializes writing transactions anyway.
+     */
+    private function lockActiveAdministrators(): void
+    {
+        static::query()->withRole(Role::Admin)->active()->lockForUpdate()->pluck($this->getKeyName());
+    }
+
+    /**
+     * Let a deactivated account sign in again with its existing credentials.
+     */
+    public function reactivate(): void
+    {
+        $this->forceFill(['deactivated_at' => null])->save();
+    }
+
+    /**
+     * Whether the account holder may close the account from their own settings.
+     *
+     * Staff accounts are offboarded by an administrator, who deactivates them
+     * so their name stays on what they worked on -- and an administrator
+     * closing their own account could leave the panel with nobody to run it.
+     * An account named on financial records (a former member of staff) cannot
+     * be deleted by anyone, so it is not offered either.
+     */
+    public function canCloseOwnAccount(): bool
+    {
+        return ! $this->hasPermission(Permission::AccessAdminPanel)
+            && ! $this->hasFinancialRecords();
     }
 
     /**
@@ -291,6 +556,54 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * Blog posts credited to this user as their author.
+     *
+     * author_id is nullable and null on delete: the posts outlive the
+     * account, and the public byline falls back to the business name.
+     *
+     * @return HasMany<Post, $this>
+     */
+    public function posts(): HasMany
+    {
+        return $this->hasMany(Post::class, 'author_id');
+    }
+
+    /**
+     * Manual payments this user recorded from the admin panel.
+     *
+     * @return HasMany<Payment, $this>
+     */
+    public function recordedPayments(): HasMany
+    {
+        return $this->hasMany(Payment::class, 'recorded_by');
+    }
+
+    /**
+     * Refunds this user issued from the admin panel.
+     *
+     * @return HasMany<Refund, $this>
+     */
+    public function initiatedRefunds(): HasMany
+    {
+        return $this->hasMany(Refund::class, 'initiated_by');
+    }
+
+    /**
+     * The subscription trialing, active or past due for this user, if any.
+     *
+     * Read through active_user_id, which is set only while a subscription is
+     * live and is unique, so there is at most one. A live subscription still
+     * at checkout (Incomplete) is left out: nothing bills until it starts.
+     *
+     * @return HasOne<Subscription, $this>
+     */
+    public function runningSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class, 'active_user_id')
+            ->where('status', '!=', SubscriptionStatus::Incomplete->value);
     }
 
     /**

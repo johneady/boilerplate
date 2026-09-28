@@ -46,6 +46,15 @@ test('the weekly summary goes to administrators at 8am Monday in the business ti
     Notification::assertNotSentTo($editor, BusinessSummaryReport::class);
 });
 
+test('a deactivated administrator is not sent the summary', function () {
+    afterASaleLastWeek('2026-09-21 08:05');
+    $departed = User::factory()->admin()->deactivated()->create();
+
+    $this->artisan('app:send-business-summary')->assertSuccessful();
+
+    Notification::assertNotSentTo($departed, BusinessSummaryReport::class);
+});
+
 test('nothing is sent before 8am, or on another day', function (string $at) {
     afterASaleLastWeek($at);
 

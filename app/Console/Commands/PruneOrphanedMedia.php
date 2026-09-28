@@ -6,6 +6,7 @@ use App\Media\MediaCollection;
 use App\Media\StagedUpload;
 use App\Models\Media;
 use App\Models\Page;
+use App\Models\Post;
 use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Collection;
@@ -91,12 +92,12 @@ class PruneOrphanedMedia extends Command
                     }
 
                     // A body-referenced row is not an orphan, however it is
-                    // owned. This is what keeps page-body adoptions alive
+                    // owned. This is what keeps page- and post-body adoptions alive
                     // after app:adopt-page-body-images made their rows
                     // ownerless (their "owner" is the body text naming them),
                     // and it holds for any row whose URL somebody pasted into
                     // content: the file is in use.
-                    if ($this->isReferencedByPageBody($item)) {
+                    if ($this->isReferencedByBody($item)) {
                         $spared++;
 
                         continue;
@@ -112,7 +113,7 @@ class PruneOrphanedMedia extends Command
             : "Deleted {$deleted} orphaned media files.");
 
         if ($spared > 0) {
-            $this->line("Spared {$spared} ownerless-by-design or still referenced by a page body.");
+            $this->line("Spared {$spared} ownerless-by-design or still referenced by a page or post body.");
         }
 
         $this->pruneStagedUploads($cutoff);
@@ -121,7 +122,7 @@ class PruneOrphanedMedia extends Command
     }
 
     /**
-     * Whether any page body still names this row's files.
+     * Whether any page or post body still names this row's files.
      *
      * Matched on the row's stored directory: a uuid segment nothing else
      * writes into, so a containing body is referencing THIS row and not a
@@ -130,11 +131,10 @@ class PruneOrphanedMedia extends Command
      * listing these -- a row with no owner record is worth seeing even while
      * content keeps its files alive.
      */
-    private function isReferencedByPageBody(Media $media): bool
+    private function isReferencedByBody(Media $media): bool
     {
-        return Page::query()
-            ->where('body', 'like', '%'.$media->path.'%')
-            ->exists();
+        return Page::query()->where('body', 'like', '%'.$media->path.'%')->exists()
+            || Post::query()->where('body', 'like', '%'.$media->path.'%')->exists();
     }
 
     /**

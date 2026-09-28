@@ -1,8 +1,10 @@
 <?php
 
+use App\Auth\Role;
 use App\Jobs\ProcessUploadedImage;
 use App\Livewire\Settings\Profile;
 use App\Models\Media;
+use App\Models\Refund;
 use App\Models\User;
 use App\Payments\Actions\EndSubscriptionsForDeletedUser;
 use App\Payments\Exceptions\GatewayUnavailable;
@@ -172,6 +174,38 @@ test('an account whose subscription cannot be cancelled is kept, and the user to
 
     expect($user->fresh())->not->toBeNull()
         ->and(auth()->check())->toBeTrue();
+});
+
+test('staff cannot close their own account from settings', function (Role $role) {
+    // A second administrator, so the last-administrator guard is not what
+    // refuses the admin case.
+    User::factory()->admin()->create();
+    $staff = User::factory()->role($role)->create();
+
+    $this->actingAs($staff);
+
+    Livewire::test('settings.delete-user-form')
+        ->assertSee('Your account can only be closed by an administrator.')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasErrors(['password' => 'Your account can only be closed by an administrator.']);
+
+    $this->assertModelExists($staff);
+    expect(auth()->check())->toBeTrue();
+})->with([Role::Editor, Role::Admin]);
+
+test('a former member of staff named on a refund cannot close their account', function () {
+    $former = User::factory()->create();
+    Refund::factory()->create(['initiated_by' => $former->id]);
+
+    $this->actingAs($former);
+
+    Livewire::test('settings.delete-user-form')
+        ->set('password', 'password')
+        ->call('deleteUser')
+        ->assertHasErrors(['password' => 'Your account can only be closed by an administrator.']);
+
+    $this->assertModelExists($former);
 });
 
 test('an avatar upload is queued rather than processed in the request', function () {

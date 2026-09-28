@@ -110,7 +110,7 @@ Schedule::command('app:adopt-page-body-images')
     ->daily()
     ->withoutOverlapping(60)
     ->onOneServer()
-    ->description('Adopt referenced page-body uploads into the media library, and collect the rest');
+    ->description('Adopt referenced page- and post-body uploads into the media library, and collect the rest');
 
 /*
  * Hourly, and the command decides whether a summary is due: "8am Monday" is in

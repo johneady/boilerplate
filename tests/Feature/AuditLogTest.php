@@ -94,6 +94,8 @@ test('the acting user is recorded on the entry', function () {
  */
 test('an entry still names its actor after the account is deleted', function () {
     $admin = User::factory()->admin()->create(['name' => 'Vanished Admin']);
+    // The last active administrator cannot be deleted, so someone else stays.
+    User::factory()->admin()->create();
 
     $this->actingAs($admin);
     $page = Page::factory()->create();

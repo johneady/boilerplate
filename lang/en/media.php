@@ -27,6 +27,7 @@ return [
         'avatar' => 'Avatar',
         'logo' => 'Logo',
         'page-image' => 'Page image',
+        'post-cover' => 'Post cover',
         'attachment' => 'Attachment',
     ],
 

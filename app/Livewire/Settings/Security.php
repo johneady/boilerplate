@@ -10,7 +10,6 @@ use App\Concerns\ResolvesAuthenticatedUser;
 use App\Settings\Settings;
 use Exception;
 use Flux\Flux;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Laravel\Fortify\Actions\ConfirmTwoFactorAuthentication;
@@ -120,12 +119,7 @@ class Security extends Component
         // A password change must not be outlived by a stolen session or
         // "remember me" cookie: purge every other database-backed session and
         // rotate the remember token alongside the password itself.
-        if (config('session.driver') === 'database') {
-            DB::table('sessions')
-                ->where('user_id', $user->getAuthIdentifier())
-                ->whereNot('id', session()->getId())
-                ->delete();
-        }
+        $user->endSessions(except: session()->getId());
 
         $user->forceFill([
             'password' => $validated['password'],

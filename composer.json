@@ -84,7 +84,7 @@
             "@php artisan config:clear --ansi",
             "@lint:check",
             "@types:check",
-            "@php vendor/bin/pest --ci --parallel"
+            "@php -d pcov.enabled=0 -d opcache.enable_cli=1 vendor/bin/pest --ci --parallel --passthru-php=\"'-d' 'pcov.enabled=0' '-d' 'opcache.enable_cli=1'\""
         ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",

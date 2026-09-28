@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Auth\Permission;
 use App\Models\AuditLog;
+use App\Models\Category;
 use App\Models\ContactSubmission;
 use App\Models\Dispute;
 use App\Models\Media;
@@ -13,19 +14,24 @@ use App\Models\PaymentLink;
 use App\Models\PaymentTransaction;
 use App\Models\Plan;
 use App\Models\PlanPrice;
+use App\Models\Post;
 use App\Models\Refund;
 use App\Models\Subscription;
+use App\Models\Tag;
 use App\Models\TaxRate;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Policies\AuditLogPolicy;
+use App\Policies\CategoryPolicy;
 use App\Policies\ContactSubmissionPolicy;
 use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
+use App\Policies\PostPolicy;
 use App\Policies\SubscriptionPolicy;
+use App\Policies\TagPolicy;
 use App\Policies\TaxRatePolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WebhookEventPolicy;
@@ -53,6 +59,24 @@ class AuthServiceProvider extends ServiceProvider
         'delete',
         'forceDelete',
         'updateRole',
+        'deactivate',
+    ];
+
+    /**
+     * Abilities on ANOTHER user's account that UserPolicy decides, for
+     * administrators too.
+     *
+     * The integrity rules live there: an account named on payments or
+     * refunds is deactivated rather than deleted, and one with a running
+     * subscription is not deactivated. The bypass would answer true over both.
+     *
+     * @var list<string>
+     */
+    private const array GUARDED_ACCOUNT_ABILITIES = [
+        'delete',
+        'forceDelete',
+        'deactivate',
+        'reactivate',
     ];
 
     /**
@@ -114,6 +138,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     private const array POLICIES = [
         AuditLog::class => AuditLogPolicy::class,
+        Category::class => CategoryPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
         Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
@@ -124,10 +149,12 @@ class AuthServiceProvider extends ServiceProvider
         PaymentTransaction::class => PaymentPolicy::class,
         Refund::class => PaymentPolicy::class,
         Dispute::class => PaymentPolicy::class,
+        Post::class => PostPolicy::class,
         // A price is managed as part of its plan.
         Plan::class => PlanPolicy::class,
         PlanPrice::class => PlanPolicy::class,
         Subscription::class => SubscriptionPolicy::class,
+        Tag::class => TagPolicy::class,
         TaxRate::class => TaxRatePolicy::class,
         User::class => UserPolicy::class,
         WebhookEvent::class => WebhookEventPolicy::class,
@@ -211,6 +238,13 @@ class AuthServiceProvider extends ServiceProvider
     private function registerAdministratorBypass(): void
     {
         Gate::before(function (User $user, string $ability, array $arguments = []): ?bool {
+            // A deactivated account may do nothing at all, whatever its role.
+            // Sessions are purged on deactivation, so this is the backstop for
+            // anything that authorizes without going through them.
+            if ($user->isDeactivated()) {
+                return false;
+            }
+
             if (! $user->is_admin) {
                 return null;
             }
@@ -265,6 +299,10 @@ class AuthServiceProvider extends ServiceProvider
         if ($target instanceof Plan || $target instanceof PlanPrice
             || (is_string($target) && (is_a($target, Plan::class, true) || is_a($target, PlanPrice::class, true)))) {
             return in_array($ability, ['delete', 'deleteAny', 'forceDelete', 'forceDeleteAny'], true);
+        }
+
+        if ($target instanceof User && in_array($ability, self::GUARDED_ACCOUNT_ABILITIES, true)) {
+            return true;
         }
 
         if (! in_array($ability, self::SELF_PROTECTED_ABILITIES, true)) {

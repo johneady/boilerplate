@@ -75,6 +75,7 @@ test('the full seed adds the sample plans wherever quick logins are offered', fu
     Storage::fake('local');
     Storage::fake('public');
     app()->detectEnvironment(fn () => $environment);
+    $this->withoutSlowDemoSeeders();
 
     $this->seed(DatabaseSeeder::class);
 

@@ -16,6 +16,11 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
+            // Set when an administrator deactivates the account: it can no
+            // longer sign in, but the row -- and every record naming it as
+            // author, recorder or initiator -- stays. How staff are offboarded;
+            // see User::deactivate().
+            $table->timestamp('deactivated_at')->nullable();
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();
