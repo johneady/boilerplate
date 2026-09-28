@@ -1,13 +1,19 @@
-Hi there, I created a real prototype for you at xxxxxx.powerphpscripts.com
+Hi there, I built a working prototype of your QR photo-ordering system at xxxxxx.powerphpscripts.com
 
-You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
+Your two situations — customers in your retail location, and customers not in it — both work, end to end. Scan the code on the (demo) counter, or tap "Send us your photos", pick photos from a phone, choose how many of each, and send. Payment never appears in the in-store flow; the mail-out flow collects an address and takes a (labelled) demo payment. You can log in with the quick login link and work the tablet side yourself. Everything you see is real and working.
 
-WHY THIS DEMO MATTERS FOR YOUR PROJECT
+WHAT IS IN THE DEMO
 
-Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
+- A branded phone flow at /photo — no app to install, nothing to sign up for, exactly the QR-scan experience you described. Uploads are limited to real photos and re-encoded server-side, which also strips EXIF/GPS before anything is stored.
+- Per-photo print counts with your pricing rule: 1 print for $3.99, or any 3 prints for $9.99, applied across the whole order. The price updates live, and the customer sees the deal save them money before they send.
+- The in-store branch never shows a payment screen. The customer gets a pickup code (HPL-XXXX) and pays at the counter — pickup and payment stay independent, as you specified.
+- The anywhere branch collects a mailing address and takes a smartphone-style card checkout (clearly marked as a demo — no real charge; Stripe or PayPal drops into that step).
+- A fulfillment console at /fulfill for the counter tablet: one screen, live-updating queue of who has sent photos, each order's photos with print counts, one-tap send to any of your three printers, then "ready for pickup" or "packed for the post". Big touch targets, no training needed.
+- An admin panel with the full order ledger, a "Counters & QR codes" page where each counter's printable QR sign (in your brand colours) generates itself, and pricing you can change without a developer.
 
-1. I understood your requirements well enough to build them.
-2. I have the technical stack and execution speed ready to start delivering immediately.
+YOUR FIRST QUESTION — IS MY BUDGET CRAZY?
+
+No. The flow is mostly one well-built web app and three tables. The genuinely unsolved cost is the printer integration: a tablet "sending to a printer" needs either small print-station software at each location or a network-printer protocol (e.g. IPP) decision from you. That is the piece worth budgeting a spike for, and I would recommend we prove it in week one.
 
 RELEVANT TRACK RECORD
 
@@ -19,7 +25,7 @@ I've been doing full-stack work for 20 years, database design through deployment
 
 NEXT STEPS
 
-Would it be worth a quick 10-minute call this week so I can walk you through the demo and hear your feedback directly? I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
+One question that changes the build: for the in-store flow, should the tablet see orders the moment a customer taps send (live queue, as in the demo), or is a "refresh when I look at it" model closer to how your counters actually work? Worth a quick 10-minute call this week — I'm available in the America/Toronto timezone and can start within 1 day of an agreement.
 
 Best regards,
 
