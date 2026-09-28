@@ -140,17 +140,16 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             app(EndSubscriptionsForDeletedUser::class)->handle($user);
         });
 
-        // Demoting the last active administrator locks everyone out as surely
-        // as deleting them. The panel already stops an administrator demoting
-        // themselves; this covers seeders, commands and tinker. Checked on
-        // the ORIGINAL role and deactivation, since those are what the
-        // account held until this save.
+        // Demoting or deactivating the last active administrator locks
+        // everyone out as surely as deleting them. The panel already stops an
+        // administrator doing either to themselves; this covers deactivate(),
+        // seeders, commands and tinker, whichever column they write. Compared
+        // against the ORIGINAL role and deactivation, since those are what
+        // the account held until this save.
         static::updating(function (User $user): void {
-            if (! $user->isDirty('role') || $user->role === Role::Admin || $user->getOriginal('role') !== Role::Admin) {
-                return;
-            }
+            $wasActiveAdministrator = $user->getOriginal('role') === Role::Admin && $user->getOriginal('deactivated_at') === null;
 
-            if ($user->getOriginal('deactivated_at') !== null) {
+            if (! $wasActiveAdministrator || ($user->role === Role::Admin && ! $user->isDeactivated())) {
                 return;
             }
 
@@ -369,17 +368,10 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             ->get()
             ->each(fn (Subscription $checkout): Subscription => $reconcile->expire($checkout));
 
-        // In a transaction holding the active administrators' rows, for the
-        // race delete() describes: two administrators deactivating each other.
+        // In a transaction so the updating event's last-administrator guard
+        // can hold the active administrators' rows, for the race delete()
+        // describes: two administrators deactivating each other.
         DB::transaction(function (): void {
-            if ($this->role === Role::Admin) {
-                $this->lockActiveAdministrators();
-            }
-
-            if ($this->isLastActiveAdministrator()) {
-                throw AccountRemovalRefused::lastAdministrator($this);
-            }
-
             // Queried, not read from a flag the admin table loaded: the
             // expiry above may have found the checkout completed.
             if ($this->runningSubscription()->exists()) {

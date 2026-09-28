@@ -14,6 +14,8 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Fortify;
+use Laravel\Passkeys\Contracts\PasskeyUser;
+use Laravel\Passkeys\Passkeys;
 
 class FortifyServiceProvider extends ServiceProvider
 {
@@ -46,6 +48,11 @@ class FortifyServiceProvider extends ServiceProvider
         // Refuses a deactivated account at the password form rather than
         // signing it in first; see AuthenticateUser.
         Fortify::authenticateUsing(fn (Request $request): User => app(AuthenticateUser::class)($request));
+
+        // The passkey sign-in never reaches authenticateUsing, so it is
+        // refused here instead. The passkey has already been verified, so
+        // the refusal tells nobody without it anything.
+        Passkeys::authorizeLoginUsing(fn (Request $request, PasskeyUser $user): bool => $user instanceof User && ! $user->isDeactivated());
     }
 
     /**

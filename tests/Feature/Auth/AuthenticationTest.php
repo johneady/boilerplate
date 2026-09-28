@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Fortify\Features;
+use Laravel\Passkeys\Passkey;
+use Laravel\Passkeys\Passkeys;
 
 test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
@@ -53,6 +55,13 @@ test('a deactivated account is refused at the login form, never signed in', func
     $this->assertGuest();
     expect(AuditLog::query()->ofEvent(AuditEvent::Login)->exists())->toBeFalse();
 });
+
+test('a verified passkey does not sign in a deactivated account', function (bool $deactivated) {
+    $user = User::factory()->when($deactivated, fn ($factory) => $factory->deactivated())->create();
+    $passkey = (new Passkey)->setRelation('user', $user);
+
+    expect(Passkeys::allowsLogin(request(), $passkey))->toBe(! $deactivated);
+})->with(['active' => false, 'deactivated' => true]);
 
 test('a wrong password on a deactivated account gets the ordinary failure, not its status', function () {
     $user = User::factory()->deactivated()->create();

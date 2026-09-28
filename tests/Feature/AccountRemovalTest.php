@@ -36,6 +36,14 @@ test('the last active administrator cannot be demoted, even from code', function
     expect($admin->fresh()->role)->toBe(Role::Admin);
 });
 
+test('the last active administrator cannot be deactivated by writing the column directly', function () {
+    $admin = User::factory()->admin()->create();
+
+    expect(fn () => $admin->forceFill(['deactivated_at' => now()])->save())->toThrow(AccountRemovalRefused::class);
+
+    expect($admin->fresh()->isDeactivated())->toBeFalse();
+});
+
 test('an account named on a financial record cannot be deleted', function (string $model, string $column) {
     $staff = User::factory()->role(Role::Manager)->create();
     $record = $model::factory()->create([$column => $staff->id]);
