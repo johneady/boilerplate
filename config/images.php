@@ -105,6 +105,16 @@ return [
             'wide' => ['width' => 1600, 'height' => 1600, 'fit' => 'scale'],
         ],
 
+        // A customer's photo, uploaded from a phone to be printed. "scale" so
+        // the whole photo survives to the print; the thumb is what the review
+        // screens and the fulfillment console render, the print size is what
+        // goes to the printer. Both re-encoded: the uploaded original (and its
+        // EXIF, GPS included) is discarded by the processing job.
+        'order-photo' => [
+            'thumb' => ['width' => 400, 'height' => 400, 'fit' => 'scale'],
+            'print' => ['width' => 1600, 'height' => 1600, 'fit' => 'scale'],
+        ],
+
     ],
 
     /*

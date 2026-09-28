@@ -20,15 +20,15 @@ class SettingsSeeder extends Seeder
      * @var array<string, string>
      */
     private const DEMO_DETAILS = [
-        'business_address' => "123 Example Street\nAnytown, ST 12345",
-        'business_phone' => '+1 (555) 123-4567',
-        'business_email' => 'hello@example.com',
-        'seo_title' => 'Cromulent Widgets',
-        'seo_description' => 'Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s Brand settings.',
+        'business_address' => "1122 Wharf Road\nRockport, TX 78382",
+        'business_phone' => '+1 (361) 555-0184',
+        'business_email' => 'counter@harborphotolab.com',
+        'seo_title' => 'Harbor Photo Lab — phone photos, real prints',
+        'seo_description' => 'Scan, choose, collect. Photo prints from your phone in minutes at our Rockport counter, or posted anywhere in the States.',
         // A named zone rather than the bare UTC default: the demo details are
         // American, and a regional identifier demonstrates the setting better
         // than the storage timezone would.
-        'timezone' => 'America/New_York',
+        'timezone' => 'America/Chicago',
     ];
 
     /**

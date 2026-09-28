@@ -153,6 +153,8 @@ test('the form renders a field for every setting the mailer modal does not edit'
         'business_address',
         'business_phone',
         'business_email',
+        'print_unit_price',
+        'print_bundle_price',
         'seo_title',
         'seo_description',
         'allow_search_indexing',

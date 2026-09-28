@@ -62,6 +62,7 @@ class DatabaseSeeder extends Seeder
         // payments through the real actions, and has a test of its own.
         if (! app()->environment('testing')) {
             $this->call(DemoBusinessSeeder::class);
+            $this->call(PrintLabSeeder::class);
         }
     }
 

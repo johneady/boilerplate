@@ -72,6 +72,15 @@ enum Permission: string
     /** Cancelling and resuming customers' subscriptions. Viewing them is ViewPayments. */
     case ManageSubscriptions = 'subscriptions.manage';
 
+    /** Seeing print orders in the admin panel. Working them is FulfillPrintOrders. */
+    case ViewPrintOrders = 'print-orders.view';
+
+    /** Working the fulfillment console: sending photos to printers and moving orders along. */
+    case FulfillPrintOrders = 'print-orders.fulfill';
+
+    /** The counters whose QR codes send customers into the in-store flow. */
+    case ManagePrintLocations = 'print-locations.manage';
+
     /**
      * The label shown wherever a permission is listed for a human.
      */
@@ -103,6 +112,9 @@ enum Permission: string
             self::ManagePaymentSettings => 'Manage payment settings, credentials and tax rates',
             self::ManagePlans => 'Create and edit subscription plans',
             self::ManageSubscriptions => 'Cancel and resume customers\' subscriptions',
+            self::ViewPrintOrders => 'View print orders',
+            self::FulfillPrintOrders => 'Send print orders to the printers and move them along',
+            self::ManagePrintLocations => 'Create and edit print locations and their QR codes',
         };
     }
 }

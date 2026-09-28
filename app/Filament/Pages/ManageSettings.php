@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Auth\Permission;
 use App\Concerns\ImageValidationRules;
+use App\Filament\Forms\MoneyInput;
 use App\Mail\TestEmail;
 use App\Media\MediaCollection;
 use App\Media\MediaManager;
@@ -885,6 +886,14 @@ class ManageSettings extends Page
                 ->default($key->default())
                 ->email()
                 ->maxLength(255),
+            // The shop-till prices the wizard quotes from; minor units in,
+            // decimal out, exactly like every other money field in the panel.
+            SettingKey::PrintUnitPrice, SettingKey::PrintBundlePrice => MoneyInput::make($key->value)
+                ->label($key->label())
+                ->helperText($key->helperText())
+                ->default($key->default())
+                ->required()
+                ->positive(),
             SettingKey::SeoTitle => TextInput::make($key->value)
                 ->label($key->label())
                 ->helperText($key->helperText())

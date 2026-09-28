@@ -13,6 +13,8 @@ use App\Models\PaymentLink;
 use App\Models\PaymentTransaction;
 use App\Models\Plan;
 use App\Models\PlanPrice;
+use App\Models\PrintLocation;
+use App\Models\PrintOrder;
 use App\Models\Refund;
 use App\Models\Subscription;
 use App\Models\TaxRate;
@@ -25,6 +27,8 @@ use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
+use App\Policies\PrintLocationPolicy;
+use App\Policies\PrintOrderPolicy;
 use App\Policies\SubscriptionPolicy;
 use App\Policies\TaxRatePolicy;
 use App\Policies\UserPolicy;
@@ -118,6 +122,8 @@ class AuthServiceProvider extends ServiceProvider
         Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
         Payment::class => PaymentPolicy::class,
+        PrintOrder::class => PrintOrderPolicy::class,
+        PrintLocation::class => PrintLocationPolicy::class,
         PaymentLink::class => PaymentLinkPolicy::class,
         // Refunds and ledger rows are read under the same rules as the
         // payment they belong to, and written by nobody through the Gate.

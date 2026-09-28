@@ -1,6 +1,7 @@
 <?php
 
 use App\Auth\DevLoginAccounts;
+use App\Auth\Permission;
 use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\HealthController;
@@ -10,6 +11,8 @@ use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
 use App\Livewire\Contact;
+use App\Livewire\Prints\FulfillmentConsole;
+use App\Livewire\Prints\PhotoOrder;
 use Illuminate\Support\Facades\Route;
 
 Route::view('/', 'welcome')->name('home');
@@ -41,6 +44,24 @@ Route::get('health', HealthController::class)->name('health')->middleware('throt
 Route::get('media/{media}', [MediaController::class, 'show'])
     ->middleware(['auth', 'signed'])
     ->name('media.show');
+
+// The customer-facing photo flow. 'photo' with no location is the website's
+// mail-out flow (address + checkout); 'photo/{location}' is what the counter
+// QR codes encode (no payment request, pickup at that counter). Resolved in
+// the component rather than by implicit binding: a slug that matches no
+// ACTIVE counter must 404 (the QR on the wall is either live or it is not),
+// where a nullable binding would quietly fall through to the mail-out flow.
+Route::get('photo', PhotoOrder::class)->name('photo.start');
+Route::get('photo/{location}', PhotoOrder::class)
+    ->where('location', '[a-z0-9]+(?:-[a-z0-9]+)*')
+    ->name('photo.location');
+
+// The tablet console a staff member works the queue from. One bookmarkable
+// URL for the counter's home-screen icon; anyone who can scan and pay like a
+// customer needs no account, but moving an order through the lab does.
+Route::get('fulfill', FulfillmentConsole::class)
+    ->middleware(['auth', 'can:'.Permission::FulfillPrintOrders->value])
+    ->name('prints.fulfill');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('dashboard', 'dashboard')->name('dashboard');

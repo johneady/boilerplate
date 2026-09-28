@@ -112,12 +112,14 @@ class AdminPanelProvider extends PanelProvider
             // renders with the fi-color-* class applied but no colour behind
             // it -- visibly flat, with nothing in the markup to show why.
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => Color::Teal,
                 'amber' => Color::Amber,
                 'zinc' => Color::Zinc,
                 'sky' => Color::Sky,
                 'emerald' => Color::Emerald,
                 'violet' => Color::Violet,
+                // The print order status badges (App\Prints\Enums\PrintOrderStatus).
+                'rose' => Color::Rose,
             ])
             // Filament caps page content at 7xl (80rem) by default, which leaves
             // a wide gutter between the sidebar and the content on large screens.
@@ -173,6 +175,14 @@ class AdminPanelProvider extends PanelProvider
                 fn (): string => Blade::render('<flux:toast.group><flux:toast /></flux:toast.group>@fluxScripts'),
             )
             ->navigationItems([
+                // The counter tablet's one-tap tool, inside the panel for
+                // whoever is at a desk rather than the counter. The tablet
+                // itself bookmarks /fulfill directly.
+                NavigationItem::make('Fulfillment console')
+                    ->url(fn (): string => route('prints.fulfill'))
+                    ->icon('heroicon-o-computer-desktop')
+                    ->sort(15)
+                    ->visible(fn (): bool => auth()->user()?->hasPermission(Permission::FulfillPrintOrders) ?? false),
                 NavigationItem::make('Return to website')
                     ->url('/')
                     ->icon('heroicon-o-globe-alt')

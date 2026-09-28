@@ -64,7 +64,7 @@ enum Role: string
             self::User => 'Can sign in and manage their own account. No access to the admin panel.',
             self::Editor => 'Manages the website\'s content in the admin panel: pages, uploaded files and contact messages. No access to payments, users or settings.',
             self::Bookkeeper => 'Reads payments, refunds, subscriptions, disputes and tax rates. Cannot refund, capture or change any settings.',
-            self::Manager => 'Runs day-to-day operations: content, payments, refunds, holds, payment links, subscriptions and the user list. Cannot change settings, credentials, plans or roles.',
+            self::Manager => 'Runs day-to-day operations: content, payments, refunds, holds, payment links, subscriptions, the user list and the photo counter. Cannot change settings, credentials, plans or roles.',
             self::Admin => 'Full access, including the admin panel, every user and all application settings.',
         };
     }
@@ -110,10 +110,13 @@ enum Role: string
                 Permission::RecordManualPayments,
                 Permission::ManagePaymentLinks,
                 Permission::ManageSubscriptions,
+                Permission::FulfillPrintOrders,
+                Permission::ManagePrintLocations,
             ], SORT_REGULAR)),
             self::Bookkeeper => [
                 Permission::AccessAdminPanel,
                 Permission::ViewPayments,
+                Permission::ViewPrintOrders,
             ],
             self::Editor => [
                 Permission::AccessAdminPanel,

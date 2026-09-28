@@ -21,9 +21,9 @@ test('it seeds the demo business details', function () {
 
     $settings = app(Settings::class);
 
-    expect($settings->string(SettingKey::BusinessAddress))->toBe("123 Example Street\nAnytown, ST 12345")
-        ->and($settings->string(SettingKey::BusinessPhone))->toBe('+1 (555) 123-4567')
-        ->and($settings->string(SettingKey::BusinessEmail))->toBe('hello@example.com');
+    expect($settings->string(SettingKey::BusinessAddress))->toBe("1122 Wharf Road\nRockport, TX 78382")
+        ->and($settings->string(SettingKey::BusinessPhone))->toBe('+1 (361) 555-0184')
+        ->and($settings->string(SettingKey::BusinessEmail))->toBe('counter@harborphotolab.com');
 });
 
 test('it seeds the demo seo copy', function () {
@@ -33,8 +33,8 @@ test('it seeds the demo seo copy', function () {
 
     $settings = app(Settings::class);
 
-    expect($settings->string(SettingKey::SeoTitle))->toBe('Cromulent Widgets')
-        ->and($settings->string(SettingKey::SeoDescription))->toBe('Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s Brand settings.');
+    expect($settings->string(SettingKey::SeoTitle))->toBe('Harbor Photo Lab — phone photos, real prints')
+        ->and($settings->string(SettingKey::SeoDescription))->toBe('Scan, choose, collect. Photo prints from your phone in minutes at our Rockport counter, or posted anywhere in the States.');
 });
 
 test('it seeds the demo display timezone', function () {
@@ -44,7 +44,7 @@ test('it seeds the demo display timezone', function () {
 
     // A named zone rather than the bare UTC default: the demo details are
     // American, and a regional identifier shows what the setting does.
-    expect(app(Settings::class)->string(SettingKey::Timezone))->toBe('America/New_York');
+    expect(app(Settings::class)->string(SettingKey::Timezone))->toBe('America/Chicago');
 });
 
 test('re-seeding does not overwrite an operator\'s own timezone', function () {
@@ -84,7 +84,7 @@ test('re-seeding does not overwrite an operator\'s own seo copy or logo', functi
     expect($settings->string(SettingKey::SeoDescription))->toBe('Our real description.')
         ->and($settings->string(SettingKey::Logo))->toBe('logo/mine')
         // The details never filled in are still created.
-        ->and($settings->string(SettingKey::SeoTitle))->toBe('Cromulent Widgets');
+        ->and($settings->string(SettingKey::SeoTitle))->toBe('Harbor Photo Lab — phone photos, real prints');
 });
 
 test('it does not seed the business name over its declared default', function () {
@@ -102,7 +102,7 @@ test('re-seeding does not overwrite an operator\'s own details', function () {
 
     // The edited row survives, while the details never filled in are created.
     expect(app(Settings::class)->string(SettingKey::BusinessAddress))->toBe('2 Real Road')
-        ->and(app(Settings::class)->string(SettingKey::BusinessPhone))->toBe('+1 (555) 123-4567');
+        ->and(app(Settings::class)->string(SettingKey::BusinessPhone))->toBe('+1 (361) 555-0184');
 });
 
 test('the full seed includes the demo business details', function () {
@@ -110,7 +110,7 @@ test('the full seed includes the demo business details', function () {
 
     app()->forgetInstance(Settings::class);
 
-    expect(app(Settings::class)->string(SettingKey::BusinessEmail))->toBe('hello@example.com');
+    expect(app(Settings::class)->string(SettingKey::BusinessEmail))->toBe('counter@harborphotolab.com');
 });
 
 test('the demo details are seeded without the factory', function () {

@@ -8,19 +8,18 @@ test('the home page renders', function () {
     $this->get('/')
         ->assertSuccessful()
         ->assertSee(config('app.name'))
-        ->assertSee('We make the thing that holds the other things.');
+        ->assertSee('Prints from your phone, ready in minutes.');
 });
 
 test('the home page shows the configured business name throughout', function () {
-    app(Settings::class)->set(SettingKey::BusinessName, 'Cromulent Widgets');
+    app(Settings::class)->set(SettingKey::BusinessName, 'Harbor Photo Lab');
 
     $this->get('/')
         ->assertSuccessful()
         // The header brand, the <title>, the body copy and the footer all read
         // from the one setting.
-        ->assertSee('Cromulent Widgets')
-        ->assertSee('Since the beginning, Cromulent Widgets has specialised')
-        ->assertSee('A division of nothing in particular.')
+        ->assertSee('Harbor Photo Lab')
+        ->assertSee('Harbor Photo Lab prints phone photos')
         ->assertDontSee('Boilerplate Industries');
 });
 

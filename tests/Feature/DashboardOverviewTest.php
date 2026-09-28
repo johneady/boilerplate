@@ -39,13 +39,14 @@ test('a control on the landing page reopens the work overview', function () {
         ->assertSee("x-on:click=\"\$dispatch('open-modal', { id: 'work-overview' })\"", escape: false);
 });
 
-test('the landing page embeds the business overview widget', function () {
+test('the landing page embeds the prints overview widget', function () {
     Payments::enable();
 
     $this->actingAs(User::factory()->admin()->create())
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
-        ->assertSee('Widgets\BusinessOverview', escape: false);
+        ->assertSee('Widgets\PrintsOverview', escape: false)
+        ->assertSee('Widgets\PrintQueue', escape: false);
 });
 
 test('a production instance never carries the work overview', function () {

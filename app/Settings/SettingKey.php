@@ -104,6 +104,16 @@ enum SettingKey: string
 
     case BusinessEmail = 'business_email';
 
+    /**
+     * Print pricing, in minor units: what one print costs and what any
+     * PrintPricing::BUNDLE_SIZE of them cost together. The deal is applied
+     * across the whole order's print count, so a customer buying 2 of one
+     * photo and 1 of another still gets the bundle.
+     */
+    case PrintUnitPrice = 'print_unit_price';
+
+    case PrintBundlePrice = 'print_bundle_price';
+
     case SeoTitle = 'seo_title';
 
     case SeoDescription = 'seo_description';
@@ -210,6 +220,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => SettingsTab::BusinessDetails,
+            self::PrintUnitPrice, self::PrintBundlePrice => SettingsTab::BusinessDetails,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo => SettingsTab::SeoBrand,
             self::AllowRegistration => SettingsTab::Registration,
             self::MailMailer, self::MailHost, self::MailPort, self::MailUsername, self::MailPassword, self::MailEncryption, self::MailFromAddress, self::MailFromName, self::OpsAlertEmail, self::SummaryEmailEnabled, self::SummaryEmailFrequency, self::SummaryEmailLastPeriod => SettingsTab::Mail,
@@ -228,6 +239,8 @@ enum SettingKey: string
         return match ($this) {
             self::BusinessName => config('app.name', 'Laravel'),
             self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => '',
+            self::PrintUnitPrice => 399,
+            self::PrintBundlePrice => 999,
             self::SeoTitle, self::SeoDescription, self::Logo => '',
             self::AllowSearchIndexing => true,
             self::AllowRegistration => false,
@@ -266,6 +279,8 @@ enum SettingKey: string
     {
         return match ($this) {
             self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail => self::toFilledString($value, $this->default()),
+            self::PrintUnitPrice => self::toIntegerBetween($value, 25, 10000, 399),
+            self::PrintBundlePrice => self::toIntegerBetween($value, 25, 30000, 999),
             self::SeoTitle, self::SeoDescription, self::Logo => self::toFilledString($value, ''),
             self::AllowSearchIndexing => self::toBoolean($value),
             self::AllowRegistration => self::toBoolean($value),
@@ -383,7 +398,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::MailPassword, self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
-            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
+            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail, self::PrintUnitPrice, self::PrintBundlePrice,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress, self::MailFromName,
@@ -410,7 +425,7 @@ enum SettingKey: string
     {
         return match ($this) {
             self::MailPassword, self::StripeSandboxSecretKey, self::StripeSandboxWebhookSecret, self::StripeLiveSecretKey, self::StripeLiveWebhookSecret, self::PayPalSandboxClientSecret, self::PayPalLiveClientSecret => true,
-            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail,
+            self::BusinessName, self::BusinessAddress, self::BusinessPhone, self::BusinessEmail, self::PrintUnitPrice, self::PrintBundlePrice,
             self::SeoTitle, self::SeoDescription, self::AllowSearchIndexing, self::Logo,
             self::AllowRegistration, self::MailMailer, self::MailHost, self::MailPort,
             self::MailUsername, self::MailEncryption, self::MailFromAddress,
@@ -430,6 +445,8 @@ enum SettingKey: string
             self::BusinessAddress => 'Address',
             self::BusinessPhone => 'Phone',
             self::BusinessEmail => 'Email',
+            self::PrintUnitPrice => 'Single print price',
+            self::PrintBundlePrice => '3-print bundle price',
             self::SeoTitle => 'Default page title',
             self::SeoDescription => 'Meta description',
             self::AllowSearchIndexing => 'Allow search engines to index the site',
@@ -482,6 +499,8 @@ enum SettingKey: string
             self::BusinessAddress => 'The postal address shown in the public site\'s footer. Leave blank to hide it.',
             self::BusinessPhone => 'The phone number shown in the public site\'s footer. Leave blank to hide it.',
             self::BusinessEmail => 'The contact address shown in the public site\'s footer. Leave blank to hide it.',
+            self::PrintUnitPrice => 'What one print costs a customer. The bundle below is applied automatically across an order\'s total print count.',
+            self::PrintBundlePrice => 'What any three prints cost together. Keep it below three single prints so the deal is a real saving.',
             self::SeoTitle => 'Used as the title of pages without their own, and as the headline of social link previews. Leave blank to use the business name.',
             self::SeoDescription => 'A sentence or two summarising the site for search results and link previews. Leave blank to omit the tag.',
             self::AllowSearchIndexing => 'When off, every page asks search engines not to index it or follow its links. Turn off while a site is under development.',

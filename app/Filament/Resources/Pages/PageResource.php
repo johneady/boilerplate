@@ -31,6 +31,11 @@ class PageResource extends Resource
 {
     protected static ?string $model = Page::class;
 
+    // Hidden from the navigation for the photo lab demo: a counter
+    // staff member runs print orders and QR signage, not this module. The
+    // pages stay reachable by URL and their authorization is unchanged.
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedDocumentText;
 
     protected static string|UnitEnum|null $navigationGroup = 'Content';

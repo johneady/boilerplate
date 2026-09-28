@@ -31,6 +31,11 @@ enum MediaCollection: string
     case Attachment = 'attachment';
 
     /**
+     * A customer's photo, attached to a print order. Many per order.
+     */
+    case OrderPhoto = 'order-photo';
+
+    /**
      * The conversion set from config('images.conversions') for this collection.
      *
      * Null means the file is NOT an image and is stored as uploaded. That is
@@ -46,6 +51,7 @@ enum MediaCollection: string
             self::Logo => 'logo',
             self::PageImage => 'page-image',
             self::Attachment => null,
+            self::OrderPhoto => 'order-photo',
         };
     }
 
@@ -63,7 +69,7 @@ enum MediaCollection: string
             self::Avatar, self::Logo => true,
             // A page may carry several images -- a hero and whatever the body
             // references -- so this one accumulates.
-            self::PageImage, self::Attachment => false,
+            self::PageImage, self::Attachment, self::OrderPhoto => false,
         };
     }
 
@@ -79,6 +85,7 @@ enum MediaCollection: string
             self::Logo => 'mark',
             self::PageImage => 'wide',
             self::Attachment => null,
+            self::OrderPhoto => 'thumb',
         };
     }
 
@@ -96,6 +103,7 @@ enum MediaCollection: string
             self::Logo => 'logo',
             self::PageImage => 'page-images',
             self::Attachment => 'attachments',
+            self::OrderPhoto => 'order-photos',
         };
     }
 
@@ -125,7 +133,7 @@ enum MediaCollection: string
     {
         return match ($this) {
             self::Logo => true,
-            self::Avatar, self::PageImage, self::Attachment => false,
+            self::Avatar, self::PageImage, self::Attachment, self::OrderPhoto => false,
         };
     }
 
