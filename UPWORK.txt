@@ -1,4 +1,4 @@
-Hi there, I created a real prototype for you at xxxxxx.powerphpscripts.com
+Hi there, I created a real prototype for you at https://xxxxxx.powerphpscripts.com
 
 You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
 
