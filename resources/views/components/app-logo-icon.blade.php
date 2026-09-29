@@ -23,18 +23,10 @@
     <img src="{{ $logoMarkUrl }}" alt="" {{ $attributes->class('aspect-square object-contain') }} />
 @else
     {{--
-        The gradient is painted from the mark's own <defs>, so it keeps its
-        colours rather than inheriting the call site's text colour the way the
-        previous monochrome mark did.
-
-        The gradient id is uniqued per render: the mark appears more than once
-        on a page (the sidebar brand and the mobile header, for one), and a
-        duplicate id makes every later instance resolve the first one's stops.
-
-        The bolt is drawn in white rather than knocked out of the tile: a
-        knockout shows whatever sits behind the mark, which turns the bolt
-        black on the dark auth backdrop. The gradient is saturated enough that
-        a white bolt holds contrast against every stop, in both themes.
+        The Sillage mark: a flacon in white on a plum tile, with the gold
+        trail of scent (the sillage itself) curling out of it. Colours come
+        from the mark's own <defs>, and the gradient id is uniqued per render
+        because the mark appears more than once on some pages.
     --}}
     @php
         $gradientId = 'app-logo-'.Str::random(8);
@@ -43,15 +35,17 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-hidden="true" {{ $attributes }}>
         <defs>
             <linearGradient id="{{ $gradientId }}" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#22D3EE" />
-                <stop offset="0.5" stop-color="#6366F1" />
-                <stop offset="1" stop-color="#E879F9" />
+                <stop stop-color="#A8558E" />
+                <stop offset="1" stop-color="#4F2743" />
             </linearGradient>
         </defs>
         <path
             fill="url(#{{ $gradientId }})"
             d="M15 2h18c7.18 0 13 5.82 13 13v18c0 7.18-5.82 13-13 13H15C7.82 46 2 40.18 2 33V15C2 7.82 7.82 2 15 2Z"
         />
-        <path fill="#fff" d="M26.5 7.5 12.5 28h8.2l-1.3 13.2L35.5 21h-8.4l1.4-13.5Z" />
+        <rect x="19" y="8" width="10" height="6" rx="1.5" fill="#FCD34D" />
+        <rect x="21.5" y="14" width="5" height="4" fill="#fff" />
+        <rect x="12" y="18" width="24" height="22" rx="6" fill="#fff" />
+        <path d="M18 33c3-6 9-2 11-7" stroke="#A8558E" stroke-width="2.4" stroke-linecap="round" />
     </svg>
 @endif

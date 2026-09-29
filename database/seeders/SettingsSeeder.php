@@ -17,26 +17,25 @@ class SettingsSeeder extends Seeder
      * replaces them from the admin panel's settings page. Keyed by SettingKey
      * value, since an enum instance cannot be an array key.
      *
-     * @var array<string, string>
+     * @var array<string, string|bool>
      */
     private const DEMO_DETAILS = [
-        'business_address' => "123 Example Street\nAnytown, ST 12345",
-        'business_phone' => '+1 (555) 123-4567',
-        'business_email' => 'hello@example.com',
-        'seo_title' => 'Cromulent Widgets',
-        'seo_description' => 'Quality example widgets, made and shipped from Anytown. Replace this text from the admin panel\'s Brand settings.',
-        // A named zone rather than the bare UTC default: the demo details are
-        // American, and a regional identifier demonstrates the setting better
-        // than the storage timezone would.
-        'timezone' => 'America/New_York',
+        'business_name' => 'Sillage',
+        'business_address' => "Montréal, QC\nCanada",
+        'business_email' => 'hello@sillage.example',
+        'seo_title' => 'Sillage — the open perfume database',
+        'seo_description' => 'Search thousands of perfumes by house, perfumer and note. Follow the fragrances you love and see what the community is wearing.',
+        // Members sign up to follow perfumes, so registration is on here
+        // even though the boilerplate ships with it off.
+        'allow_registration' => true,
+        'timezone' => 'America/Toronto',
     ];
 
     /**
      * Seed the demo details.
      *
-     * The business name and the indexing toggle are deliberately absent: the
-     * name already falls back to the application name, and indexing to on, so
-     * seeding either would only pin today's fallback as a stored row.
+     * The indexing toggle is deliberately absent: it already defaults to on,
+     * so seeding it would only pin today's fallback as a stored row.
      */
     public function run(): void
     {

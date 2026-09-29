@@ -169,7 +169,9 @@ test('the seeder uses no factory, which production has no faker for', function (
  * ordering holds, not just the seeder in isolation.
  */
 test('its authors are accounts the database seeder creates', function () {
-    $this->seed(DatabaseSeeder::class);
+    // The Sillage demo does not run the blog seeder from DatabaseSeeder, so
+    // it is run here after the accounts, as it would be when switched back on.
+    $this->seed([DatabaseSeeder::class, BlogSeeder::class]);
 
     expect(User::query()->where('email', 'admin@example.com')->exists())->toBeTrue()
         ->and(Post::query()->exists())->toBeTrue()

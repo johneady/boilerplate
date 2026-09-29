@@ -29,6 +29,7 @@ use Illuminate\Database\Eloquent\Attributes\Scope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -534,6 +535,23 @@ class User extends Authenticatable implements FilamentUser, HasAvatar, HoldsMedi
             SVG;
 
         return 'data:image/svg+xml;base64,'.base64_encode($svg);
+    }
+
+    /**
+     * The perfumes this member follows, newest follow first.
+     *
+     * @return BelongsToMany<Perfume, $this>
+     */
+    public function followedPerfumes(): BelongsToMany
+    {
+        return $this->belongsToMany(Perfume::class, 'perfume_follows')
+            ->withPivot('created_at')
+            ->orderByPivot('created_at', 'desc');
+    }
+
+    public function follows(Perfume $perfume): bool
+    {
+        return $this->followedPerfumes()->whereKey($perfume->id)->exists();
     }
 
     /**

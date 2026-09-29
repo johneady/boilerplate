@@ -15,6 +15,9 @@ export default defineConfig(({ mode }) => {
                     bunny('Instrument Sans', {
                         weights: [400, 500, 600],
                     }),
+                    bunny('Cormorant Garamond', {
+                        weights: [500, 600],
+                    }),
                 ],
             }),
             tailwindcss(),

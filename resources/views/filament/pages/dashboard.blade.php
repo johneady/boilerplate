@@ -35,7 +35,7 @@
                             {{ __('The figures above are demo data') }}
                         </h2>
                         <p class="mt-0.5 text-xs font-semibold text-blue-800/80 dark:text-blue-200/80">
-                            {{ __('In the finished product they come from your real sales, customers and messages.') }}
+                            {{ __('In the finished product they come from your real visitors, followers and data refreshes.') }}
                             <span class="font-normal text-blue-700 dark:text-blue-300/80">The panel itself is a live work sample by John Eady. See the story behind both.</span>
                         </p>
                     </div>

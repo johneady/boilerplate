@@ -1,5 +1,5 @@
 {{--
-    The user menu matches the blue sidebar it sits in. Flux hardcodes zinc for
+    The user menu matches the plum sidebar it sits in. Flux hardcodes zinc for
     the menu surface, item hover and separator, so each is overridden here; the
     avatar and heading follow the accent tokens in resources/css/app.css.
 
@@ -17,11 +17,11 @@
         :avatar:style="$avatarUrl ? null : auth()->user()->avatarGradientStyle()"
         :avatar:class="$avatarUrl ? null : 'text-white'"
         icon:trailing="chevrons-up-down"
-        class="hover:bg-blue-500/10! dark:hover:bg-blue-400/10!"
+        class="hover:bg-plum-500/10! dark:hover:bg-plum-400/10!"
         data-test="sidebar-menu-button"
     />
 
-    <flux:menu class="border-blue-100! bg-blue-50/95! dark:border-blue-800! dark:bg-blue-900!">
+    <flux:menu class="border-plum-100! bg-plum-50/95! dark:border-plum-800! dark:bg-plum-900!">
         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
             <flux:avatar
                 circle
@@ -38,13 +38,13 @@
         </div>
         {{-- flux:menu.separator would put this on its wrapper, not the line. --}}
         <div class="-mx-[.3125rem] my-[.3125rem] h-px">
-            <flux:separator class="bg-blue-200! dark:bg-blue-700!" />
+            <flux:separator class="bg-plum-200! dark:bg-plum-700!" />
         </div>
         <flux:menu.radio.group>
             <flux:menu.item
                 :href="route('profile.edit')"
                 icon="cog"
-                class="data-active:bg-blue-500/10! data-active:text-blue-700! dark:data-active:bg-blue-400/20! dark:data-active:text-blue-100!"
+                class="data-active:bg-plum-500/10! data-active:text-plum-700! dark:data-active:bg-plum-400/20! dark:data-active:text-plum-100!"
                 wire:navigate
             >
                 {{ __('Settings') }}
@@ -55,7 +55,7 @@
                     as="button"
                     type="submit"
                     icon="arrow-right-start-on-rectangle"
-                    class="w-full cursor-pointer data-active:bg-blue-500/10! data-active:text-blue-700! dark:data-active:bg-blue-400/20! dark:data-active:text-blue-100!"
+                    class="w-full cursor-pointer data-active:bg-plum-500/10! data-active:text-plum-700! dark:data-active:bg-plum-400/20! dark:data-active:text-plum-100!"
                     data-test="logout-button"
                 >
                     {{ __('Log out') }}

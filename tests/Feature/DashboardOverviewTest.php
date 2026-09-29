@@ -34,7 +34,7 @@ test('a control on the landing page reopens the work overview', function () {
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
         ->assertSee('The figures above are demo data')
-        ->assertSee('In the finished product they come from your real sales, customers and messages.')
+        ->assertSee('In the finished product they come from your real visitors, followers and data refreshes.')
         ->assertSee('Show introduction')
         ->assertSee("x-on:click=\"\$dispatch('open-modal', { id: 'work-overview' })\"", escape: false);
 });

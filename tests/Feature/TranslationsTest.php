@@ -13,6 +13,10 @@ use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\TransactionSource;
 use App\Payments\Enums\TransactionType;
 use App\Payments\Enums\WebhookEventStatus;
+use App\Perfumes\Enums\Audience;
+use App\Perfumes\Enums\Concentration;
+use App\Perfumes\Enums\Family;
+use App\Perfumes\Enums\ImportStatus;
 use Illuminate\Filesystem\Filesystem;
 
 /**
@@ -120,8 +124,12 @@ test('every enum label translated at display has a catalogue entry', function (s
 
     expect($missing)->toBe([]);
 })->with([
+    Audience::class,
+    Concentration::class,
     DisputeStatus::class,
+    Family::class,
     Gateway::class,
+    ImportStatus::class,
     GatewayMode::class,
     ManualPaymentMethod::class,
     PaymentLinkAmountType::class,

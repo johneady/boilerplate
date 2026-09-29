@@ -205,3 +205,19 @@ Schedule::command('payments:prune-webhook-events')
     ->withoutOverlapping(60)
     ->onOneServer()
     ->description('Delete webhook events past their retention period');
+
+/*
+|--------------------------------------------------------------------------
+| Perfume data
+|--------------------------------------------------------------------------
+*/
+
+/*
+ * Nightly, and a no-op until PERFUME_FEED_URL is set: the command decides,
+ * so this file never has to read the environment at boot.
+ */
+Schedule::command('perfumes:import')
+    ->dailyAt('04:00')
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Refresh the perfume database from the configured feed');

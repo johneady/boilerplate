@@ -56,18 +56,8 @@ return [
         ],
         [
             'email' => 'editor@example.com',
-            'name' => 'Demo Editor',
+            'name' => 'Data Curator',
             'role' => 'editor',
-        ],
-        [
-            'email' => 'bookkeeper@example.com',
-            'name' => 'Demo Bookkeeper',
-            'role' => 'bookkeeper',
-        ],
-        [
-            'email' => 'manager@example.com',
-            'name' => 'Demo Manager',
-            'role' => 'manager',
         ],
     ],
 

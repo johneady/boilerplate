@@ -23,7 +23,7 @@
         <div>
             <p class="font-medium text-neutral-900 dark:text-neutral-100">{{ $businessName }}</p>
             @unless ($compact)
-                <p class="mt-1">{{ __('A division of nothing in particular.') }}</p>
+                <p class="mt-1">{{ __('The open perfume database, made by and for fragrance lovers.') }}</p>
             @endunless
         </div>
 

@@ -86,6 +86,9 @@ enum Permission: string
     /** Cancelling and resuming customers' subscriptions. Viewing them is ViewPayments. */
     case ManageSubscriptions = 'subscriptions.manage';
 
+    /** Editing perfumes and brands, and running data refreshes. */
+    case ManagePerfumes = 'perfumes.manage';
+
     /**
      * The label shown wherever a permission is listed for a human.
      */
@@ -122,6 +125,7 @@ enum Permission: string
             self::ManagePaymentSettings => 'Manage payment settings, credentials and tax rates',
             self::ManagePlans => 'Create and edit subscription plans',
             self::ManageSubscriptions => 'Cancel and resume customers\' subscriptions',
+            self::ManagePerfumes => 'Edit perfumes and run data refreshes',
         };
     }
 }

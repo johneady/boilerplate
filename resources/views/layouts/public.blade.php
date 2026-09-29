@@ -50,22 +50,30 @@
 <body class="antialiased">
     <div class="relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
         <div
-            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-sky-400/20 via-indigo-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-plum-400/25 via-fuchsia-300/10 to-transparent blur-3xl"
             aria-hidden="true"
         ></div>
         <div
-            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-violet-400/20 via-sky-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-amber-300/20 via-plum-300/10 to-transparent blur-3xl"
             aria-hidden="true"
         ></div>
 
         <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 lg:px-8">
             <header class="flex items-center justify-between gap-4 py-8">
                 <a href="{{ route('home') }}" class="flex items-center gap-2 font-medium" wire:navigate>
-                    <x-app-logo-icon class="size-7" />
-                    <span>{{ $businessName }}</span>
+                    <x-app-logo-icon class="size-8" />
+                    <span class="font-display text-2xl font-semibold tracking-tight">{{ $businessName }}</span>
                 </a>
 
-                <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
+                <nav aria-label="{{ __('Primary') }}" class="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+                    <flux:button :href="route('perfumes.index')" size="sm" variant="ghost" wire:navigate>
+                        {{ __('Perfumes') }}
+                    </flux:button>
+
+                    <flux:button :href="route('stats')" size="sm" variant="ghost" wire:navigate class="max-sm:hidden">
+                        {{ __('Open stats') }}
+                    </flux:button>
+
                     {{-- Shown only while the blog is switched on: the link
                          disappears alongside the routes EnsureBlogEnabled
                          closes, the same pairing as the sign-up link. --}}
@@ -75,7 +83,7 @@
                         </flux:button>
                     @endblogEnabled
 
-                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
+                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate class="max-sm:hidden">
                         {{ __('Contact') }}
                     </flux:button>
 
@@ -114,7 +122,7 @@
                             @registrationEnabled
                                 @if (Route::has('register'))
                                     <flux:button :href="route('register')" size="sm" variant="primary" wire:navigate>
-                                        {{ __('Sign up') }}
+                                        {{ __('Join free') }}
                                     </flux:button>
                                 @endif
                             @endregistrationEnabled

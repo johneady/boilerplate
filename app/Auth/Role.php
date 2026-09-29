@@ -132,6 +132,7 @@ enum Role: string
                 Permission::ViewContactSubmissions,
                 Permission::UpdateContactSubmissions,
                 Permission::DeleteContactSubmissions,
+                Permission::ManagePerfumes,
             ],
             self::User => [],
         };

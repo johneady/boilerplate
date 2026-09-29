@@ -40,11 +40,6 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
-        // Sample plans for the pricing page, behind the same gate: a demo
-        // instance should show a working subscription flow the moment
-        // payments are switched on, and production should start with none.
-        $this->call(PlanSeeder::class);
-
         // The quick-login list is the single declaration of the demo
         // accounts: an entry with a role is one this seeder creates, so the
         // login page can never offer an account nothing seeds.
@@ -57,18 +52,12 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Sample posts, categories and tags, behind the same gate for the
-        // same reason: a demo instance shows a working blog the moment the
-        // seeder switches it on, and production starts with none. After the
-        // demo accounts, because they are its author pool -- seeded before
-        // them, the editor's and manager's posts would be left authorless.
-        $this->call(BlogSeeder::class);
-
-        // A year of demo trading, so the dashboard and payment screens have
-        // something to show. Not in the test suite: it drives hundreds of
-        // payments through the real actions, and has a test of its own.
+        // Sillage's catalogue, members, follows and view history. The
+        // boilerplate's blog, plans and year of demo sales are not seeded:
+        // this site has no blog or shop. Not in the test suite: it inserts
+        // hundreds of members, and has a test of its own.
         if (! app()->environment('testing')) {
-            $this->call(DemoBusinessSeeder::class);
+            $this->call(PerfumeSeeder::class);
         }
     }
 

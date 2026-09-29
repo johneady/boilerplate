@@ -41,6 +41,18 @@ class AdminPanelProvider extends PanelProvider
     public const CSS_LAYER_ORDER = ['properties', 'theme', 'base', 'components', 'utilities'];
 
     /**
+     * Sillage plum, the same steps as --color-plum-* in resources/css/app.css.
+     * Passed as exact shades because Color::hex() regenerates the lightness
+     * ramp from one colour, which turns this plum into a bright pink.
+     *
+     * @var array<int, string>
+     */
+    private const PLUM = [
+        50 => '#fbf5f9', 100 => '#f5e8f1', 200 => '#ebd0e3', 300 => '#daaacb', 400 => '#c27aab', 500 => '#a8558e',
+        600 => '#8c3f74', 700 => '#73325f', 800 => '#5f2b4f', 900 => '#4f2743', 950 => '#2f1226',
+    ];
+
+    /**
      * Register panel services.
      */
     public function register(): void
@@ -112,7 +124,7 @@ class AdminPanelProvider extends PanelProvider
             // renders with the fi-color-* class applied but no colour behind
             // it -- visibly flat, with nothing in the markup to show why.
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => array_map(Color::convertToOklch(...), self::PLUM),
                 'amber' => Color::Amber,
                 'zinc' => Color::Zinc,
                 'sky' => Color::Sky,

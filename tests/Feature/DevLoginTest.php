@@ -37,11 +37,11 @@ test('a first user that was never promoted is not badged as an admin', function 
 });
 
 test('a staff account is badged with the role it signs in as', function () {
-    User::factory()->role(Role::Bookkeeper)->create(['email' => 'bookkeeper@example.com']);
+    User::factory()->role(Role::Editor)->create(['email' => 'editor@example.com']);
 
     $this->get(route('login'))
         ->assertSuccessful()
-        ->assertSeeInOrder(['bookkeeper@example.com', 'Bookkeeper']);
+        ->assertSeeInOrder(['editor@example.com', 'Editor']);
 });
 
 test('an account that has not been seeded yet is badged as missing', function () {

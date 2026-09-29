@@ -37,8 +37,9 @@ test('a seeded plan can be subscribed to through the Demo gateway straight after
     Notification::fake();
 
     // DatabaseSeeder mutes model events, so the plans are never synced here:
-    // the Demo gateway must take them as they are.
-    $this->seed(DatabaseSeeder::class);
+    // the Demo gateway must take them as they are. The Sillage demo's full
+    // seed has no plans, so the sample plans are seeded after it.
+    $this->seed([DatabaseSeeder::class, PlanSeeder::class]);
     Payments::enable();
 
     $price = PlanPrice::whereRelation('plan', 'key', 'starter')->where('currency', Currency::CAD->value)->where('interval', BillingInterval::Month->value)->sole();
@@ -71,7 +72,7 @@ test('re-seeding leaves an existing plan alone, prices included', function () {
         ->and(PlanPrice::count())->toBe(12);
 });
 
-test('the full seed adds the sample plans wherever quick logins are offered', function (string $environment) {
+test('the Sillage demo seed adds no sample plans, since the site sells nothing', function (string $environment) {
     Storage::fake('local');
     Storage::fake('public');
     app()->detectEnvironment(fn () => $environment);
@@ -79,7 +80,7 @@ test('the full seed adds the sample plans wherever quick logins are offered', fu
 
     $this->seed(DatabaseSeeder::class);
 
-    expect(Plan::pluck('key')->all())->toEqualCanonicalizing(['starter', 'pro', 'business']);
+    expect(Plan::count())->toBe(0);
 })->with(['local', 'staging', 'demo']);
 
 test('the full seed adds no plans in production', function () {

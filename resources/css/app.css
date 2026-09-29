@@ -12,6 +12,21 @@
     --font-sans:
         'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 
+    --font-display: 'Cormorant Garamond', ui-serif, Georgia, serif;
+
+    /* Sillage's plum, from the colour of an aged amber extrait. */
+    --color-plum-50: #fbf5f9;
+    --color-plum-100: #f5e8f1;
+    --color-plum-200: #ebd0e3;
+    --color-plum-300: #daaacb;
+    --color-plum-400: #c27aab;
+    --color-plum-500: #a8558e;
+    --color-plum-600: #8c3f74;
+    --color-plum-700: #73325f;
+    --color-plum-800: #5f2b4f;
+    --color-plum-900: #4f2743;
+    --color-plum-950: #2f1226;
+
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
     --color-zinc-200: #e5e5e5;
@@ -25,19 +40,19 @@
     --color-zinc-950: #0a0a0a;
 
     /*
-     * The app's accent is blue. Flux resolves these tokens for the sidebar's
+     * The app's accent is Sillage plum. Flux resolves these tokens for the sidebar's
      * current item, the brand mark and focus rings, so setting them here themes
      * the whole signed-in shell rather than overriding utilities per component.
      */
-    --color-accent: var(--color-blue-600);
-    --color-accent-content: var(--color-blue-700);
+    --color-accent: var(--color-plum-700);
+    --color-accent-content: var(--color-plum-700);
     --color-accent-foreground: var(--color-white);
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-blue-500);
-        --color-accent-content: var(--color-blue-300);
+        --color-accent: var(--color-plum-500);
+        --color-accent-content: var(--color-plum-300);
         --color-accent-foreground: var(--color-white);
     }
 }

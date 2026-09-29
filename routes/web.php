@@ -4,15 +4,26 @@ use App\Auth\DevLoginAccounts;
 use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MailPreviewController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PageController;
+use App\Http\Controllers\PerfumeController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\StatsController;
 use App\Livewire\Contact;
+use App\Livewire\Perfumes\Browse;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', HomeController::class)->name('home');
+
+Route::livewire('perfumes', Browse::class)->name('perfumes.index');
+Route::get('perfumes/{perfume}', [PerfumeController::class, 'show'])->name('perfumes.show');
+Route::get('stats', StatsController::class)->name('stats');
+
+// The Lovable site linked perfumes by their upstream id; keep those links alive.
+Route::get('perfume/{externalId}', [PerfumeController::class, 'legacy'])->name('perfumes.legacy');
 
 // Declared as its own route rather than served by the content-page catch-all
 // below: it validates, persists and sends mail, so it is a Livewire component,

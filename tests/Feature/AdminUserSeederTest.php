@@ -157,8 +157,6 @@ test('each staff demo account is seeded with its role', function (string $email,
     expect(User::where('email', $email)->sole()->role)->toBe($role);
 })->with([
     ['editor@example.com', Role::Editor],
-    ['bookkeeper@example.com', Role::Bookkeeper],
-    ['manager@example.com', Role::Manager],
 ]);
 
 test('every quick login is backed by a seeded account', function () {

@@ -12,6 +12,8 @@ use App\Models\Page;
 use App\Models\Payment;
 use App\Models\PaymentLink;
 use App\Models\PaymentTransaction;
+use App\Models\Perfume;
+use App\Models\PerfumeImport;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Post;
@@ -28,6 +30,8 @@ use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
 use App\Policies\PaymentPolicy;
+use App\Policies\PerfumeImportPolicy;
+use App\Policies\PerfumePolicy;
 use App\Policies\PlanPolicy;
 use App\Policies\PostPolicy;
 use App\Policies\SubscriptionPolicy;
@@ -149,6 +153,8 @@ class AuthServiceProvider extends ServiceProvider
         PaymentTransaction::class => PaymentPolicy::class,
         Refund::class => PaymentPolicy::class,
         Dispute::class => PaymentPolicy::class,
+        Perfume::class => PerfumePolicy::class,
+        PerfumeImport::class => PerfumeImportPolicy::class,
         Post::class => PostPolicy::class,
         // A price is managed as part of its plan.
         Plan::class => PlanPolicy::class,

@@ -31,4 +31,36 @@ return [
         'messages' => '{1} :count contact message is unanswered|[2,*] :count contact messages are unanswered',
     ],
 
+    'community' => [
+        'heading' => 'Followers and usage',
+        'followers' => 'Followers',
+        'followers_help' => 'Registered members, staff excluded',
+        'new_followers_stat' => 'New followers, last 30 days',
+        'views' => 'Page views, last 30 days',
+        'perfumes' => 'Perfumes in the database',
+        'last_refresh' => 'Last data refresh :date',
+        'never_refreshed' => 'No data refresh yet',
+        'vs_previous' => 'Compared with the previous 30 days',
+        'up' => ':percent% up on the previous 30 days',
+        'down' => ':percent% down on the previous 30 days',
+    ],
+
+    'views_chart' => [
+        'heading' => 'Daily page views',
+        'description' => 'Perfume pages viewed by people (crawlers excluded), last 30 days.',
+        'dataset' => 'Page views',
+    ],
+
+    'growth_chart' => [
+        'heading' => 'Follower growth',
+        'description' => 'Total followers, week by week.',
+        'dataset' => 'Followers',
+    ],
+
+    'top_perfumes' => [
+        'heading' => 'Most viewed perfumes',
+        'description' => 'Last 30 days.',
+        'views' => 'Views',
+    ],
+
 ];

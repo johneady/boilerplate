@@ -39,10 +39,12 @@
                 'tint' => 'from-amber-500 to-pink-500',
             ],
         ];
+
+        $followed = auth()->user()->followedPerfumes()->with('brand')->withCount('followers')->get();
     @endphp
 
     <div class="flex w-full flex-col gap-6">
-        <div class="relative overflow-hidden rounded-xl bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500 p-6 text-white sm:p-8 dark:from-indigo-600 dark:via-purple-600 dark:to-pink-600">
+        <div class="relative overflow-hidden rounded-xl bg-linear-to-br from-plum-600 via-plum-800 to-plum-950 p-6 text-white sm:p-8">
             {{-- Decorative only: aria-hidden so the gradient blobs are not announced. --}}
             <div
                 aria-hidden="true"
@@ -66,10 +68,35 @@
                 </flux:heading>
 
                 <flux:text class="mt-2 max-w-prose text-white/80!">
-                    {{ __('This is your :business account. Manage your details and security below.', ['business' => $businessName]) }}
+                    {{ __('Your :business collection: the perfumes you follow, and new ones to discover.', ['business' => $businessName]) }}
                 </flux:text>
             </div>
         </div>
+
+        <section aria-labelledby="collection-heading">
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                    <flux:heading size="lg" level="2" id="collection-heading">{{ __('Perfumes you follow') }}</flux:heading>
+                    <flux:text>{{ trans_choice(':count perfume|:count perfumes', $followed->count(), ['count' => $followed->count()]) }}</flux:text>
+                </div>
+
+                <flux:button :href="route('perfumes.index')" size="sm" icon="magnifying-glass" wire:navigate>
+                    {{ __('Find more perfumes') }}
+                </flux:button>
+            </div>
+
+            <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                @forelse ($followed as $perfume)
+                    <x-perfumes.card :perfume="$perfume" />
+                @empty
+                    <div class="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-sm text-zinc-500 sm:col-span-2 xl:col-span-3 dark:border-zinc-700 dark:text-zinc-400">
+                        {{ __('You are not following any perfumes yet. Open one you love and press Follow.') }}
+                    </div>
+                @endforelse
+            </div>
+        </section>
+
+        <flux:heading size="lg" level="2" class="mt-4">{{ __('Your account') }}</flux:heading>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($quickLinks as $link)

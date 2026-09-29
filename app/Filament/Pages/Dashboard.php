@@ -3,8 +3,12 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Widgets\BusinessOverview;
+use App\Filament\Widgets\CommunityOverview;
+use App\Filament\Widgets\FollowerGrowthChart;
 use App\Filament\Widgets\NeedsAttention;
+use App\Filament\Widgets\PageViewsChart;
 use App\Filament\Widgets\RevenueChart;
+use App\Filament\Widgets\TopPerfumes;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 /**
@@ -30,8 +34,12 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
-            BusinessOverview::class,
+            CommunityOverview::class,
+            PageViewsChart::class,
+            FollowerGrowthChart::class,
+            TopPerfumes::class,
             NeedsAttention::class,
+            BusinessOverview::class,
             RevenueChart::class,
         ];
     }
