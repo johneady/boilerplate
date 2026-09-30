@@ -25,7 +25,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // The café's brand, pages and menu go first, so its settings and page
+        // copy land ahead of SettingsSeeder's and PagesSeeder's placeholders.
         $this->call([
+            CafeSeeder::class,
             AdminUserSeeder::class,
             SettingsSeeder::class,
             PagesSeeder::class,
@@ -57,19 +60,16 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Sample posts, categories and tags, behind the same gate for the
-        // same reason: a demo instance shows a working blog the moment the
-        // seeder switches it on, and production starts with none. After the
-        // demo accounts, because they are its author pool -- seeded before
-        // them, the editor's and manager's posts would be left authorless.
+        // Sample posts, after the demo accounts because they are its author
+        // pool. The blog stays switched off (CafeSeeder stores that first),
+        // so the posts wait in the panel until the café turns it on.
         $this->call(BlogSeeder::class);
 
-        // A year of demo trading, so the dashboard and payment screens have
-        // something to show. Not in the test suite: it drives hundreds of
-        // payments through the real actions, and has a test of its own.
-        if (! app()->environment('testing')) {
-            $this->call(DemoBusinessSeeder::class);
-        }
+        // Sample orders, after the demo accounts because two belong to the
+        // demo customer. DemoBusinessSeeder's year of payments is left out:
+        // this demo takes payment at pickup, so the payment screens stay
+        // switched off and out of the admin menu.
+        $this->call(CafeOrdersSeeder::class);
     }
 
     /**

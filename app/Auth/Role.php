@@ -62,9 +62,9 @@ enum Role: string
     {
         return match ($this) {
             self::User => 'Can sign in and manage their own account. No access to the admin panel.',
-            self::Editor => 'Manages the website\'s content in the admin panel: pages, the blog, uploaded files and contact messages. No access to payments, users or settings.',
-            self::Bookkeeper => 'Reads payments, refunds, subscriptions, disputes and tax rates. Cannot refund, capture or change any settings.',
-            self::Manager => 'Runs day-to-day operations: content, payments, refunds, holds, payment links, subscriptions and the user list. Cannot change settings, credentials, plans or roles.',
+            self::Editor => 'Manages the website\'s content in the admin panel: the menu, pages, the blog, uploaded files and contact messages. No access to payments, users or settings.',
+            self::Bookkeeper => 'Reads orders, payments, refunds, subscriptions, disputes and tax rates. Cannot refund, capture or change any settings.',
+            self::Manager => 'Runs day-to-day operations: orders, the menu, content, payments, refunds, holds, payment links, subscriptions and the user list. Cannot change settings, credentials, plans or roles.',
             self::Admin => 'Full access, including the admin panel, every user and all application settings.',
         };
     }
@@ -112,10 +112,12 @@ enum Role: string
                 Permission::ManagePaymentLinks,
                 Permission::ManageSubscriptions,
                 Permission::ManageAnyPost,
+                Permission::ManageOrders,
             ], SORT_REGULAR)),
             self::Bookkeeper => [
                 Permission::AccessAdminPanel,
                 Permission::ViewPayments,
+                Permission::ViewOrders,
             ],
             self::Editor => [
                 Permission::AccessAdminPanel,
@@ -132,6 +134,7 @@ enum Role: string
                 Permission::ViewContactSubmissions,
                 Permission::UpdateContactSubmissions,
                 Permission::DeleteContactSubmissions,
+                Permission::ManageProducts,
             ],
             self::User => [],
         };

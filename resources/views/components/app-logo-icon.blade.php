@@ -31,10 +31,10 @@
         on a page (the sidebar brand and the mobile header, for one), and a
         duplicate id makes every later instance resolve the first one's stops.
 
-        The bolt is drawn in white rather than knocked out of the tile: a
-        knockout shows whatever sits behind the mark, which turns the bolt
-        black on the dark auth backdrop. The gradient is saturated enough that
-        a white bolt holds contrast against every stop, in both themes.
+        The coffee cup is drawn in white rather than knocked out of the tile: a
+        knockout shows whatever sits behind the mark, which turns it black on
+        the dark auth backdrop. The green gradient is dark enough that a white
+        cup holds contrast against every stop, in both themes.
     --}}
     @php
         $gradientId = 'app-logo-'.Str::random(8);
@@ -43,15 +43,22 @@
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" aria-hidden="true" {{ $attributes }}>
         <defs>
             <linearGradient id="{{ $gradientId }}" x1="2" y1="2" x2="46" y2="46" gradientUnits="userSpaceOnUse">
-                <stop stop-color="#22D3EE" />
-                <stop offset="0.5" stop-color="#6366F1" />
-                <stop offset="1" stop-color="#E879F9" />
+                <stop stop-color="#34D399" />
+                <stop offset="0.5" stop-color="#047857" />
+                <stop offset="1" stop-color="#064E3B" />
             </linearGradient>
         </defs>
         <path
             fill="url(#{{ $gradientId }})"
             d="M15 2h18c7.18 0 13 5.82 13 13v18c0 7.18-5.82 13-13 13H15C7.82 46 2 40.18 2 33V15C2 7.82 7.82 2 15 2Z"
         />
-        <path fill="#fff" d="M26.5 7.5 12.5 28h8.2l-1.3 13.2L35.5 21h-8.4l1.4-13.5Z" />
+        <g fill="#fff">
+            <path d="M12 20h19v8.5a9.5 9.5 0 0 1-9.5 9.5 9.5 9.5 0 0 1-9.5-9.5Z" />
+            <rect x="9" y="39" width="25" height="2.6" rx="1.3" />
+        </g>
+        <g stroke="#fff" stroke-linecap="round" fill="none">
+            <path d="M31 23h2.5a3.75 3.75 0 0 1 0 7.5H30.5" stroke-width="2.6" />
+            <path d="M17 8.5c-1.6 2 1.6 4 0 6.5M21.5 7c-1.6 2 1.6 4 0 6.5M26 8.5c-1.6 2 1.6 4 0 6.5" stroke-width="2" />
+        </g>
     </svg>
 @endif

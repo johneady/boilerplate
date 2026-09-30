@@ -39,10 +39,13 @@
                 'tint' => 'from-amber-500 to-pink-500',
             ],
         ];
+
+        // The café orders this customer placed while signed in, newest first.
+        $orders = auth()->user()->orders()->with('items')->latest()->limit(10)->get();
     @endphp
 
     <div class="flex w-full flex-col gap-6">
-        <div class="relative overflow-hidden rounded-xl bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500 p-6 text-white sm:p-8 dark:from-indigo-600 dark:via-purple-600 dark:to-pink-600">
+        <div class="relative overflow-hidden rounded-xl bg-linear-to-br from-emerald-900 via-emerald-800 to-teal-700 p-6 text-white sm:p-8 dark:from-emerald-950 dark:via-emerald-900 dark:to-teal-800">
             {{-- Decorative only: aria-hidden so the gradient blobs are not announced. --}}
             <div
                 aria-hidden="true"
@@ -66,10 +69,44 @@
                 </flux:heading>
 
                 <flux:text class="mt-2 max-w-prose text-white/80!">
-                    {{ __('This is your :business account. Manage your details and security below.', ['business' => $businessName]) }}
+                    {{ __('This is your :business account. Follow your orders and manage your details below.', ['business' => $businessName]) }}
                 </flux:text>
+
+                <flux:button :href="route('home').'#menu'" size="sm" class="mt-5" icon="shopping-bag">
+                    {{ __('Order again') }}
+                </flux:button>
             </div>
         </div>
+
+        {{-- Orders --}}
+        <section class="rounded-xl border border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-900" data-test="my-orders">
+            <div class="border-b border-zinc-200 px-5 py-4 dark:border-zinc-700">
+                <flux:heading size="lg">{{ __('Your orders') }}</flux:heading>
+            </div>
+
+            @forelse ($orders as $order)
+                <a
+                    href="{{ $order->trackingUrl() }}"
+                    class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-zinc-100 px-5 py-4 last:border-b-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/50"
+                >
+                    <span class="w-20 font-semibold">{{ $order->number }}</span>
+                    <span class="min-w-0 flex-1 truncate text-sm text-zinc-600 dark:text-zinc-400">
+                        {{ $order->items->map(fn ($item) => $item->quantity.'× '.$item->product_name)->implode(', ') }}
+                    </span>
+                    <span class="text-sm text-zinc-500">{{ $order->readyLabel() }}</span>
+                    <span class="w-20 text-right text-sm font-semibold tabular-nums">{{ $order->formattedTotal() }}</span>
+                    <flux:badge size="sm" :color="match ($order->status) {
+                        \App\Ordering\OrderStatus::New => 'sky',
+                        \App\Ordering\OrderStatus::Preparing => 'amber',
+                        \App\Ordering\OrderStatus::Ready => 'emerald',
+                        \App\Ordering\OrderStatus::Completed => 'zinc',
+                        \App\Ordering\OrderStatus::Cancelled => 'red',
+                    }">{{ __($order->status->label()) }}</flux:badge>
+                </a>
+            @empty
+                <p class="px-5 py-8 text-center text-sm text-zinc-500">{{ __('No orders yet. Your next treat is a few clicks away.') }}</p>
+            @endforelse
+        </section>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($quickLinks as $link)

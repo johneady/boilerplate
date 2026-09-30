@@ -1,13 +1,24 @@
-Hi there, I created a real prototype for you at https://xxxxxx.powerphpscripts.com
+Hi there, I built you a simple, responsive online ordering website you can try right now: menu with photos and prices, a shopping cart, checkout, and an admin side for products and orders. https://xxxxxx.powerphpscripts.com
 
-You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
+You can log in (there is a quick login link on the login page) and have a look around, as the café owner or as a customer. Everything you see is real and working, backed by a real database.
 
-WHY THIS DEMO MATTERS FOR YOUR PROJECT
+WHAT IS IN THE DEMO
 
-Instead of telling you what I can do, I prefer to demonstrate it directly. Building this demo proved two things:
+- Clean, modern design for a sample café ("Juniper & Rye"), responsive on desktop and mobile
+- Product/menu listing with images, prices and descriptions, grouped by category with filter buttons
+- Shopping cart: add items, change quantities, remove items; prices always come from the database, never the browser
+- Ordering: pickup or delivery, a choice of ready times, customer details, and a confirmation page that tracks the order's status
+- Admin side for managing products: add, edit, upload a photo, drag to reorder, switch off when sold out
+- Admin side for managing orders: New, Preparing, Ready and Collected with one click, plus cancel, and a dashboard with today's orders and sales
+- Customer accounts are optional; signed-in customers see their past orders
 
-1. I understood your requirements well enough to build them.
-2. I have the technical stack and execution speed ready to start delivering immediately.
+TECHNOLOGIES
+
+PHP (Laravel 13), Livewire for the cart and checkout, Tailwind CSS for the design, Filament for the admin panel, and a MySQL or SQLite database. Laravel is widely taught and well documented, and the code keeps each piece in an obvious place (Product, Order, Cart, PlaceOrder), so it is easy to follow and explain.
+
+ONE QUESTION
+
+Should customers pay online by card when they order, or is "pay at pickup" enough for your project? Card payment through Stripe is already built into my base, so it is a small addition if you want it.
 
 RELEVANT TRACK RECORD
 
@@ -25,7 +36,7 @@ Best regards,
 
 John.
 
-P.S. I built this demo in ~2 hours. That is the pace you can expect on the actual project.
+P.S. I built this demo in ~2 hours. That is the pace you can expect on the actual project, with progress updates as each part is finished.
 
 ---
 

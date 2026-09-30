@@ -8,6 +8,7 @@ use App\Models\Category;
 use App\Models\ContactSubmission;
 use App\Models\Dispute;
 use App\Models\Media;
+use App\Models\Order;
 use App\Models\Page;
 use App\Models\Payment;
 use App\Models\PaymentLink;
@@ -15,6 +16,7 @@ use App\Models\PaymentTransaction;
 use App\Models\Plan;
 use App\Models\PlanPrice;
 use App\Models\Post;
+use App\Models\Product;
 use App\Models\Refund;
 use App\Models\Subscription;
 use App\Models\Tag;
@@ -25,11 +27,13 @@ use App\Policies\AuditLogPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\ContactSubmissionPolicy;
 use App\Policies\MediaPolicy;
+use App\Policies\OrderPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
 use App\Policies\PaymentPolicy;
 use App\Policies\PlanPolicy;
 use App\Policies\PostPolicy;
+use App\Policies\ProductPolicy;
 use App\Policies\SubscriptionPolicy;
 use App\Policies\TagPolicy;
 use App\Policies\TaxRatePolicy;
@@ -141,6 +145,7 @@ class AuthServiceProvider extends ServiceProvider
         Category::class => CategoryPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
         Media::class => MediaPolicy::class,
+        Order::class => OrderPolicy::class,
         Page::class => PagePolicy::class,
         Payment::class => PaymentPolicy::class,
         PaymentLink::class => PaymentLinkPolicy::class,
@@ -150,6 +155,7 @@ class AuthServiceProvider extends ServiceProvider
         Refund::class => PaymentPolicy::class,
         Dispute::class => PaymentPolicy::class,
         Post::class => PostPolicy::class,
+        Product::class => ProductPolicy::class,
         // A price is managed as part of its plan.
         Plan::class => PlanPolicy::class,
         PlanPrice::class => PlanPolicy::class,

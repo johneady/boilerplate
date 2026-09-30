@@ -3,7 +3,6 @@
 use App\Filament\Pages\Dashboard;
 use App\Models\User;
 use Filament\Facades\Filament;
-use Tests\Support\Payments;
 
 test('the panel uses the overview dashboard rather than the base one', function () {
     expect(Filament::getPanel('admin')->getPages())->toContain(Dashboard::class);
@@ -39,13 +38,12 @@ test('a control on the landing page reopens the work overview', function () {
         ->assertSee("x-on:click=\"\$dispatch('open-modal', { id: 'work-overview' })\"", escape: false);
 });
 
-test('the landing page embeds the business overview widget', function () {
-    Payments::enable();
-
+test('the landing page embeds the orders widgets', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
-        ->assertSee('Widgets\BusinessOverview', escape: false);
+        ->assertSee('Widgets\OrdersOverview', escape: false)
+        ->assertSee('Widgets\KitchenQueue', escape: false);
 });
 
 test('a production instance never carries the work overview', function () {

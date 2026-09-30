@@ -8,11 +8,21 @@ use App\Http\Controllers\MailPreviewController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
+use App\Http\Controllers\ShowOrderController;
 use App\Http\Controllers\SitemapController;
 use App\Livewire\Contact;
+use App\Livewire\Ordering\Checkout;
+use App\Livewire\Ordering\Menu;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+// The home page is the café's menu, and ordering is open to guests.
+Route::livewire('/', Menu::class)->name('home');
+Route::livewire('checkout', Checkout::class)->name('checkout');
+
+// Signed: the link a customer is sent to after checkout (Order::trackingUrl()).
+Route::get('orders/{order}', ShowOrderController::class)
+    ->middleware('signed')
+    ->name('orders.show');
 
 // Declared as its own route rather than served by the content-page catch-all
 // below: it validates, persists and sends mail, so it is a Livewire component,

@@ -51,22 +51,22 @@ return [
         ],
         [
             'email' => 'test@example.com',
-            'name' => 'Test User',
+            'name' => 'Emma Walsh',
             'role' => 'user',
         ],
         [
             'email' => 'editor@example.com',
-            'name' => 'Demo Editor',
+            'name' => 'Priya Shah',
             'role' => 'editor',
         ],
         [
             'email' => 'bookkeeper@example.com',
-            'name' => 'Demo Bookkeeper',
+            'name' => 'Daniel Keller',
             'role' => 'bookkeeper',
         ],
         [
             'email' => 'manager@example.com',
-            'name' => 'Demo Manager',
+            'name' => 'Marco Silva',
             'role' => 'manager',
         ],
     ],

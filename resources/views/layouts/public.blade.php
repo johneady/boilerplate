@@ -14,7 +14,9 @@
 
     Unlike the signed-in shell (layouts/app/sidebar.blade.php, hardcoded dark)
     this follows the visitor's own colour scheme, so every colour here needs its
-    dark: counterpart.
+    dark: counterpart. Themed for the café: warm cream, deep green and the
+    Fraunces display face (font-display) for headings. The cart button sits in
+    the header on every public page.
 --}}
 @php
     // partials/head builds the <title> from $title, so a page's title reaches it
@@ -48,24 +50,28 @@
     @endblogEnabled
 </head>
 <body class="antialiased">
-    <div class="relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+    <div class="cafe-theme relative min-h-dvh overflow-hidden bg-[#fbf8f1] text-stone-900 dark:bg-stone-950 dark:text-stone-100">
         <div
-            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-sky-400/20 via-indigo-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-emerald-300/25 via-lime-200/15 to-transparent blur-3xl dark:from-emerald-500/10 dark:via-lime-500/5"
             aria-hidden="true"
         ></div>
         <div
-            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-violet-400/20 via-sky-400/10 to-transparent blur-3xl"
+            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-orange-300/20 via-amber-200/15 to-transparent blur-3xl dark:from-orange-500/10 dark:via-amber-500/5"
             aria-hidden="true"
         ></div>
 
-        <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 lg:px-8">
-            <header class="flex items-center justify-between gap-4 py-8">
-                <a href="{{ route('home') }}" class="flex items-center gap-2 font-medium" wire:navigate>
-                    <x-app-logo-icon class="size-7" />
-                    <span>{{ $businessName }}</span>
+        <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-4 sm:px-6 lg:px-8">
+            <header class="flex items-center justify-between gap-3 py-5 sm:py-7">
+                <a href="{{ route('home') }}" class="flex min-w-0 items-center gap-2.5" wire:navigate>
+                    <x-app-logo-icon class="size-9 shrink-0" />
+                    <span class="font-display truncate text-lg font-semibold tracking-tight sm:text-xl">{{ $businessName }}</span>
                 </a>
 
-                <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
+                <nav aria-label="{{ __('Primary') }}" class="flex shrink-0 items-center gap-1 sm:gap-2">
+                    <flux:button :href="route('home').'#menu'" size="sm" variant="ghost" class="max-sm:hidden!">
+                        {{ __('Menu') }}
+                    </flux:button>
+
                     {{-- Shown only while the blog is switched on: the link
                          disappears alongside the routes EnsureBlogEnabled
                          closes, the same pairing as the sign-up link. --}}
@@ -75,7 +81,7 @@
                         </flux:button>
                     @endblogEnabled
 
-                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
+                    <flux:button :href="route('contact')" size="sm" variant="ghost" class="max-sm:hidden!" wire:navigate>
                         {{ __('Contact') }}
                     </flux:button>
 
@@ -99,11 +105,11 @@
                                 <flux:button
                                     :href="route('dashboard')"
                                     size="sm"
-                                    variant="primary"
-                                    icon-trailing="arrow-right"
+                                    variant="ghost"
+                                    icon="user-circle"
                                     wire:navigate
                                 >
-                                    {{ __('Dashboard') }}
+                                    <span class="max-sm:sr-only">{{ __('My orders') }}</span>
                                 </flux:button>
                             @endif
                         @else
@@ -113,21 +119,29 @@
 
                             @registrationEnabled
                                 @if (Route::has('register'))
-                                    <flux:button :href="route('register')" size="sm" variant="primary" wire:navigate>
+                                    <flux:button :href="route('register')" size="sm" variant="ghost" class="max-sm:hidden!" wire:navigate>
                                         {{ __('Sign up') }}
                                     </flux:button>
                                 @endif
                             @endregistrationEnabled
                         @endauth
                     @endif
+
+                    <livewire:ordering.cart-button />
                 </nav>
             </header>
 
             {{ $slot }}
 
-            <x-business-footer class="border-t border-neutral-200 py-8 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400" />
+            <x-business-footer class="border-t border-stone-200 py-8 text-stone-500 dark:border-stone-800 dark:text-stone-400" />
         </div>
     </div>
+
+    @persist('toast')
+        <flux:toast.group position="bottom end">
+            <flux:toast />
+        </flux:toast.group>
+    @endpersist
     @fluxScripts
 </body>
 </html>

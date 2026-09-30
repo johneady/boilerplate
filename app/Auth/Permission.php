@@ -86,6 +86,14 @@ enum Permission: string
     /** Cancelling and resuming customers' subscriptions. Viewing them is ViewPayments. */
     case ManageSubscriptions = 'subscriptions.manage';
 
+    /** The café's menu: adding, editing and switching off products. */
+    case ManageProducts = 'products.manage';
+
+    case ViewOrders = 'orders.view';
+
+    /** Moving orders through the kitchen and cancelling them. */
+    case ManageOrders = 'orders.manage';
+
     /**
      * The label shown wherever a permission is listed for a human.
      */
@@ -122,6 +130,9 @@ enum Permission: string
             self::ManagePaymentSettings => 'Manage payment settings, credentials and tax rates',
             self::ManagePlans => 'Create and edit subscription plans',
             self::ManageSubscriptions => 'Cancel and resume customers\' subscriptions',
+            self::ManageProducts => 'Manage the menu and its products',
+            self::ViewOrders => 'View customer orders',
+            self::ManageOrders => 'Update and cancel customer orders',
         };
     }
 }

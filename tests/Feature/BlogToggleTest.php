@@ -87,7 +87,7 @@ test('the home page teaser follows the switch', function () {
         ->assertSee('The Teased Post');
 
     expect($post->isPublished())->toBeTrue();
-});
+})->skip('demo/student: the home page is the café menu, so the blog teaser on welcome.blade.php is not routed.');
 
 test('the home page renders no teaser for an empty blog', function () {
     app(Settings::class)->set(SettingKey::BlogEnabled, true);

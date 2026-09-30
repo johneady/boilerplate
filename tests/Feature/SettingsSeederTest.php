@@ -110,7 +110,8 @@ test('the full seed includes the demo business details', function () {
 
     app()->forgetInstance(Settings::class);
 
-    expect(app(Settings::class)->string(SettingKey::BusinessEmail))->toBe('hello@example.com');
+    // The café's details, which CafeSeeder stores ahead of the placeholders.
+    expect(app(Settings::class)->string(SettingKey::BusinessEmail))->toBe('hello@juniperandrye.example');
 });
 
 test('the demo details are seeded without the factory', function () {
