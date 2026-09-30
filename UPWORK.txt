@@ -1,4 +1,4 @@
-Hi there, I built you a simple, responsive online ordering website you can try right now: menu with photos and prices, a shopping cart, checkout, and an admin side for products and orders. https://xxxxxx.powerphpscripts.com
+Hi there, I built you a simple, responsive online ordering website you can try right now: menu with photos and prices, a shopping cart, checkout, and an admin side for products and orders. https://demo7.powerphpscripts.com
 
 You can log in (there is a quick login link on the login page) and have a look around, as the café owner or as a customer. Everything you see is real and working, backed by a real database.
 
