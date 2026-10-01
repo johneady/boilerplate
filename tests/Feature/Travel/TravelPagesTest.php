@@ -1,10 +1,13 @@
 <?php
 
+use App\Filament\Resources\Destinations\Pages\ManageDestinations;
+use App\Filament\Resources\Tours\Pages\ListTours;
 use App\Livewire\Travel\TourFinder;
 use App\Models\Destination;
 use App\Models\Page;
 use App\Models\Tour;
 use App\Models\TourDeparture;
+use App\Models\User;
 use App\Travel\TourStyle;
 use Livewire\Livewire;
 
@@ -45,4 +48,20 @@ test('the tour finder filters by destination, style and length', function () {
 
 test('the travel paths cannot be taken by a content page', function () {
     expect(Page::RESERVED_SLUGS)->toContain('destinations', 'tours', 'plan-a-trip');
+});
+
+test('the admin tables link each photo at its public URL', function () {
+    $destination = Destination::factory()->create(['image_path' => 'travel/lake-bled.jpg']);
+    Tour::factory()->for($destination)->create();
+    $admin = User::factory()->admin()->create();
+
+    Livewire::actingAs($admin)
+        ->test(ManageDestinations::class)
+        ->assertSee(url('/storage/travel/lake-bled.jpg'), false)
+        ->assertDontSee('/storage//storage/', false);
+
+    // A tour without a photo of its own shows its destination's.
+    Livewire::actingAs($admin)
+        ->test(ListTours::class)
+        ->assertSee(url('/storage/travel/lake-bled.jpg'), false);
 });

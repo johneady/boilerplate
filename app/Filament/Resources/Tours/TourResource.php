@@ -176,7 +176,10 @@ class TourResource extends Resource
             ->columns([
                 ImageColumn::make('image_path')
                     ->label(__('travel.tours.fields.photo'))
-                    ->state(fn (Tour $record): ?string => $record->imageUrl())
+                    // An absolute URL: ImageColumn passes a full URL through untouched
+                    // but treats anything else as a path on its disk, which would
+                    // turn the model's root-relative /storage/... into a broken link.
+                    ->state(fn (Tour $record): ?string => $record->imageUrl() !== null ? url($record->imageUrl()) : null)
                     ->imageHeight(48)
                     ->imageWidth(72),
                 TextColumn::make('name')
