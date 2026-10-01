@@ -1,4 +1,4 @@
-Hi there, you want a modern travel site that showcases destinations and tours and turns visitors into booking inquiries, so I built a working one for you: https://xxxxxx.powerphpscripts.com
+Hi there, you want a modern travel site that showcases destinations and tours and turns visitors into booking inquiries, so I built a working one for you: https://demo7.powerphpscripts.com/
 
 You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
 
