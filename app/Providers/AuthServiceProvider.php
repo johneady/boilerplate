@@ -6,6 +6,7 @@ use App\Auth\Permission;
 use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\ContactSubmission;
+use App\Models\Destination;
 use App\Models\Dispute;
 use App\Models\Media;
 use App\Models\Page;
@@ -19,11 +20,15 @@ use App\Models\Refund;
 use App\Models\Subscription;
 use App\Models\Tag;
 use App\Models\TaxRate;
+use App\Models\Tour;
+use App\Models\TourDeparture;
+use App\Models\TripInquiry;
 use App\Models\User;
 use App\Models\WebhookEvent;
 use App\Policies\AuditLogPolicy;
 use App\Policies\CategoryPolicy;
 use App\Policies\ContactSubmissionPolicy;
+use App\Policies\DestinationPolicy;
 use App\Policies\MediaPolicy;
 use App\Policies\PagePolicy;
 use App\Policies\PaymentLinkPolicy;
@@ -33,6 +38,8 @@ use App\Policies\PostPolicy;
 use App\Policies\SubscriptionPolicy;
 use App\Policies\TagPolicy;
 use App\Policies\TaxRatePolicy;
+use App\Policies\TourPolicy;
+use App\Policies\TripInquiryPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WebhookEventPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -140,6 +147,7 @@ class AuthServiceProvider extends ServiceProvider
         AuditLog::class => AuditLogPolicy::class,
         Category::class => CategoryPolicy::class,
         ContactSubmission::class => ContactSubmissionPolicy::class,
+        Destination::class => DestinationPolicy::class,
         Media::class => MediaPolicy::class,
         Page::class => PagePolicy::class,
         Payment::class => PaymentPolicy::class,
@@ -156,6 +164,10 @@ class AuthServiceProvider extends ServiceProvider
         Subscription::class => SubscriptionPolicy::class,
         Tag::class => TagPolicy::class,
         TaxRate::class => TaxRatePolicy::class,
+        // A departure is managed as part of its tour.
+        Tour::class => TourPolicy::class,
+        TourDeparture::class => TourPolicy::class,
+        TripInquiry::class => TripInquiryPolicy::class,
         User::class => UserPolicy::class,
         WebhookEvent::class => WebhookEventPolicy::class,
     ];

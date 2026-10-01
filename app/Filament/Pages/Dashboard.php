@@ -5,6 +5,8 @@ namespace App\Filament\Pages;
 use App\Filament\Widgets\BusinessOverview;
 use App\Filament\Widgets\NeedsAttention;
 use App\Filament\Widgets\RevenueChart;
+use App\Filament\Widgets\TravelOverview;
+use App\Filament\Widgets\UpcomingDepartures;
 use Filament\Pages\Dashboard as BaseDashboard;
 
 /**
@@ -30,6 +32,8 @@ class Dashboard extends BaseDashboard
     public function getWidgets(): array
     {
         return [
+            TravelOverview::class,
+            UpcomingDepartures::class,
             BusinessOverview::class,
             NeedsAttention::class,
             RevenueChart::class,

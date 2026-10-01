@@ -169,7 +169,10 @@ test('the seeder uses no factory, which production has no faker for', function (
  * ordering holds, not just the seeder in isolation.
  */
 test('its authors are accounts the database seeder creates', function () {
+    // The travel demo's DatabaseSeeder no longer seeds the blog itself, so
+    // the blog seeder runs after it here, in the order it used to.
     $this->seed(DatabaseSeeder::class);
+    $this->seed(BlogSeeder::class);
 
     expect(User::query()->where('email', 'admin@example.com')->exists())->toBeTrue()
         ->and(Post::query()->exists())->toBeTrue()

@@ -32,10 +32,10 @@
                                 icon="heroicon-s-information-circle"
                                 class="size-4.5 shrink-0 text-blue-700 dark:text-blue-400"
                             />
-                            {{ __('The figures above are demo data') }}
+                            {{ __('The figures above are live') }}
                         </h2>
                         <p class="mt-0.5 text-xs font-semibold text-blue-800/80 dark:text-blue-200/80">
-                            {{ __('In the finished product they come from your real sales, customers and messages.') }}
+                            {{ __('They read the real booking requests and departures. Send a request from any tour page and watch them change.') }}
                             <span class="font-normal text-blue-700 dark:text-blue-300/80">The panel itself is a live work sample by John Eady. See the story behind both.</span>
                         </p>
                     </div>

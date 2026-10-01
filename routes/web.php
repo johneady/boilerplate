@@ -1,18 +1,30 @@
 <?php
 
 use App\Auth\DevLoginAccounts;
+use App\Http\Controllers\DestinationController;
 use App\Http\Controllers\DevLoginController;
 use App\Http\Controllers\ErrorPagePreviewController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\MailPreviewController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\PageController;
 use App\Http\Controllers\RobotsController;
 use App\Http\Controllers\SitemapController;
+use App\Http\Controllers\TourController;
 use App\Livewire\Contact;
+use App\Livewire\Travel\TourFinder;
 use Illuminate\Support\Facades\Route;
 
-Route::view('/', 'welcome')->name('home');
+Route::get('/', HomeController::class)->name('home');
+
+// The travel site. Each first segment is in Page::RESERVED_SLUGS, so no
+// content page can be created on a path these already answer.
+Route::get('destinations', [DestinationController::class, 'index'])->name('destinations.index');
+Route::get('destinations/{destination}', [DestinationController::class, 'show'])->name('destinations.show');
+Route::livewire('tours', TourFinder::class)->name('tours.index');
+Route::get('tours/{tour}', [TourController::class, 'show'])->name('tours.show');
+Route::view('plan-a-trip', 'travel.plan-trip')->name('plan-trip');
 
 // Declared as its own route rather than served by the content-page catch-all
 // below: it validates, persists and sends mail, so it is a Livewire component,

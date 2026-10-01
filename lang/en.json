@@ -558,5 +558,18 @@
     "Your subscription was not started. You can choose a plan again below.": "Your subscription was not started. You can choose a plan again below.",
     "Your subscription will continue.": "Your subscription will continue.",
     "Your subscription will end when the current period does.": "Your subscription will end when the current period does.",
-    "Your weekly summary": "Your weekly summary"
+    "Your weekly summary": "Your weekly summary",
+    "New": "New",
+    "Contacted": "Contacted",
+    "Confirmed": "Confirmed",
+    "Declined": "Declined",
+    "Europe": "Europe",
+    "Africa": "Africa",
+    "Asia & Pacific": "Asia & Pacific",
+    "The Americas": "The Americas",
+    "Adventure": "Adventure",
+    "Culture & history": "Culture & history",
+    "Beach & islands": "Beach & islands",
+    "Wildlife & nature": "Wildlife & nature",
+    "Food & wine": "Food & wine"
 }

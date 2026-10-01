@@ -48,84 +48,160 @@
     @endblogEnabled
 </head>
 <body class="antialiased">
-    <div class="relative min-h-dvh overflow-hidden bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
-        <div
-            class="pointer-events-none absolute -top-40 -right-32 h-[36rem] w-[36rem] rounded-full bg-linear-to-br from-sky-400/20 via-indigo-400/10 to-transparent blur-3xl"
-            aria-hidden="true"
-        ></div>
-        <div
-            class="pointer-events-none absolute -bottom-48 -left-40 h-[32rem] w-[32rem] rounded-full bg-linear-to-tr from-violet-400/20 via-sky-400/10 to-transparent blur-3xl"
-            aria-hidden="true"
-        ></div>
-
-        <div class="relative mx-auto flex min-h-dvh w-full max-w-6xl flex-col px-6 lg:px-8">
-            <header class="flex items-center justify-between gap-4 py-8">
-                <a href="{{ route('home') }}" class="flex items-center gap-2 font-medium" wire:navigate>
-                    <x-app-logo-icon class="size-7" />
-                    <span>{{ $businessName }}</span>
+    {{--
+        Wanderlight's public shell. The header is full-width and sits over the
+        page; pages that open with a photo hero pull themselves up beneath it.
+        Below lg the links fold into a menu toggled with Alpine, so every page
+        is one tap from the tours and the booking form on a phone.
+    --}}
+    <div class="flex min-h-dvh flex-col bg-white text-neutral-900 dark:bg-neutral-950 dark:text-neutral-100">
+        <header
+            x-data="{ open: false }"
+            x-on:keydown.escape.window="open = false"
+            class="sticky top-0 z-40 border-b border-neutral-200/70 bg-white/90 backdrop-blur dark:border-neutral-800/70 dark:bg-neutral-950/90"
+        >
+            <div class="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+                <a href="{{ route('home') }}" class="flex items-center gap-2.5" wire:navigate>
+                    <x-app-logo-icon class="size-9" />
+                    <span class="font-display text-xl font-semibold tracking-tight">{{ $businessName }}</span>
                 </a>
 
-                <nav aria-label="{{ __('Primary') }}" class="flex items-center gap-2">
-                    {{-- Shown only while the blog is switched on: the link
-                         disappears alongside the routes EnsureBlogEnabled
-                         closes, the same pairing as the sign-up link. --}}
-                    @blogEnabled
-                        <flux:button :href="route('blog.index')" size="sm" variant="ghost" wire:navigate>
-                            {{ __('Blog') }}
-                        </flux:button>
-                    @endblogEnabled
+                @php
+                    $businessPhone = app(\App\Settings\Settings::class)->string(\App\Settings\SettingKey::BusinessPhone);
 
-                    <flux:button :href="route('contact')" size="sm" variant="ghost" wire:navigate>
-                        {{ __('Contact') }}
-                    </flux:button>
+                    $primaryLinks = [
+                        ['label' => __('Destinations'), 'url' => route('destinations.index'), 'active' => request()->routeIs('destinations.*')],
+                        ['label' => __('Tours'), 'url' => route('tours.index'), 'active' => request()->routeIs('tours.*')],
+                        ['label' => __('Tailor-made'), 'url' => route('plan-trip'), 'active' => request()->routeIs('plan-trip')],
+                        ['label' => __('Contact'), 'url' => route('contact'), 'active' => request()->routeIs('contact')],
+                    ];
 
-                    @if (Route::has('login'))
-                        @auth
-                            {{-- getPanels() rather than getPanel('admin'), which throws for an
-                                 unregistered id and would 500 every signed-in visitor here. --}}
-                            @php($adminPanel = filament()->getPanels()['admin'] ?? null)
+                    // Shown only while the blog is switched on: the link
+                    // disappears alongside the routes EnsureBlogEnabled closes.
+                    if (app(\App\Blog\BlogManager::class)->enabled()) {
+                        array_splice($primaryLinks, 3, 0, [['label' => __('Blog'), 'url' => route('blog.index'), 'active' => request()->routeIs('blog.*')]]);
+                    }
 
-                            @if ($adminPanel !== null && auth()->user()->canAccessPanel($adminPanel))
-                                <flux:button
-                                    :href="$adminPanel->getUrl()"
-                                    size="sm"
-                                    variant="primary"
-                                    icon="wrench-screwdriver"
-                                    icon-trailing="arrow-right"
-                                >
-                                    {{ __('Admin') }}
-                                </flux:button>
-                            @else
-                                <flux:button
-                                    :href="route('dashboard')"
-                                    size="sm"
-                                    variant="primary"
-                                    icon-trailing="arrow-right"
-                                    wire:navigate
-                                >
-                                    {{ __('Dashboard') }}
-                                </flux:button>
-                            @endif
+                    // getPanels() rather than getPanel('admin'), which throws
+                    // for an unregistered id and would 500 every signed-in visitor.
+                    $adminPanel = filament()->getPanels()['admin'] ?? null;
+                    $canAccessAdmin = auth()->check() && $adminPanel !== null && auth()->user()->canAccessPanel($adminPanel);
+                @endphp
+
+                <nav aria-label="{{ __('Primary') }}" class="hidden items-center gap-1 lg:flex">
+                    @foreach ($primaryLinks as $link)
+                        <a
+                            href="{{ $link['url'] }}"
+                            wire:navigate
+                            @class([
+                                'rounded-full px-4 py-2 text-sm font-medium transition',
+                                'bg-teal-50 text-teal-800 dark:bg-teal-400/10 dark:text-teal-300' => $link['active'],
+                                'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800' => ! $link['active'],
+                            ])
+                        >
+                            {{ $link['label'] }}
+                        </a>
+                    @endforeach
+                </nav>
+
+                <div class="flex items-center gap-2">
+                    @if ($businessPhone !== '')
+                        <a
+                            href="tel:{{ preg_replace('/[^0-9+]/', '', $businessPhone) }}"
+                            class="hidden items-center gap-1.5 text-sm font-medium text-neutral-600 hover:text-teal-700 xl:flex dark:text-neutral-400 dark:hover:text-teal-300"
+                        >
+                            <flux:icon.phone variant="micro" />
+                            {{ $businessPhone }}
+                        </a>
+                    @endif
+
+                    @auth
+                        @if ($canAccessAdmin)
+                            <flux:button :href="$adminPanel->getUrl()" size="sm" variant="ghost" icon="wrench-screwdriver" class="hidden sm:inline-flex">
+                                {{ __('Admin') }}
+                            </flux:button>
                         @else
-                            <flux:button :href="route('login')" size="sm" variant="ghost" wire:navigate>
+                            <flux:button :href="route('dashboard')" size="sm" variant="ghost" icon="user-circle" class="hidden sm:inline-flex" wire:navigate>
+                                {{ __('My trips') }}
+                            </flux:button>
+                        @endif
+                    @else
+                        @if (Route::has('login'))
+                            <flux:button :href="route('login')" size="sm" variant="ghost" class="hidden sm:inline-flex" wire:navigate>
                                 {{ __('Log in') }}
                             </flux:button>
+                        @endif
 
-                            @registrationEnabled
-                                @if (Route::has('register'))
-                                    <flux:button :href="route('register')" size="sm" variant="primary" wire:navigate>
-                                        {{ __('Sign up') }}
-                                    </flux:button>
-                                @endif
-                            @endregistrationEnabled
-                        @endauth
-                    @endif
-                </nav>
-            </header>
+                        @registrationEnabled
+                            @if (Route::has('register'))
+                                <flux:button :href="route('register')" size="sm" variant="ghost" class="hidden md:inline-flex" wire:navigate>
+                                    {{ __('Sign up') }}
+                                </flux:button>
+                            @endif
+                        @endregistrationEnabled
+                    @endauth
 
+                    <a
+                        href="{{ route('tours.index') }}"
+                        wire:navigate
+                        class="hidden rounded-full bg-orange-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-orange-600 sm:inline-flex"
+                    >
+                        {{ __('Find a tour') }}
+                    </a>
+
+                    <button
+                        type="button"
+                        class="inline-flex size-10 items-center justify-center rounded-full text-neutral-700 hover:bg-neutral-100 lg:hidden dark:text-neutral-300 dark:hover:bg-neutral-800"
+                        x-on:click="open = ! open"
+                        x-bind:aria-expanded="open"
+                        aria-controls="mobile-menu"
+                    >
+                        <span class="sr-only">{{ __('Menu') }}</span>
+                        <flux:icon.bars-3 x-show="! open" />
+                        <flux:icon.x-mark x-show="open" x-cloak />
+                    </button>
+                </div>
+            </div>
+
+            <nav
+                id="mobile-menu"
+                aria-label="{{ __('Mobile') }}"
+                x-show="open"
+                x-cloak
+                x-transition.opacity
+                class="border-t border-neutral-200 px-4 pt-2 pb-4 lg:hidden dark:border-neutral-800"
+            >
+                @foreach ($primaryLinks as $link)
+                    <a href="{{ $link['url'] }}" wire:navigate class="block rounded-lg px-3 py-3 text-base font-medium hover:bg-neutral-100 dark:hover:bg-neutral-800">
+                        {{ $link['label'] }}
+                    </a>
+                @endforeach
+
+                <div class="mt-3 grid grid-cols-2 gap-2">
+                    @auth
+                        @if ($canAccessAdmin)
+                            <flux:button :href="$adminPanel->getUrl()" variant="filled">{{ __('Admin') }}</flux:button>
+                        @else
+                            <flux:button :href="route('dashboard')" variant="filled" wire:navigate>{{ __('My trips') }}</flux:button>
+                        @endif
+                    @else
+                        <flux:button :href="route('login')" variant="filled" wire:navigate>{{ __('Log in') }}</flux:button>
+                    @endauth
+                    <a href="{{ route('tours.index') }}" wire:navigate class="inline-flex items-center justify-center rounded-lg bg-orange-500 px-4 py-2 text-sm font-semibold text-white">
+                        {{ __('Find a tour') }}
+                    </a>
+                </div>
+            </nav>
+        </header>
+
+        <div class="flex flex-1 flex-col">
             {{ $slot }}
+        </div>
 
-            <x-business-footer class="border-t border-neutral-200 py-8 text-neutral-500 dark:border-neutral-800 dark:text-neutral-400" />
+        <div class="bg-neutral-950 text-neutral-400">
+            <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+                <x-business-footer class="py-10" />
+            </div>
         </div>
     </div>
     @fluxScripts

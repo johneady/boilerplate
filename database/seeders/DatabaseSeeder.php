@@ -27,6 +27,9 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             AdminUserSeeder::class,
+            // Before SettingsSeeder: it seeds Wanderlight Travel's brand,
+            // which must land ahead of the generic placeholders.
+            TravelSeeder::class,
             SettingsSeeder::class,
             PagesSeeder::class,
         ]);
@@ -57,19 +60,9 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // Sample posts, categories and tags, behind the same gate for the
-        // same reason: a demo instance shows a working blog the moment the
-        // seeder switches it on, and production starts with none. After the
-        // demo accounts, because they are its author pool -- seeded before
-        // them, the editor's and manager's posts would be left authorless.
-        $this->call(BlogSeeder::class);
-
-        // A year of demo trading, so the dashboard and payment screens have
-        // something to show. Not in the test suite: it drives hundreds of
-        // payments through the real actions, and has a test of its own.
-        if (! app()->environment('testing')) {
-            $this->call(DemoBusinessSeeder::class);
-        }
+        // The boilerplate's sample blog and year of demo payments are not
+        // seeded on this travel demo: neither feature is part of the site,
+        // and TravelSeeder stores both switched off.
     }
 
     /**

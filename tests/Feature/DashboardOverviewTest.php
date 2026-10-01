@@ -33,8 +33,8 @@ test('a control on the landing page reopens the work overview', function () {
     $this->actingAs(User::factory()->admin()->create())
         ->get(Filament::getPanel('admin')->getUrl())
         ->assertSuccessful()
-        ->assertSee('The figures above are demo data')
-        ->assertSee('In the finished product they come from your real sales, customers and messages.')
+        ->assertSee('The figures above are live')
+        ->assertSee('They read the real booking requests and departures.')
         ->assertSee('Show introduction')
         ->assertSee("x-on:click=\"\$dispatch('open-modal', { id: 'work-overview' })\"", escape: false);
 });
@@ -60,7 +60,7 @@ test('a production instance never carries the work overview', function () {
 
     $response->assertSuccessful()
         ->assertDontSee('John Eady')
-        ->assertDontSee('The figures above are demo data');
+        ->assertDontSee('The figures above are live');
 });
 
 test('the hero portrait is present on disk', function () {

@@ -86,6 +86,14 @@ enum Permission: string
     /** Cancelling and resuming customers' subscriptions. Viewing them is ViewPayments. */
     case ManageSubscriptions = 'subscriptions.manage';
 
+    /** Creating and editing destinations, tours and their departure dates. */
+    case ManageTours = 'tours.manage';
+
+    case ViewTripInquiries = 'trip-inquiries.view';
+
+    /** Moving a booking request through its statuses, which holds or releases seats. */
+    case ManageTripInquiries = 'trip-inquiries.manage';
+
     /**
      * The label shown wherever a permission is listed for a human.
      */
@@ -122,6 +130,9 @@ enum Permission: string
             self::ManagePaymentSettings => 'Manage payment settings, credentials and tax rates',
             self::ManagePlans => 'Create and edit subscription plans',
             self::ManageSubscriptions => 'Cancel and resume customers\' subscriptions',
+            self::ManageTours => 'Manage destinations, tours and departure dates',
+            self::ViewTripInquiries => 'View booking requests',
+            self::ManageTripInquiries => 'Confirm and decline booking requests',
         };
     }
 }

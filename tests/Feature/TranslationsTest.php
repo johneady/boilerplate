@@ -13,6 +13,9 @@ use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Enums\TransactionSource;
 use App\Payments\Enums\TransactionType;
 use App\Payments\Enums\WebhookEventStatus;
+use App\Travel\InquiryStatus;
+use App\Travel\Region;
+use App\Travel\TourStyle;
 use Illuminate\Filesystem\Filesystem;
 
 /**
@@ -133,4 +136,7 @@ test('every enum label translated at display has a catalogue entry', function (s
     TransactionSource::class,
     TransactionType::class,
     WebhookEventStatus::class,
+    InquiryStatus::class,
+    Region::class,
+    TourStyle::class,
 ]);

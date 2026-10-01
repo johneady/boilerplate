@@ -42,7 +42,7 @@
     @endphp
 
     <div class="flex w-full flex-col gap-6">
-        <div class="relative overflow-hidden rounded-xl bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500 p-6 text-white sm:p-8 dark:from-indigo-600 dark:via-purple-600 dark:to-pink-600">
+        <div class="relative overflow-hidden rounded-xl bg-linear-to-br from-teal-700 via-teal-600 to-cyan-600 p-6 text-white sm:p-8 dark:from-teal-800 dark:via-teal-700 dark:to-cyan-700">
             {{-- Decorative only: aria-hidden so the gradient blobs are not announced. --}}
             <div
                 aria-hidden="true"
@@ -66,10 +66,66 @@
                 </flux:heading>
 
                 <flux:text class="mt-2 max-w-prose text-white/80!">
-                    {{ __('This is your :business account. Manage your details and security below.', ['business' => $businessName]) }}
+                    {{ __('This is your :business account: your trip requests and bookings, plus your details and security.', ['business' => $businessName]) }}
                 </flux:text>
             </div>
         </div>
+
+        {{-- The traveller's own booking requests, matched by account or by the
+             address they used before signing up. --}}
+        @php
+            $tripRequests = \App\Models\TripInquiry::query()
+                ->belongingTo(auth()->user())
+                ->with(['tour.destination', 'departure.tour', 'destination'])
+                ->latest()
+                ->get();
+        @endphp
+
+        <section aria-labelledby="my-trips">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <flux:heading id="my-trips" size="lg">{{ __('My trips') }}</flux:heading>
+                <flux:button :href="route('tours.index')" size="sm" icon="magnifying-glass">{{ __('Find another tour') }}</flux:button>
+            </div>
+
+            @if ($tripRequests->isEmpty())
+                <div class="mt-4 rounded-xl border border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
+                    <flux:text>{{ __('No trip requests yet. Pick a tour and press "Request to book" to see it here.') }}</flux:text>
+                </div>
+            @else
+                <div class="mt-4 grid gap-4 lg:grid-cols-2">
+                    @foreach ($tripRequests as $trip)
+                        <article class="flex gap-4 overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900" data-test="my-trip">
+                            @php($photo = $trip->tour?->imageUrl() ?? $trip->destination?->imageUrl())
+                            @if ($photo !== null)
+                                <img src="{{ $photo }}" alt="" class="size-24 shrink-0 rounded-lg object-cover" />
+                            @endif
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:badge size="sm" :color="match ($trip->status) {
+                                        \App\Travel\InquiryStatus::New => 'amber',
+                                        \App\Travel\InquiryStatus::Contacted => 'sky',
+                                        \App\Travel\InquiryStatus::Confirmed => 'green',
+                                        \App\Travel\InquiryStatus::Declined => 'zinc',
+                                    }">{{ __($trip->status->label()) }}</flux:badge>
+                                    <span class="font-mono text-xs text-zinc-500">{{ $trip->reference }}</span>
+                                </div>
+                                <flux:heading class="mt-1.5 truncate">{{ $trip->tripLabel() }}</flux:heading>
+                                <flux:text size="sm" class="mt-0.5">
+                                    {{ $trip->departure?->dateRange() ?? $trip->travel_month ?? __('Dates to be agreed') }}
+                                    · {{ trans_choice(':count traveller|:count travellers', $trip->travellers()) }}
+                                    @if ($trip->formattedQuote() !== null)
+                                        · {{ $trip->formattedQuote() }}
+                                    @endif
+                                </flux:text>
+                                @if ($trip->tour !== null)
+                                    <flux:link :href="route('tours.show', $trip->tour)" class="mt-2 inline-block text-sm" wire:navigate>{{ __('View tour') }}</flux:link>
+                                @endif
+                            </div>
+                        </article>
+                    @endforeach
+                </div>
+            @endif
+        </section>
 
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             @foreach ($quickLinks as $link)

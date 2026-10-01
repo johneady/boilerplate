@@ -1,6 +1,18 @@
-Hi there, I created a real prototype for you at https://xxxxxx.powerphpscripts.com
+Hi there, you want a modern travel site that showcases destinations and tours and turns visitors into booking inquiries, so I built a working one for you: https://xxxxxx.powerphpscripts.com
 
 You can login (on the login there is a quick login link) and have a look around. Everything you see is real and working.
+
+WHAT IS IN THE DEMO
+
+- Destination and tour pages: 8 destinations and 10 tour packages, each with a day-by-day itinerary, what's included, highlights and a dates and prices table showing seats left
+- Booking/inquiry functionality: pick a departure date, enter your party and watch the price update live (child rates, solo supplement, 20% deposit). You get a reference number and a confirmation email, and your team gets an alert
+- Tailor-made trip requests for travellers who don't see the right tour
+- Easy navigation: a search on the home page, plus a tour finder that filters by destination, travel style and trip length
+- Clear calls to action: "Request to book" on every tour, kept in a sticky bar on mobile, and "Plan my trip" across the site
+- Mobile responsiveness: every page is designed for the phone as well as the desktop
+- Admin panel: a booking inbox with New, Contacted, Confirmed and Declined statuses. Confirming a booking holds the seats on that departure and won't let it oversell. Your team can edit tours, departure dates and prices without a developer
+- Travellers who sign in see their own trip requests and booking status
+- Fast and reliable: server-rendered pages, lazy-loaded photos, and backed by 1,800 automated tests
 
 WHY THIS DEMO MATTERS FOR YOUR PROJECT
 
@@ -8,6 +20,10 @@ Instead of telling you what I can do, I prefer to demonstrate it directly. Build
 
 1. I understood your requirements well enough to build them.
 2. I have the technical stack and execution speed ready to start delivering immediately.
+
+ONE QUESTION
+
+When a traveller books, should they pay a deposit online straight away, or should your team confirm availability first and then send a payment link? The demo does the second, and both are quick to switch.
 
 RELEVANT TRACK RECORD
 

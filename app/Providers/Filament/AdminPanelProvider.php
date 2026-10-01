@@ -112,7 +112,7 @@ class AdminPanelProvider extends PanelProvider
             // renders with the fi-color-* class applied but no colour behind
             // it -- visibly flat, with nothing in the markup to show why.
             ->colors([
-                'primary' => Color::Blue,
+                'primary' => Color::Teal,
                 'amber' => Color::Amber,
                 'zinc' => Color::Zinc,
                 'sky' => Color::Sky,
