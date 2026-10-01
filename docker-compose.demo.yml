@@ -1,0 +1,67 @@
+# Dokploy "demo profile": the web container only.
+#
+# Point a demo slot's Compose Path at THIS file instead of
+# docker-compose.dokploy.yml. Production keeps the three-role stack; demos are
+# visited a few times a week and cannot justify a queue worker polling MariaDB
+# around the clock and a scheduler booting Laravel every minute to find nothing
+# due. Measured on the shared demo host: ~66% of a core and ~1.25 GB of swap
+# across nine slots, for zero jobs.
+#
+# Everything else -- image, environment, volumes, healthcheck, memory cap -- is
+# inherited from docker-compose.dokploy.yml's `app` service, so the two cannot
+# drift. Only the differences live here:
+#
+#   QUEUE_CONNECTION=sync  jobs run inside the request that dispatched them, so
+#                          no worker is needed. Uploads and mail block the
+#                          response; app:check-production warns about that on
+#                          boot, which is expected here and does not stop it.
+#
+#   php-fpm ondemand       no idle children; a request forks one and it exits
+#                          after 10s idle. max_children stays above 2 because
+#                          Livewire and media requests both go through PHP.
+#
+# The scheduler is replaced by a Dokploy Schedule on the slot (compose service
+# `app`, shell `sh`):
+#
+#   cron     0 * * * *
+#   command  su -s /bin/sh www-data -c 'php /var/www/html/artisan schedule:run --no-interaction'
+#
+# Minute 0 matters: schedule:run only fires what is due THIS minute, so a run at
+# :17 never sees an hourly() task. Every task in routes/console.php is hourly or
+# daily, so one run an hour covers them. And www-data matters: a root run at
+# midnight creates that day's laravel-*.log as root, php-fpm can then no longer
+# append to it, and logging stops silently.
+#
+# The volume names match docker-compose.dokploy.yml, so switching an existing
+# slot over keeps its uploads. Dokploy deploys with --remove-orphans, so the old
+# worker and scheduler containers are removed on the first redeploy.
+
+services:
+  app:
+    extends:
+      file: docker-compose.dokploy.yml
+      service: app
+    environment:
+      QUEUE_CONNECTION: sync
+    configs:
+      # zzz- sorts after the image's zz-www.conf, and php-fpm lets a later file
+      # redefine settings of the same [www] pool.
+      - source: php-fpm-demo
+        target: /usr/local/etc/php-fpm.d/zzz-demo.conf
+
+configs:
+  php-fpm-demo:
+    content: |
+      [www]
+      pm = ondemand
+      pm.max_children = 4
+      pm.process_idle_timeout = 10s
+
+volumes:
+  storage-logs:
+  storage-app-private:
+  storage-app-public:
+
+networks:
+  dokploy-network:
+    external: true

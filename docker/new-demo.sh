@@ -100,7 +100,9 @@ Once the image is published, on the oldest free Dokploy slot set:
   IMAGE_TAG=demo-$slug
   DB_DATABASE=demo_${slug//-/_}
 
-and redeploy. The database is created on first boot (migrate --force); slots
+and redeploy. A slot runs the web container only: its Compose Path is
+./docker-compose.demo.yml and an hourly Dokploy Schedule replaces the worker
+and scheduler (both described at the top of that file). The database is created on first boot (migrate --force); slots
 connect to the shared MariaDB as root, so no grant is needed.
 
 After that, each push to $branch only needs a redeploy of that slot.
