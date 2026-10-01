@@ -43,6 +43,16 @@ services:
       service: app
     environment:
       QUEUE_CONNECTION: sync
+      # Read only by images built before config/first.php stopped reading
+      # env() (the esthetician and window-cleaning slots): their seeders and
+      # one-click admin login take the admin account from these, and without
+      # them fall back to an admin@example.com that does not exist there.
+      # Current images ignore them. The defaults are those old images' own
+      # defaults -- never empty, since env() returns "" for an empty value
+      # rather than falling back.
+      FIRST_USER_NAME: ${FIRST_USER_NAME:-Admin User}
+      FIRST_USER_EMAIL: ${FIRST_USER_EMAIL:-admin@example.com}
+      FIRST_USER_PASSWORD: ${FIRST_USER_PASSWORD:-password}
     configs:
       # zzz- sorts after the image's zz-www.conf, and php-fpm lets a later file
       # redefine settings of the same [www] pool.
