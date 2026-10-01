@@ -18,7 +18,7 @@
         "vite-plus": "0.3.1"
     },
     "optionalDependencies": {
-        "@laravel/multiplex": "^0.4.1",
+        "@laravel/multiplex": "^0.4.4",
         "@rollup/rollup-linux-x64-gnu": "4.63.2",
         "@tailwindcss/oxide-linux-x64-gnu": "^4.0.1",
         "lightningcss-linux-x64-gnu": "^1.29.1"
