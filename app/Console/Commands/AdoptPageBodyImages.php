@@ -92,7 +92,7 @@ class AdoptPageBodyImages extends Command
         // the "collect everything unreferenced now" sweep instruction, the
         // OPPOSITE of app:prune-orphaned-media where zero disables -- so the
         // same slip is harmless there and destructive here.
-        if ($hours !== null && $hours !== '' && ! ctype_digit((string) $hours)) {
+        if ($hours !== null && $hours !== '' && (! (is_int($hours) || is_string($hours)) || ! ctype_digit((string) $hours))) {
             $this->error('The --hours option must be a whole number of hours.');
 
             return self::FAILURE;

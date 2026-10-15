@@ -94,18 +94,7 @@ class UserResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            // Only the avatar collection is eager-loaded, because the avatar
-            // column below resolves through avatarUrl() -> getMedia(), which
-            // would otherwise run one media query per row of this table.
-            // getMedia() filters the loaded relation in memory, and skipping
-            // the other collections keeps the eager load to one row per user.
-            //
-            // The three exists flags feed the per-row delete and deactivate
-            // checks (User::hasFinancialRecords(), hasRunningSubscription()), which
-            // would otherwise query once per row for each action rendered.
-            ->modifyQueryUsing(fn (Builder $query): Builder => $query
-                ->with(['media' => fn ($media) => $media->inCollection(MediaCollection::Avatar)])
-                ->withExists(['recordedPayments', 'initiatedRefunds', 'runningSubscription']))
+            ->modifyQueryUsing(fn (Builder $query): Builder => static::withTableRowData($query))
             ->columns([
                 // State is resolved through User::avatarUrl() rather than from
                 // the media row directly: the row's `path` holds the conversion
@@ -278,6 +267,26 @@ class UserResource extends Resource
             ->checkIfRecordIsSelectableUsing(
                 fn (User $record): bool => ! static::isCurrentUser($record),
             );
+    }
+
+    /**
+     * Eager-load what each table row needs, so rendering a page of users runs
+     * a fixed number of queries rather than several per row.
+     *
+     * Only the avatar collection is loaded, because the avatar column resolves
+     * through avatarUrl() -> getMedia(), which filters the loaded relation in
+     * memory; skipping the other collections keeps the eager load to one row
+     * per user. The three exists flags feed the per-row delete and deactivate
+     * checks (User::hasFinancialRecords(), hasRunningSubscription()).
+     *
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    protected static function withTableRowData(Builder $query): Builder
+    {
+        return $query
+            ->with(['media' => fn ($media) => $media->inCollection(MediaCollection::Avatar)])
+            ->withExists(['recordedPayments', 'initiatedRefunds', 'runningSubscription']);
     }
 
     /**

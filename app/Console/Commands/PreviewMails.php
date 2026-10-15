@@ -38,11 +38,13 @@ class PreviewMails extends Command
      */
     public function handle(PreviewableEmails $emails): int
     {
-        $recipient = (string) ($this->argument('recipient') ?: PreviewableEmails::DEFAULT_RECIPIENT);
+        $recipient = $this->argument('recipient');
+        $recipient = is_string($recipient) && $recipient !== '' ? $recipient : PreviewableEmails::DEFAULT_RECIPIENT;
 
         // An explicitly empty --mailer= means "not chosen" (an unset shell
         // variable), not a mailer named "".
-        $mailer = $this->option('mailer') ?: null;
+        $mailer = $this->option('mailer');
+        $mailer = is_string($mailer) && $mailer !== '' ? $mailer : null;
 
         if (filter_var($recipient, FILTER_VALIDATE_EMAIL) === false) {
             $this->components->error("[{$recipient}] is not a valid email address.");

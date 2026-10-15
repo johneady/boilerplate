@@ -51,6 +51,9 @@ class UserExporter extends SpreadsheetExporter
     /**
      * Each user's started subscriptions, current first, with their plans:
      * two queries per chunk of users, whatever its size.
+     *
+     * @param  Builder<User>  $query
+     * @return Builder<User>
      */
     public static function modifyQuery(Builder $query): Builder
     {
