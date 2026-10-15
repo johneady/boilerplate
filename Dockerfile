@@ -73,7 +73,7 @@
 # adds pdo_mysql, gd and redis on top for reasons documented in that stage.
 #
 # php:8.5-fpm-alpine @ PHP 8.5.10
-FROM php:8.5-fpm-alpine@sha256:630c234abe38c0e9e4726ff59d5af6fc8f573e35939b143580129f2405ea8a74 AS php-base
+FROM php:8.5-fpm-alpine@sha256:fa01fb1645cd0fc566a5f146b099adace33b906571f972f71f2182a7c12d1cd7 AS php-base
 
 # .build-deps is the whole reason this image is small: $PHPIZE_DEPS (the base's
 # own name for autoconf/gcc/g++/make/pkgconf/re2c) plus the -dev headers go in
