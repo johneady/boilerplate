@@ -36,6 +36,8 @@ const PAYPAL_SUBSCRIPTION = 'I-BW452GLLEP1G';
 const PAYPAL_SALE = '8HL18326JH8397335';
 
 beforeEach(function () {
+    $this->travelTo(PaymentFixtures::RECORDED_AT);
+
     Payments::enable([
         'demo_gateway_enabled' => false,
         'paypal_enabled' => true,

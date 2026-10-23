@@ -31,6 +31,8 @@ use Tests\Support\PaymentFixtures;
 use Tests\Support\Payments;
 
 beforeEach(function () {
+    $this->travelTo(PaymentFixtures::RECORDED_AT);
+
     Payments::enable([
         'demo_gateway_enabled' => false,
         'stripe_enabled' => true,
@@ -92,7 +94,7 @@ function fakeStripeBilling(array &$stripe): void
             return Http::response(PaymentFixtures::load('stripe/subscription', $stripe['subscription']));
         },
         'DELETE /v1/subscriptions/sub_test_S1' => function () use (&$stripe) {
-            $stripe['subscription'] = [...$stripe['subscription'], 'status' => 'canceled', 'canceled_at' => time(), 'ended_at' => time()];
+            $stripe['subscription'] = [...$stripe['subscription'], 'status' => 'canceled', 'canceled_at' => now()->getTimestamp(), 'ended_at' => now()->getTimestamp()];
 
             return Http::response(PaymentFixtures::load('stripe/subscription', $stripe['subscription']));
         },

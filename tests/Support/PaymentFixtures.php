@@ -12,6 +12,17 @@ namespace Tests\Support;
 class PaymentFixtures
 {
     /**
+     * The moment the fixtures were recorded, after every created/create_time
+     * in them and before the subscription periods they report run out
+     * (Stripe 2026-10-21, PayPal 2026-10-23).
+     *
+     * Their timestamps are absolute, so a test that compares one with now()
+     * must travel here first. On the real clock it passes only until that
+     * date goes by, then fails for good.
+     */
+    public const string RECORDED_AT = '2026-09-24 12:00:00';
+
+    /**
      * @param  array<string, mixed>  $overrides  Merged recursively over the fixture.
      * @return array<string, mixed>
      */
