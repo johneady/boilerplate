@@ -100,7 +100,13 @@ if [ "${RUN_MIGRATIONS:-true}" = "true" ]; then
     # "database" — on a FRESH database that lock needs the cache_locks table
     # the migrations have not created yet. Probe first; the unisolated first
     # run is safe because there is nothing to race over.
-    if php artisan db:table cache_locks --json >/dev/null 2>&1; then
+    #
+    # The name MUST be schema-qualified. Unqualified, db:table searches every
+    # database the connection can see and falls back to the first cache_locks
+    # it finds. The demo slots share one MariaDB as root, so a fresh database
+    # matched a sibling's table, took --isolated, and failed on its own
+    # missing cache_locks on every boot. The default matches config/database.php.
+    if php artisan db:table "${DB_DATABASE:-laravel}.cache_locks" --json >/dev/null 2>&1; then
         MIGRATE_ISOLATION="--isolated"
     else
         MIGRATE_ISOLATION=""
