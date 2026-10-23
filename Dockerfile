@@ -72,8 +72,8 @@
 # zip (everything else the lock names is bundled or a suggestion); runtime
 # adds pdo_mysql, gd and redis on top for reasons documented in that stage.
 #
-# php:8.5-fpm-alpine @ PHP 8.5.10
-FROM php:8.5-fpm-alpine@sha256:fa01fb1645cd0fc566a5f146b099adace33b906571f972f71f2182a7c12d1cd7 AS php-base
+# php:8.5-fpm-alpine @ PHP 8.5.12
+FROM php:8.5-fpm-alpine@sha256:75bbd8240bc8a991b0f8ddb2365f11937f93199972e3c9f7e32c63c7241f546b AS php-base
 
 # .build-deps is the whole reason this image is small: $PHPIZE_DEPS (the base's
 # own name for autoconf/gcc/g++/make/pkgconf/re2c) plus the -dev headers go in
@@ -335,7 +335,9 @@ RUN set -eu; \
         foreach (["JPEG Support", "PNG Support", "WebP Support", "FreeType Support"] as $f) { if (empty($i[$f])) { fwrite(STDERR, "FATAL: gd built without $f\n"); exit(1); } } \
         if (! ini_get("opcache.enable")) { fwrite(STDERR, "FATAL: opcache present but not enabled -- check docker/php/php.ini reached conf.d\n"); exit(1); } \
         if (ini_get("zend.assertions") !== "-1") { fwrite(STDERR, "FATAL: zend.assertions=" . ini_get("zend.assertions") . " -- php.ini-production was not copied to php.ini, so PHP is on its development defaults\n"); exit(1); } \
-        echo "extension check passed: intl zip pdo_mysql bcmath exif pcntl gd(jpeg,png,webp,freetype) redis opcache(enabled) php.ini-production\n";'
+        if (ini_get("session.upload_progress.enabled")) { fwrite(STDERR, "FATAL: session.upload_progress.enabled is on -- CVE-2026-115560 mitigation in docker/php/php.ini did not apply\n"); exit(1); } \
+        if (version_compare(PHP_VERSION, "8.5.12", "<")) { fwrite(STDERR, "FATAL: PHP " . PHP_VERSION . " predates the php2shell fix (CVE-2026-109618/109619) -- base digest is too old\n"); exit(1); } \
+        echo "extension check passed: intl zip pdo_mysql bcmath exif pcntl gd(jpeg,png,webp,freetype) redis opcache(enabled) php.ini-production upload_progress(off) php>=8.5.12\n";'
 
 WORKDIR /var/www/html
 
