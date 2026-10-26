@@ -633,22 +633,28 @@ vendor/bin/pest --ci
 ## Continuous integration
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to
-`main` and every pull request:
+`main` and every pull request, skipping changes that touch only Markdown or
+`.ai/`. It is two jobs:
 
-- **Pint, PHPStan & Prettier** — `pint --test`, `phpstan analyse` (level 8)
-  and `npm run format:check`. Every Pest job waits for this one.
-- **Pest** — the suite on sqlite, in parallel.
-- **Pest (browser)** — the browser suite.
-- **Pest (mysql / mariadb / pgsql)** — the same suite against `mysql:8.4`,
-  `mariadb:11` and `postgres:17`.
-- **Docker** — on pushes to `main` only, once every job above is green, calls
+- **Checks** — one job, in this order: `pint --test`, `phpstan analyse`
+  (level 8), `npm run format:check`, the Unit and Feature suites in parallel
+  against `mariadb:11.8`, then the browser suite. A style or type failure
+  stops the run before the suites start.
+- **Docker** — on pushes to `main` only, once Checks is green, calls
   [`.github/workflows/docker.yml`](.github/workflows/docker.yml) to build and
   publish the image to GHCR.
 
-That last job exists because production runs MySQL or MariaDB (the Dockerfile
-installs `pdo_mysql`) while the fast job runs sqlite, which tolerates looser
-typing and different strict-mode and DDL behaviour. A green sqlite suite is not
-evidence the deployed database agrees.
+Checks is a single job because Actions bills each job separately, rounded up to
+a whole minute, and each one repeated the same PHP, Composer and npm setup.
+
+The suites run on MariaDB 11.8 because that is what production runs. sqlite
+stays the local default in `phpunit.xml` for speed, but it tolerates looser
+typing and different strict-mode and DDL behaviour, so a green sqlite suite is
+not evidence the deployed database agrees. The browser suite keeps sqlite: it
+tests the rendered UI, not the SQL.
+
+Set the `CI_RUNNER` repository variable to `self-hosted` to run both workflows
+on a self-hosted runner; leave it unset for GitHub's hosted runner.
 
 The DB settings are passed as job environment variables, which works because
 PHPUnit's `<env>` elements do not overwrite a variable already set in the
@@ -656,8 +662,9 @@ process environment. `DB_URL` is blanked for the same reason: `phpunit.xml` sets
 it empty, and a non-empty `DB_URL` would take precedence over host and port.
 
 [`.github/dependabot.yml`](.github/dependabot.yml) tracks Composer, npm, GitHub
-Actions and the Dockerfile's pinned base images, grouping the first-party
-Laravel packages so they land as a set.
+Actions and the Dockerfile's pinned base images monthly, as one grouped PR per
+ecosystem, so each month's updates cost one CI run apiece rather than one per
+package plus a rebase of every sibling PR after each merge.
 
 ## Code style and static analysis
 
