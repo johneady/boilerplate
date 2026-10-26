@@ -1,43 +1,37 @@
 version: 2
 
+# Monthly, and ONE grouped PR per ecosystem. Every PR here runs the full CI job
+# on a private repo's Actions minutes, and so does every rebase Dependabot makes
+# when a sibling PR merges -- weekly runs with two or three groups per ecosystem
+# meant up to ~16 PRs a month, plus a rebase cascade after each merge, and that
+# is what exhausted the free minutes. One PR per ecosystem per month has nothing
+# to cascade into.
+#
+# The cost of a single group: one package that breaks the build holds back the
+# rest. Fix it on the branch, or `@dependabot ignore` that dependency, rather
+# than splitting the group back up.
+#
+# Security updates are unaffected: they are raised as soon as an advisory is
+# published, independently of this schedule and of these groups.
 updates:
   - package-ecosystem: composer
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 10
     versioning-strategy: increase-if-necessary
     groups:
-      # Laravel's first-party packages release together and are tested
-      # together; separate PRs for each just multiply CI runs on changes that
-      # have to land as a set anyway.
-      laravel:
-        patterns:
-          - laravel/*
-          - livewire/*
-          - filament/*
-      dev-tooling:
-        dependency-type: development
+      composer:
         patterns:
           - '*'
 
   - package-ecosystem: npm
     directory: /
     schedule:
-      interval: weekly
-      day: monday
+      interval: monthly
     open-pull-requests-limit: 5
     groups:
-      build-tooling:
-        patterns:
-          - vite
-          - vite-plus
-          - laravel-vite-plugin
-          - '@tailwindcss/*'
-          - tailwindcss
-      dev-tooling:
-        dependency-type: development
+      npm:
         patterns:
           - '*'
     # playwright is held back deliberately. Its npm version must match a
@@ -91,6 +85,12 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # Ungrouped, each action (checkout, setup-php, setup-node, cache, the
+    # docker/* set...) arrived as its own PR and its own CI run.
+    groups:
+      github-actions:
+        patterns:
+          - '*'
 
   # Pinned base images in the Dockerfile (php:8.5-*, node:24-*) go stale
   # silently otherwise -- nothing else in the repo reports a new patch release
@@ -99,6 +99,13 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    # php:8.5-cli-alpine, php:8.5-fpm-alpine and node:24-alpine otherwise each
+    # arrive as their own PR -- and these are the PRs that DO pay the image
+    # build in docker.yml, since they change the Dockerfile.
+    groups:
+      docker:
+        patterns:
+          - '*'
     ignore:
       # Node is pinned to the current LTS line (24, "Krypton") deliberately.
       # Dependabot would otherwise offer node:26 -- an even-numbered but
