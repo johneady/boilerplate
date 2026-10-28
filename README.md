@@ -666,6 +666,21 @@ Actions and the Dockerfile's pinned base images monthly, as one grouped PR per
 ecosystem, so each month's updates cost one CI run apiece rather than one per
 package plus a rebase of every sibling PR after each merge.
 
+## Releases
+
+[`.github/workflows/release-please.yml`](.github/workflows/release-please.yml)
+keeps one `chore(main): release X.Y.Z` PR open, built from the conventional
+commits merged since the last release. Merging it tags `vX.Y.Z`, publishes a
+GitHub Release and updates `CHANGELOG.md`. `fix:` bumps the patch, `feat:` the
+minor, `feat!:` / `BREAKING CHANGE` the major; nobody edits a version by hand.
+It needs "Allow GitHub Actions to create and approve pull requests" on
+(Settings > Actions > General).
+
+**Starting a new project from this boilerplate:** reset
+`.release-please-manifest.json` to `{}` and delete `CHANGELOG.md`, or the new
+project inherits the boilerplate's version and history. Its first release is
+then 1.0.0 (`initial-version` in `release-please-config.json`).
+
 ## Code style and static analysis
 
 ```bash
