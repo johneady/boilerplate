@@ -37,7 +37,6 @@
 * enhance admin user seeding and login redirection logic ([50766f5](https://github.com/johneady/boilerplate/commit/50766f5a39cec789d65c48779b643ca32f3be2b4))
 * Enhance dashboard with business overview and recent orders widgets ([d433f0c](https://github.com/johneady/boilerplate/commit/d433f0c6dd5a753721f43ba29dd80958a57d207e))
 * enhance demo deployment process with local publish fallback and improved tagging ([7afe4dd](https://github.com/johneady/boilerplate/commit/7afe4dd3caa8a90e35de1ce120db76107ba9a1de))
-* enhance Docker setup with CI integration and update deployment instructions ([7436842](https://github.com/johneady/boilerplate/commit/7436842e0a1bc380bdac6411a3f35fe9bce63ddb))
 * enhance Docker setup with CI integration and update deployment instructions ([7b70950](https://github.com/johneady/boilerplate/commit/7b70950fb9231ec80a077d68f8819d1d3d22025c))
 * enhance settings management to ensure access gates fail closed and support scoped bindings ([60959cb](https://github.com/johneady/boilerplate/commit/60959cb78b27f1053ee8347523a4c614e2ae294a))
 * **errors:** add custom error pages for 403, 404, 419, 429, 500, and 503 statuses ([8de24e3](https://github.com/johneady/boilerplate/commit/8de24e3b973b52f4f2d9a3fa6898f5c83fd63e3d))
@@ -100,7 +99,6 @@
 
 ### Bug Fixes
 
-* **build:** alias vite to @voidzero-dev/vite-plus-core ([cd374f8](https://github.com/johneady/boilerplate/commit/cd374f81b91c88beb92ff096de8f41fe49aba257))
 * **build:** alias vite to @voidzero-dev/vite-plus-core ([ab8e95d](https://github.com/johneady/boilerplate/commit/ab8e95d185aec8bbfaef14670f8df88f1e13d60a))
 * **build:** move vite alias to 0.3.1 alongside vite-plus ([a574359](https://github.com/johneady/boilerplate/commit/a5743595e6c6929f0a09cd296ca6f35f46c04c52))
 * **ci:** clarify parallel processing limits in Pest job comments ([dae3583](https://github.com/johneady/boilerplate/commit/dae35833f439bc3cd33159849d40278d3989eda0))
