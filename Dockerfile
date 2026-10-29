@@ -62,6 +62,13 @@
 # ecosystem updates these digests monthly -- see .github/dependabot.yml.
 # ---------------------------------------------------------------------------
 
+# --- composer binary --------------------------------------------------------
+# Its own stage, pinned by version and digest, so that Dependabot's docker
+# ecosystem -- which reads FROM lines only -- tracks and bumps it.
+# It used to be `COPY --from=composer:2`: a floating tag that put whichever
+# 2.x was current on build day into the image, with no PR and no diff.
+FROM composer:2.10.3@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS composer
+
 # --- Stage 0: shared PHP base ----------------------------------------------
 # Both the vendor stage and the runtime stage derive from here, so the shared
 # extension set is written ONCE. This is load-bearing for composer: the vendor
@@ -100,7 +107,7 @@ FROM php-base AS vendor
 
 RUN apk add --no-cache git unzip
 
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+COPY --from=composer /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app
 
