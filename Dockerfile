@@ -67,7 +67,7 @@
 # ecosystem -- which reads FROM lines only -- tracks and bumps it.
 # It used to be `COPY --from=composer:2`: a floating tag that put whichever
 # 2.x was current on build day into the image, with no PR and no diff.
-FROM composer:2.10.3@sha256:2cf275428757e5435a667bfc0d038b14520ca02be2b1b70d44a05c8c19e2de48 AS composer
+FROM composer:2.11.0@sha256:278dfc7bd35169965d03f87194816f43bf4e6b6ea61707c2114e52ad12fe24ce AS composer
 
 # --- Stage 0: shared PHP base ----------------------------------------------
 # Both the vendor stage and the runtime stage derive from here, so the shared
@@ -131,7 +131,7 @@ RUN --mount=type=cache,target=/tmp/composer-cache \
 # dependabot ignore for why the major does not move automatically. musl is safe
 # here: every native optional dep in package-lock.json ships a -musl build, and
 # the emitted assets are md5-identical to the Debian build.
-FROM node:24-alpine@sha256:06d7adf3e0ef61a13f1d28682726366f97a15aa1888c934d3ecec86c33918b53 AS assets
+FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS assets
 
 WORKDIR /app
 
