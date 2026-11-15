@@ -28,10 +28,11 @@ x-app-base: &app-base
   # The bytes CI built and tested are the bytes that run here.
   #
   # IMAGE_TAG must name a tag that workflow published. Prefer an immutable one
-  # -- `sha-<full-commit-sha>`, or a `v*` release tag -- over `latest`: `latest`
-  # moves under you, so a container restart can quietly pull a different build
-  # than the one you deployed, and nothing records which. Set it in the Dokploy
-  # environment; it defaults to latest only so a first deploy works.
+  # -- `sha-<full-commit-sha>`, or a release's `X.Y.Z` tag -- over `latest`:
+  # `latest` moves under you, so a container restart can quietly pull a
+  # different build than the one you deployed, and nothing records which. Set
+  # it in the Dokploy environment; it defaults to latest only so a first deploy
+  # works.
   #
   # The package is private by default, so Dokploy needs a GHCR registry
   # credential (a PAT with read:packages) to pull it. Without one the deploy
