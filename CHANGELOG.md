@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.1](https://github.com/johneady/boilerplate/compare/v1.0.0...v1.0.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deps:** bump the docker group with 2 updates ([118ee9d](https://github.com/johneady/boilerplate/commit/118ee9de612b7db9c9c2e75020d9448aee52c0bb))
+* **deps:** bump the docker group with 2 updates ([3b67782](https://github.com/johneady/boilerplate/commit/3b67782c24524fc1766f9edd0a764a400d7b9782))
+* **deps:** bump the npm group with 7 updates ([8492653](https://github.com/johneady/boilerplate/commit/849265312cde40973bd99f4a405f11ba68bfdc8a))
+* **deps:** bump the npm group with 7 updates ([e73eaff](https://github.com/johneady/boilerplate/commit/e73eaff956443cace8c5660277084d65bac50446))
+
 ## 1.0.0 (2026-10-28)
 
 
