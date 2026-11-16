@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.2](https://github.com/johneady/boilerplate/compare/v1.0.1...v1.0.2) (2026-11-16)
+
+
+### Bug Fixes
+
+* **deps:** bump laravel/framework from 13.36.0 to 13.40.0 ([0c61b53](https://github.com/johneady/boilerplate/commit/0c61b531556d493c747327f54ebe9e02cc57be22))
+* **deps:** bump laravel/framework from 13.36.0 to 13.40.0 ([29b1e30](https://github.com/johneady/boilerplate/commit/29b1e30075aa1ad43d612b8551f75ad7852452b1))
+* **deps:** bump the composer group across 1 directory with 16 updates ([2e56b26](https://github.com/johneady/boilerplate/commit/2e56b26275db65c81c9a4b087dd3ae557431b505))
+* **deps:** bump the composer group across 1 directory with 16 updates ([0b3cf4b](https://github.com/johneady/boilerplate/commit/0b3cf4b92523afe4b7363c117b9ecce86c3078f2))
+* keep PHPStan passing with the newer Laravel and Larastan ([e2a8ef7](https://github.com/johneady/boilerplate/commit/e2a8ef7bf68efb281536ea03c96dc4d2ef1c7c89))
+
 ## [1.0.1](https://github.com/johneady/boilerplate/compare/v1.0.0...v1.0.1) (2026-11-16)
 
 
