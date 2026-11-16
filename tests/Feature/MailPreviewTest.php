@@ -1,8 +1,43 @@
 <?php
 
 use App\Mail\PreviewableEmails;
+use App\Mail\TestEmail;
 use App\Models\User;
 use App\Settings\Settings;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Mail\Mailable as MailableContract;
+
+afterEach(function () {
+    VerifyEmail::$toMailCallback = null;
+    ResetPassword::$toMailCallback = null;
+});
+
+/**
+ * VerifyEmail and ResetPassword hand back whatever a toMailUsing() callback
+ * returns, so the preview must render a concrete Mailable from one too.
+ */
+test('a framework email customised to return a mailable still renders', function (string $slug) {
+    VerifyEmail::toMailUsing(fn (): TestEmail => new TestEmail);
+    ResetPassword::toMailUsing(fn (): TestEmail => new TestEmail);
+
+    $html = (string) $this->get('/dev/mails/'.$slug)->assertSuccessful()->getContent();
+
+    expect($html)->toContain('<!DOCTYPE')
+        ->and($html)->toContain('Mail delivery is working');
+})->with(['verify-email', 'reset-password']);
+
+/**
+ * The Mailable contract has no render(), so a callback returning a bare
+ * implementation of it cannot be previewed and must say so plainly.
+ */
+test('a framework email customised to return an unrenderable mailable fails loudly', function (string $slug) {
+    VerifyEmail::toMailUsing(fn (): MailableContract => Mockery::mock(MailableContract::class));
+    ResetPassword::toMailUsing(fn (): MailableContract => Mockery::mock(MailableContract::class));
+
+    expect(fn () => (app(PreviewableEmails::class)->all()[$slug]['render'])())
+        ->toThrow(LogicException::class, 'cannot be previewed');
+})->with(['verify-email', 'reset-password']);
 
 test('the index lists every previewable email', function () {
     $response = $this->get('/dev/mails')->assertSuccessful();

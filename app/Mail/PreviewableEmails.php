@@ -48,11 +48,13 @@ use App\Payments\Money;
 use App\Settings\Settings;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
+use Illuminate\Contracts\Mail\Mailable as MailableContract;
 use Illuminate\Mail\Mailable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification as BaseNotification;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Str;
+use LogicException;
 
 /**
  * The catalogue of every email this application can produce.
@@ -105,14 +107,14 @@ class PreviewableEmails
                 'notification' => $verifyEmail,
                 'mailable' => null,
                 'onDemand' => false,
-                'render' => fn (): MailMessage => $verifyEmail->toMail($notifiable),
+                'render' => fn (): MailMessage|Mailable => $this->renderable($verifyEmail->toMail($notifiable)),
             ],
             'reset-password' => [
                 'description' => 'password reset',
                 'notification' => $resetPassword,
                 'mailable' => null,
                 'onDemand' => false,
-                'render' => fn (): MailMessage => $resetPassword->toMail($notifiable),
+                'render' => fn (): MailMessage|Mailable => $this->renderable($resetPassword->toMail($notifiable)),
             ],
             'contact-submission' => [
                 'description' => 'contact form submission',
@@ -357,6 +359,23 @@ class PreviewableEmails
             'id' => 1,
             'email' => $recipient,
         ]);
+    }
+
+    /**
+     * Narrow a framework toMail() result to something the preview can render.
+     *
+     * VerifyEmail and ResetPassword declare MailMessage|Mailable-contract,
+     * because a toMailUsing() callback may return any Mailable. The contract
+     * has no render(), so only a MailMessage or a concrete Mailable can be
+     * previewed; anything else fails loudly rather than as a missing method.
+     */
+    private function renderable(MailMessage|MailableContract $message): MailMessage|Mailable
+    {
+        if ($message instanceof MailMessage || $message instanceof Mailable) {
+            return $message;
+        }
+
+        throw new LogicException(sprintf('%s cannot be previewed because it does not extend %s.', $message::class, Mailable::class));
     }
 
     /**

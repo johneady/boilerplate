@@ -86,7 +86,11 @@ class AdoptPageBodyImages extends Command
      */
     public function handle(): int
     {
-        $hours = $this->option('hours');
+        // Read through Symfony's input, typed mixed, rather than option():
+        // Larastan types a {--hours=} option as string|null, but a
+        // programmatic call such as artisan(..., ['--hours' => 0]) hands the
+        // raw int through, so the is_int() branch below is load-bearing.
+        $hours = $this->input->getOption('hours');
 
         // A typo here must not fall through to (int) and become 0: zero is
         // the "collect everything unreferenced now" sweep instruction, the
