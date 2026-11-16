@@ -80,7 +80,7 @@ FROM composer:2.11.0@sha256:278dfc7bd35169965d03f87194816f43bf4e6b6ea61707c2114e
 # adds pdo_mysql, gd and redis on top for reasons documented in that stage.
 #
 # php:8.5-fpm-alpine @ PHP 8.5.12
-FROM php:8.5-fpm-alpine@sha256:4c2818074ec49f6abe46620f3965e0cb75bc3a5f2b417edd1aacaba6f091c40e AS php-base
+FROM php:8.5-fpm-alpine@sha256:951fb5b1780219b81d5daffa4cebef8e0077c537f3893d9790a5dfcd66ca334d AS php-base
 
 # .build-deps is the whole reason this image is small: $PHPIZE_DEPS (the base's
 # own name for autoconf/gcc/g++/make/pkgconf/re2c) plus the -dev headers go in
@@ -131,7 +131,7 @@ RUN --mount=type=cache,target=/tmp/composer-cache \
 # dependabot ignore for why the major does not move automatically. musl is safe
 # here: every native optional dep in package-lock.json ships a -musl build, and
 # the emitted assets are md5-identical to the Debian build.
-FROM node:24-alpine@sha256:8a32c8cf649a49915a66e81e7a609223c708d0adabf288ee3f4077d765542f85 AS assets
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS assets
 
 WORKDIR /app
 
