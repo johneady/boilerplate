@@ -22,6 +22,12 @@ on:
   # main is NOT here: ci.yml calls this workflow after its test jobs pass, so
   # main only publishes a tested commit. demo/* and v* tags stay direct --
   # ci.yml does not run on either, so there is nothing to wait for.
+  #
+  # ci.yml calls this only for a release commit: the merge of a
+  # release-please PR, which raised the version in
+  # .release-please-manifest.json. Other merges to main publish nothing.
+  # "Run workflow" builds and pushes any commit's sha image if one is ever
+  # needed between releases.
   push:
     branches: ['demo/*']
     tags: ['v*']
@@ -43,7 +49,7 @@ on:
   # each one -- and each rebase of one -- paid a 5-15 minute image build that
   # the checks in ci.yml already cover: the suite runs on the new dependencies
   # and builds the assets. A dependency that needs an extension the image lacks
-  # still fails before it can ship: the publish build on main runs the same
+  # still fails before it can ship: the release build on main runs the same
   # extension assertion, and nothing reaches GHCR unless it passes.
   pull_request:
     paths:
@@ -107,7 +113,8 @@ jobs:
 
       # A re-run of an older commit's workflow publishes its sha tag again,
       # which is harmless, but must not drag `latest` or the branch tag back
-      # onto older code. Only the branch's current tip moves them.
+      # onto older code. Only the newest release commit (on the default
+      # branch) or the branch tip (on any other) moves them.
       - name: Check this is the branch tip
         id: tip
         env:
@@ -117,8 +124,16 @@ jobs:
 
           current=true
           if [ "$GITHUB_REF_TYPE" = branch ] && [ "$GITHUB_EVENT_NAME" != pull_request ]; then
-            tip="$(git ls-remote origin "$GITHUB_REF" | cut -f1)"
-            if [ "$tip" != "$GITHUB_SHA" ]; then
+            if [ "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH" ]; then
+              # Only releases publish here, and a merge can land while a
+              # release is still building, so the newest release commit
+              # counts, not the branch tip.
+              git fetch -q origin "$GITHUB_REF"
+              newest="$(git log -1 --first-parent --format=%H FETCH_HEAD -- .release-please-manifest.json)"
+            else
+              newest="$(git ls-remote origin "$GITHUB_REF" | cut -f1)"
+            fi
+            if [ "$newest" != "$GITHUB_SHA" ]; then
               current=false
             fi
           fi
@@ -265,7 +280,7 @@ jobs:
               if [ "$IS_LATEST" = true ]; then
                 printf 'Also tagged `latest` — published for convenience, but prefer the sha above.\n'
               elif [ "$IS_TIP" != true ]; then
-                printf 'Not tagged `latest`: a newer commit is on the branch.\n'
+                printf 'Not tagged `latest`: a newer release or commit is on the branch.\n'
               fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
