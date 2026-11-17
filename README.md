@@ -668,7 +668,9 @@ package plus a rebase of every sibling PR after each merge.
 
 ## Releases
 
-[`.github/workflows/release-please.yml`](.github/workflows/release-please.yml)
+The `release` job in
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs release-please once
+the checks pass on `main` (and, for a release, once the image is published). It
 keeps one `chore(main): release X.Y.Z` PR open, built from the conventional
 commits merged since the last release. Merging it tags `vX.Y.Z`, publishes a
 GitHub Release and updates `CHANGELOG.md`. `fix:` bumps the patch, `feat:` the
