@@ -4,6 +4,7 @@ paths:
   - .env.example
   - docker-compose.yml
   - docker-compose.dokploy.yml
+  - phpunit.xml
 ---
 
 # Logging
@@ -16,3 +17,6 @@ Not stderr, though that is the usual container answer: laravel/pail and Boost's 
 .env.example is set to daily too, deliberately. It is what gets copied into projects built on this boilerplate, so leaving it on 'single' would propagate the unbounded default.
 
 tests/Feature/LoggingTest.php asserts daily resolves to a RotatingFileHandler and single does not.
+
+## Tests log to the null channel
+phpunit.xml sets LOG_CHANNEL=null. Without it every test run appends to the real storage/logs file: deliberately rejected webhooks and unreachable-database tests wrote thousands of entries a run, and a local laravel.log reached 173 MB from tests alone. Tests that assert on logging use Log::shouldReceive or set the channel explicitly (LoggingTest, ProductionConfigCheckTest), so the default channel never needs to be real. CI's step env does not set LOG_CHANNEL, so the phpunit.xml value applies there too.

@@ -31,7 +31,7 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Providers/Filament/** | .ai/rules/filament.md |
 | lang/**, resources/views/**, app/Filament/**, app/Auth/Role.php | .ai/rules/i18n.md |
 | app/Listeners/SendQueueFailureAlert.php | .ai/rules/listeners.md |
-| config/logging.php, .env.example, docker-compose.yml, docker-compose.dokploy.yml | .ai/rules/logging.md |
+| config/logging.php, .env.example, docker-compose.yml, docker-compose.dokploy.yml, phpunit.xml | .ai/rules/logging.md |
 | app/Providers/AuthServiceProvider.php, app/Policies/MediaPolicy.php, app/Filament/Resources/Media/** | .ai/rules/media.md |
 | app/Http/Middleware/EnsureRegistrationIsEnabled.php | .ai/rules/middleware.md |
 | app/Livewire/Contact.php, app/Models/ContactSubmission.php, app/Notifications/ContactSubmissionReceived.php | .ai/rules/models-notifications.md |
