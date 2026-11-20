@@ -19,6 +19,7 @@ use App\Payments\Enums\GatewayMode;
 use App\Payments\Enums\SubscriptionStatus;
 use App\Payments\Money;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
 use Tests\Support\Payments;
@@ -148,6 +149,22 @@ test('the revenue chart covers the last twelve months', function () {
 
     expect($data['labels'])->toHaveCount(12)
         ->and(end($data['labels']))->toBe('Sep 2026');
+});
+
+test('the revenue chart reads its cached months back from a store that serializes', function () {
+    // The file, database and Redis stores serialize what they keep, and
+    // cache.serializable_classes refuses every object on the way back in.
+    config(['cache.stores.array.serialize' => true]);
+    Cache::purge('array');
+
+    Payments::payWithDemo(PaymentLink::factory()->costing(10000)->create());
+    $this->travel(1)->minute();
+    $this->actingAs(User::factory()->admin()->create());
+
+    $chartData = fn (): array => (fn () => $this->getData())->call(Livewire::test(RevenueChart::class)->instance());
+    $chartData();
+
+    expect(end($chartData()['datasets'][0]['data']))->toBe(100.0);
 });
 
 test('each item needing attention is shown only to someone who can act on it', function () {

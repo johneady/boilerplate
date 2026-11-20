@@ -27,7 +27,10 @@ trait CachesWidgetMetrics
      * next reader when missing.
      *
      * The closure must not capture $this: several cache stores serialize
-     * the stored value, and a widget is a Livewire component.
+     * the stored value, and a widget is a Livewire component. For the same
+     * reason it must return only scalars and arrays: cache.serializable_classes
+     * is false, so an object (a Money, say) comes back as an incomplete class
+     * from the file, database and Redis stores.
      *
      * @template TFigures
      *
