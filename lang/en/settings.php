@@ -83,6 +83,9 @@ return [
         'guides' => [
             'overview' => 'Overview',
             'installation' => 'Installing and updating',
+            'content' => 'Pages, blog and contact form',
+            'payments' => 'Payments and subscriptions',
+            'users' => 'Users and roles',
             'changelog' => 'Changelog',
         ],
     ],

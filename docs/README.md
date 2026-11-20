@@ -12,6 +12,9 @@ In these guides, **you** are the person who installs and runs the site, and
 | Guide | Read it when |
 | --- | --- |
 | [Installing on shared hosting (cPanel)](installation-shared-hosting.md) | You have ordinary PHP hosting and want to use the browser installer. It also covers updates. |
+| [Pages, blog and contact form](content.md) | You want to write the site's pages, run the blog or read contact messages. |
+| [Payments and subscriptions](payments.md) | You want to take payments or sell subscriptions through Stripe or PayPal. |
+| [Users and roles](users-and-roles.md) | You want to give someone access to the admin panel, or remove it. |
 
 ## What the site does
 
@@ -20,8 +23,8 @@ In these guides, **you** are the person who installs and runs the site, and
   authentication or sign in with a passkey.
 - **Content pages.** You write and publish pages from the admin panel. The
   legal pages (privacy, terms) are created for you when you install.
-- **Blog.** Posts with categories and tags, and publishing scheduled for a
-  later date.
+- **Blog.** Posts with categories and tags, publishing scheduled for a later
+  date, and an RSS feed.
 - **Contact form.** Messages arrive in the admin panel, and you can have them
   emailed to you too.
 - **Payments.** One-off payments, payment links and subscription plans,
@@ -39,7 +42,7 @@ In these guides, **you** are the person who installs and runs the site, and
 | --- | --- |
 | `/admin` | You and your staff: content, users, payments, settings and updates. |
 | `/dashboard` | Signed-in visitors: their account, security settings and subscriptions. |
-| `/login`, `/register` | Everyone. You can switch registration off under Admin → Settings → Registration. |
+| `/login`, `/register` | Everyone. Registration is off until you turn it on under Admin → Settings → Registration. |
 
 ## What's new
 

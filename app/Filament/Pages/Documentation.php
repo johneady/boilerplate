@@ -33,6 +33,9 @@ class Documentation extends Page
     protected const GUIDES = [
         'overview' => ['file' => 'docs/README.md', 'label' => 'settings.documentation.guides.overview'],
         'installation-shared-hosting' => ['file' => 'docs/installation-shared-hosting.md', 'label' => 'settings.documentation.guides.installation'],
+        'content' => ['file' => 'docs/content.md', 'label' => 'settings.documentation.guides.content'],
+        'payments' => ['file' => 'docs/payments.md', 'label' => 'settings.documentation.guides.payments'],
+        'users-and-roles' => ['file' => 'docs/users-and-roles.md', 'label' => 'settings.documentation.guides.users'],
         'changelog' => ['file' => 'CHANGELOG.md', 'label' => 'settings.documentation.guides.changelog'],
     ];
 

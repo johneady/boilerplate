@@ -99,9 +99,10 @@ Go through the tabs under **Admin → Settings**:
    and description search engines show.
 2. **Locale:** the site's timezone and how dates are shown.
 3. **Email:** send a test message from the Email tab.
-4. **Registration:** choose whether visitors may create accounts.
-5. **Payments:** switch on Stripe or PayPal if you take payments. The Payments
-   menu appears once a gateway is on.
+4. **Registration:** off until you turn it on. See
+   [Users and roles](users-and-roles.md).
+5. **Payments:** switch on Stripe or PayPal if you take payments. See
+   [Payments and subscriptions](payments.md).
 6. **Diagnostics:** lists anything in the configuration that needs attention.
 
 ## Updating
