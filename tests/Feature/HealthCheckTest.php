@@ -23,6 +23,11 @@ test('health returns 503 when the database is unreachable', function () {
     DB::shouldReceive('connection->select')
         ->andThrow(new RuntimeException('SQLSTATE[HY000] [2002] Connection refused'));
 
+    // Swapping the facade root replaces the whole DatabaseManager, so the
+    // framework's post-test disconnect sweep (since v13.43) would otherwise
+    // hit getConnections() unmocked and fail the test at teardown.
+    DB::shouldReceive('getConnections')->andReturn([]);
+
     $response = $this->getJson(route('health'));
 
     $response->assertServiceUnavailable()
@@ -54,6 +59,7 @@ test('health does not leak the reason a dependency failed', function () {
     // database host, the username and the file path.
     DB::shouldReceive('connection->select')
         ->andThrow(new RuntimeException('SQLSTATE[HY000] [1045] Access denied for user "deploy"@"10.0.0.4"'));
+    DB::shouldReceive('getConnections')->andReturn([]);
 
     $response = $this->getJson(route('health'));
 
