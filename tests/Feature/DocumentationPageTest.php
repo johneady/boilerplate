@@ -9,7 +9,7 @@ test('the overview is shown first, with every guide in the menu', function () {
         ->get('/admin/documentation')
         ->assertSuccessful()
         ->assertSee('Boilerplate documentation')
-        ->assertSeeInOrder(['Overview', 'Installing and updating', 'Changelog']);
+        ->assertSeeInOrder(['Overview', 'Installing and updating', 'Pages, blog and contact form', 'Payments and subscriptions', 'Users and roles', 'Changelog']);
 });
 
 test('panel staff who are not administrators can read the guides too', function () {
@@ -37,6 +37,7 @@ test('links between guides open them on this page', function () {
         ->get('/admin/documentation')
         ->assertSee('href="'.e(Documentation::getUrl(['guide' => 'installation-shared-hosting'])).'"', escape: false)
         ->assertSee('href="'.e(Documentation::getUrl(['guide' => 'installation-shared-hosting'])).'#updating"', escape: false)
+        ->assertSee('href="'.e(Documentation::getUrl(['guide' => 'payments'])).'"', escape: false)
         ->assertSee('href="'.e(Documentation::getUrl(['guide' => 'changelog'])).'"', escape: false)
         ->assertDontSee('.md"', escape: false);
 });
