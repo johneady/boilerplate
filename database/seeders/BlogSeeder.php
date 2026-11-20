@@ -91,12 +91,20 @@ class BlogSeeder extends Seeder
     ];
 
     /**
+     * Stands for the administrator config/first.php names, whose address
+     * FIRST_USER_EMAIL can change -- a literal admin@example.com would leave
+     * those posts without an author on such an instance.
+     */
+    private const string ADMIN_AUTHOR = 'admin';
+
+    /**
      * The posts, newest first in the list only for the reader's convenience.
      *
      * `published` is days from now: negative for a past publish date, positive
      * for a scheduled one, null for a draft. `time` is the time of day each
      * went live, so the demo's timestamps read as publishing rather than as a
-     * seeder that ran at 03:14.
+     * seeder that ran at 03:14. `author` is a demo account's email, or
+     * ADMIN_AUTHOR for the configured administrator.
      *
      * @var array<int, array{slug: string, title: string, category: string, tags: list<string>, author: string, published: int|null, time: string, seo_description: string, body: string}>
      */
@@ -165,7 +173,7 @@ MD,
             'title' => 'How we approach database seeding',
             'category' => 'behind-the-scenes',
             'tags' => ['demo', 'tips'],
-            'author' => 'admin@example.com',
+            'author' => self::ADMIN_AUTHOR,
             'published' => -40,
             'time' => '09:00',
             'seo_description' => 'Why the demo data is replayed through real actions rather than inserted as rows, and what that buys.',
@@ -252,7 +260,7 @@ MD,
             'title' => 'Why every demo starts with real data',
             'category' => 'product',
             'tags' => ['demo', 'announcements'],
-            'author' => 'admin@example.com',
+            'author' => self::ADMIN_AUTHOR,
             'published' => -95,
             'time' => '09:30',
             'seo_description' => 'An empty demo answers no questions. Here is why the boilerplate seeds a year of activity before anybody logs in.',
@@ -308,7 +316,7 @@ MD,
             'title' => 'Introducing the boilerplate',
             'category' => 'company-news',
             'tags' => ['announcements', 'releases'],
-            'author' => 'admin@example.com',
+            'author' => self::ADMIN_AUTHOR,
             'published' => -150,
             'time' => '08:30',
             'seo_description' => 'Why we built a starting point with the boring parts already done: accounts, content, payments and the operational spine between them.',
@@ -339,7 +347,7 @@ MD,
             'title' => 'The Q4 maintenance window',
             'category' => 'company-news',
             'tags' => ['announcements'],
-            'author' => 'admin@example.com',
+            'author' => self::ADMIN_AUTHOR,
             'published' => 3,
             'time' => '06:00',
             'seo_description' => 'Scheduled maintenance later this quarter: what changes, what to expect, and what nothing will notice.',
@@ -366,7 +374,7 @@ MD,
             'title' => 'Notes on the next release',
             'category' => 'behind-the-scenes',
             'tags' => ['releases', 'demo'],
-            'author' => 'admin@example.com',
+            'author' => self::ADMIN_AUTHOR,
             'published' => null,
             'time' => '13:00',
             'seo_description' => 'A working draft -- the notes for the next release, still being written.',
@@ -424,7 +432,7 @@ MD,
                 $post->body = $definition['body'];
                 $post->seo_description = $definition['seo_description'];
                 $post->published_at = $this->publishDate($definition['published'], $definition['time']);
-                $post->author_id = User::query()->where('email', $definition['author'])->value('id');
+                $post->author_id = User::query()->where('email', $this->authorEmail($definition['author']))->value('id');
                 $post->category_id = $categories[$definition['category']]->id;
 
                 $post->save();
@@ -497,6 +505,14 @@ MD,
         }
 
         return $tags;
+    }
+
+    /**
+     * The email of the account a post definition credits.
+     */
+    private function authorEmail(string $author): string
+    {
+        return $author === self::ADMIN_AUTHOR ? (string) config('first.user.email') : $author;
     }
 
     /**

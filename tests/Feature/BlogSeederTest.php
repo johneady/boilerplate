@@ -37,6 +37,23 @@ test('it seeds the sample content', function () {
         ->and($posts->pluck('author_id')->unique()->count())->toBeGreaterThan(1);
 });
 
+/**
+ * FIRST_USER_EMAIL can name the administrator (a Dokploy instance), so the
+ * administrator's posts must follow config/first.php rather than the demo
+ * address, or they are left without an author.
+ */
+test('the administrator posts are credited to the configured administrator', function () {
+    config(['first.user.email' => 'owner@example.org']);
+    $owner = User::factory()->create(['email' => 'owner@example.org']);
+    User::factory()->create(['email' => 'editor@example.com']);
+    User::factory()->create(['email' => 'manager@example.com']);
+
+    $this->seed(BlogSeeder::class);
+
+    expect(Post::query()->whereNull('author_id')->exists())->toBeFalse()
+        ->and(Post::query()->where('author_id', $owner->id)->count())->toBe(5);
+});
+
 test('its newest published post is a recent one', function () {
     $this->seed(BlogSeeder::class);
 
