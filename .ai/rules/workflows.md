@@ -16,6 +16,9 @@ The suite step sets DB_* as step env vars, which works because PHPUnit's <env> e
 
 The service healthcheck is MariaDB's own `healthcheck.sh --connect --innodb_initialized`. The MariaDB 11 image ships no `mysql`/`mysqladmin` binaries (only `mariadb`/`mariadb-admin`), so a copied MySQL-style healthcheck or GRANT step fails there.
 
+## The CI database lives in memory, and must stay there
+The MariaDB service's data directory is a tmpfs (`--tmpfs /var/lib/mysql` in its options). Each parallel worker migrates its database inside its FIRST test, so the migration counts against phpunit.xml's 60s per-test limit (enforceTimeLimit). On a self-hosted runner with slow storage -- in appt-scheduler, a ZFS mirror of two spinning drives -- four workers migrating at once took over a minute: PHPUnit aborted the migration half-way ("Execution aborted after 60 seconds"), every later test retried it and was aborted too, and the run looked hung until the job timed out, silently skipping the release job (Nov 2026). In memory the suite ran in about 4 minutes on that runner. Do not raise the per-test limit instead: it is what catches a genuinely hung test.
+
 ## Runner minutes: what does and does not trigger a run
 - ci.yml ignores `**.md` and `.ai/**` (push and PR). A docs-only merge publishes no image -- correct, the image would be identical.
 - docker.yml's PR `paths` deliberately exclude composer/package manifests and lockfiles, so Dependabot PRs do not pay a 5-15 minute image build. The publish build on main still runs the extension assertion before anything reaches GHCR.
