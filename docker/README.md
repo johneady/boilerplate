@@ -143,8 +143,9 @@ production is an OOM waiting to happen).
    session/cache/queue drivers, …) is hardcoded in `docker-compose.dokploy.yml`
    and must not be set here.
 
-   There is no admin account to configure: the seeder creates a fixed demo
-   admin, covered below.
+   The admin account is optional: set `FIRST_USER_NAME`, `FIRST_USER_EMAIL`
+   and `FIRST_USER_PASSWORD` for a real instance. Left unset, the seeder
+   creates the fixed demo admin covered below.
 
 5. Deploy. The entrypoint waits for the database, migrates, seeds the demo
    accounts, caches config/routes, publishes Filament's assets, and starts the

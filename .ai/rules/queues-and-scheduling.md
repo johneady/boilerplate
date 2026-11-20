@@ -3,6 +3,8 @@ paths:
   - 'app/Jobs/**'
   - 'app/Console/Commands/**'
   - routes/console.php
+  - config/queue.php
+  - config/updates.php
   - docker/entrypoint/supervisord.conf
   - docker/entrypoint/supervisord.worker.conf
   - docker/entrypoint/supervisord.scheduler.conf
@@ -130,3 +132,11 @@ adoptedRow() returns the row so handle() can distinguish three cases: not yet pr
 rewriteBody() replaces the host-prefixed /storage/ form (any host, protocol-relative included) BEFORE the bare /storage/ form -- an absolute URL contains the bare one, so the bare-first order splices the old host onto the front of the absolute replacement URL and then deletes the original the page still names. rewriteTo() re-runs pagesReferencing() after the rewrite and deletes the original only when it returns empty, so an unmatched form costs one more run rather than a broken image on a live page.
 
 The orphan retention window must EXCEED the adopter's daily cadence: between adoption and the rewrite, an adopted row is ownerless and not yet body-referenced (the body still names the original in page-body/), so its survival rests entirely on that window. A MEDIA_ORPHAN_RETENTION_HOURS below 24 lets the hourly prune delete every not-yet-rewritten adoption and the command loops forever without closing the EXIF gap.
+
+## QUEUE_MODE: cron unless worker is asked for
+config/queue.php's `mode` is `cron` unless QUEUE_MODE is exactly `worker` (trimmed, any case). The default is cron because installer-toolkit's install.php writes a .env without the key onto a shared host that has no worker: defaulting to worker would leave every queued job unrun. Both compose files set `QUEUE_MODE: worker` (they run a worker container), and .env.production.example sets it too.
+
+In cron mode routes/console.php schedules `queue:work --stop-when-empty --max-time=50` every minute, registered LAST so every other due task starts first, with withoutOverlapping(10) and the supervisord worker's queue order and floors. It is skipped on the sync connection, where jobs already ran inline. A host running a worker AND the scheduler with QUEUE_MODE unset drains twice a minute, which the database queue's row locks make safe. /health's queue check names the mode. tests/Feature/ScheduledTasksTest.php covers all of it, rebuilding the schedule with scheduleInQueueMode() because the file reads the config once at boot.
+
+## The in-app updater is off wherever the code is not installed from the zip
+UPDATER_ENABLED (config/updates.php `updater.enabled`) is "false" in both compose files and .env.production.example: an image or a git checkout is overwritten on the next deploy, and public/updater.php exists only in zip installs. With it off the toolkit registers no launch route and App\Filament\Pages\SystemUpdate hides itself. `update:prune` (daily 03:30) deletes abandoned upload parts and staged packages from storage/app/updater; it never touches backups, results or the update lock.

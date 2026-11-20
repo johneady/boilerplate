@@ -126,6 +126,11 @@ x-app-base: &app-base
     # its data on restart logs every user out when SESSION_DRIVER=redis.
     CACHE_STORE: ${CACHE_STORE:-database}
     QUEUE_CONNECTION: ${QUEUE_CONNECTION:-database}
+    # Fixed, not overridable: this stack always runs a worker container, and
+    # the unset default (cron) would have the scheduler drain the queue too.
+    QUEUE_MODE: worker
+    # Images are updated by redeploying, never by the in-app updater.
+    UPDATER_ENABLED: "false"
 
     # Consulted only when one of the drivers above is set to `redis`. Left
     # unset otherwise -- config/database.php supplies the defaults, and naming
@@ -160,9 +165,16 @@ x-app-base: &app-base
     # resetting it, and the demo user is skipped once present, so leaving this
     # true across redeploys never resets a password you have since changed.
     #
-    # The credentials are fixed and public (config/first.php) -- there is
-    # nothing to configure here, and nothing to forget.
+    # The admin it creates comes from FIRST_USER_* (config/first.php), set in
+    # Dokploy for a real instance. Unset, they fall back to the fixed, public
+    # admin@example.com / password -- change it after the first sign-in. The
+    # defaults use `:-`, so a value left blank in Dokploy falls back too:
+    # passing a blank FIRST_USER_EMAIL through would read as an installed copy
+    # whose admin was scrubbed, and seed no admin at all.
     RUN_SEEDERS: ${RUN_SEEDERS:-true}
+    FIRST_USER_NAME: ${FIRST_USER_NAME:-Admin User}
+    FIRST_USER_EMAIL: ${FIRST_USER_EMAIL:-admin@example.com}
+    FIRST_USER_PASSWORD: ${FIRST_USER_PASSWORD:-password}
 
   # Must join dokploy-network, the shared network the Dokploy-managed MariaDB
   # lives on. Without this, Compose puts the service on a project default

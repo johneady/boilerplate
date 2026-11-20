@@ -1,6 +1,8 @@
 ---
 paths:
   - 'database/seeders/**'
+  - config/first.php
+  - 'package/**'
 ---
 
 # Seeders
@@ -25,10 +27,15 @@ password alone so an operator's own changes are not reset.
 DatabaseSeeder's demo user also skips itself when the admin address is
 test@example.com, so the non-admin user cannot land on top of the admin.
 
-## The admin credentials are fixed, not environment-driven
-config/first.php holds literal values and calls no env(). There is deliberately no FIRST_USER_* to set: this is a boilerplate, and every deployment is a demo instance that must come up usable with zero configuration. The seeder's old "refuse to run with default credentials outside local/testing" guard was removed with that change -- do not reinstate it without also restoring a way to configure the credentials, or seeding will simply fail on every deploy.
+## The admin comes from the installer, else the fixed demo values
+config/first.php reads FIRST_USER_EMAIL / FIRST_USER_FIRST_NAME / FIRST_USER_LAST_NAME / FIRST_USER_PASSWORD (and FIRST_USER_NAME), which installer-toolkit's install.php writes from its admin step. With the keys MISSING (Docker, a fresh clone) it falls back to the fixed demo admin, so a deployed instance still comes up usable with zero configuration -- and with a PUBLICLY KNOWN login, mitigated by changing the password from the account's settings page, which re-seeding never resets.
 
-The consequence is that every instance has a PUBLICLY KNOWN admin login. That is accepted, and the mitigation is documented rather than enforced: change the password from the account's settings page, which re-seeding never resets.
+A key PRESENT BUT BLANK is not "missing": after seeding, the installer scrubs the values to `""` and keeps the keys. config/first.php then yields an empty email and AdminUserSeeder seeds nothing. Do not "simplify" the fallback to `env(...) ?: 'admin@example.com'`: on an installed copy that would create a second admin with password `password` the next time anything runs the seeder. env()'s own default (missing key only) is what draws that line; tests/Feature/AdminUserSeederTest.php covers all three cases. docker-compose.dokploy.yml passes FIRST_USER_* with `:-` defaults for the same reason: a blank Dokploy value must fall back, not read as a scrubbed install.
+
+The seeder's old "refuse to run with default credentials outside local/testing" guard stays removed: Docker deployments seed the demo admin on purpose.
+
+## The installer seeds essentials only
+package/package-config.php's sample_seeders is empty on purpose. PlanSeeder, BlogSeeder and DemoBusinessSeeder are written for demo instances: BlogSeeder attributes posts to the quick-login demo accounts by email, and those accounts have public passwords, so they must not be put on a buyer's install. DatabaseSeeder still runs the demo set wherever DevLoginAccounts::enabled(), and the installer never calls DatabaseSeeder -- it runs the listed classes with APP_ENV=production.
 
 ## The demo user is seeded wherever quick logins are offered
 DatabaseSeeder gates its non-admin user on DevLoginAccounts::enabled(), not on local/testing, so the account exists everywhere the login page advertises a one-click button for it. Gating the two differently is what leaves a "Not seeded" button on a deployed demo box.

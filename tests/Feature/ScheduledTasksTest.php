@@ -3,6 +3,7 @@
 use App\Jobs\Job;
 use Illuminate\Console\Scheduling\Event;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Support\Facades\Schedule as ScheduleFacade;
 
 /**
  * Every command the schedule registers, as it would be run.
@@ -29,6 +30,27 @@ function scheduledEventFor(string $command): Event
     return $event;
 }
 
+/**
+ * Rebuild the schedule from routes/console.php in the given queue mode.
+ *
+ * The file reads config('queue.mode') once, at boot, so a test that only
+ * changes the config would still see the schedule the suite booted with.
+ *
+ * @return array<int, Event>
+ */
+function scheduleInQueueMode(string $mode, string $connection = 'database'): array
+{
+    config()->set('queue.mode', $mode);
+    config()->set('queue.default', $connection);
+
+    app()->instance(Schedule::class, new Schedule(config('app.schedule_timezone')));
+    ScheduleFacade::clearResolvedInstance(Schedule::class);
+
+    require base_path('routes/console.php');
+
+    return app(Schedule::class)->events();
+}
+
 test('the housekeeping tasks every project needs are scheduled', function (string $command) {
     $matching = array_filter(
         scheduledCommands(),
@@ -52,6 +74,7 @@ test('the housekeeping tasks every project needs are scheduled', function (strin
     'payments:notify-trials-ending',
     'app:prune-exports',
     'app:send-business-summary',
+    'update:prune',
 ]);
 
 /**
@@ -81,6 +104,7 @@ test('recurring maintenance tasks cannot overlap or double-run', function (strin
     'payments:notify-trials-ending',
     'app:prune-exports',
     'app:send-business-summary',
+    'update:prune',
 ]);
 
 /**
@@ -100,6 +124,7 @@ test('overlap locks expire well inside a day', function (string $command) {
     'payments:notify-trials-ending',
     'app:prune-exports',
     'app:send-business-summary',
+    'update:prune',
 ]);
 
 test('queued jobs retry a bounded number of times and then stop', function () {
@@ -129,3 +154,49 @@ test('the job timeout stays below the queue retry_after', function () {
 
     expect($job->timeout)->toBeLessThan($retryAfter);
 });
+
+test('cron queue mode drains the queue every minute, after every other task', function () {
+    $events = scheduleInQueueMode('cron');
+    $worker = end($events);
+
+    expect($worker->command)->toContain('queue:work')
+        ->toContain('--stop-when-empty ')
+        ->not->toContain('--stop-when-empty=')
+        ->toContain('--max-time=50')
+        ->toContain("--queue='high,default'")
+        ->toContain('--tries=3')
+        ->and($worker->expression)->toBe('* * * * *')
+        ->and($worker->withoutOverlapping)->toBeTrue()
+        ->and($worker->expiresAt)->toBe(10)
+        ->and($worker->onOneServer)->toBeTrue();
+});
+
+test('worker queue mode leaves the queue to its long-running worker', function () {
+    $commands = collect(scheduleInQueueMode('worker'))
+        ->map(fn (Event $event): string => (string) $event->command);
+
+    expect($commands->filter(fn (string $command): bool => str_contains($command, 'queue:work')))->toBeEmpty();
+});
+
+test('cron queue mode schedules nothing on the sync connection, where jobs already ran inline', function () {
+    $commands = collect(scheduleInQueueMode('cron', 'sync'))
+        ->map(fn (Event $event): string => (string) $event->command);
+
+    expect($commands->filter(fn (string $command): bool => str_contains($command, 'queue:work')))->toBeEmpty();
+});
+
+/**
+ * The web installer writes a .env with no QUEUE_MODE, onto a host with no
+ * worker, so anything but an explicit "worker" must mean cron.
+ */
+test('the queue mode is cron unless worker is asked for', function (?string $value, string $mode) {
+    $resolved = withEnvironment(['QUEUE_MODE' => $value], fn (): mixed => (require config_path('queue.php'))['mode']);
+
+    expect($resolved)->toBe($mode);
+})->with([
+    'unset' => [null, 'cron'],
+    'cron' => ['cron', 'cron'],
+    'worker' => ['worker', 'worker'],
+    'worker, any case' => [' Worker ', 'worker'],
+    'unrecognised' => ['supervisor', 'cron'],
+]);

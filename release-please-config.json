@@ -4,7 +4,10 @@
     ".": {
       "release-type": "simple",
       "initial-version": "1.0.0",
-      "include-component-in-tag": false
+      "include-component-in-tag": false,
+      "extra-files": [
+        "config/app.php"
+      ]
     }
   }
 }

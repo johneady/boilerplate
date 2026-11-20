@@ -64,6 +64,9 @@ $adminPages = [
     'admin audit logs' => '/admin/audit-logs',
     'admin account profile' => '/admin/account/profile',
     'admin account security' => '/admin/account/security',
+    'admin system update' => '/admin/system-update',
+    'admin documentation' => '/admin/documentation',
+    'admin documentation guide' => '/admin/documentation?guide=installation-shared-hosting',
 ];
 
 $paymentPages = [

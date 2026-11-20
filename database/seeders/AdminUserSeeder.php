@@ -11,17 +11,25 @@ class AdminUserSeeder extends Seeder
     /**
      * Seed the admin user from config/first.php.
      *
-     * The credentials are fixed demo values rather than environment-driven, so
-     * a deployed instance comes up usable with nothing to configure. They are
-     * therefore PUBLICLY KNOWN: changing the password on a live instance is a
-     * manual step, done from the account's own settings page. This seeder never
-     * resets an existing account's password, so that change survives redeploys.
+     * The web installer supplies the buyer's chosen admin; everywhere else the
+     * fixed demo values apply, which are PUBLICLY KNOWN: changing the password
+     * on a live instance is a manual step, done from the account's own settings
+     * page. This seeder never resets an existing account's password, so that
+     * change survives redeploys.
      */
     public function run(): void
     {
-        $name = config('first.user.name');
-        $email = config('first.user.email');
-        $password = config('first.user.password');
+        $name = (string) config('first.user.name');
+        $email = (string) config('first.user.email');
+        $password = (string) config('first.user.password');
+
+        // A blank address or password is an installed copy whose installer has already
+        // seeded its admin and scrubbed the FIRST_USER_* values (config/first.php).
+        // There is no one to create, and inventing the demo admin here would
+        // put a public password on a live install.
+        if ($email === '' || $password === '') {
+            return;
+        }
 
         // Idempotent by design: seeding may run on every boot of a deployed
         // instance, and creating the user again would fail on the users.email

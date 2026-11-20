@@ -328,38 +328,45 @@ jobs:
   #   - "Allow GitHub Actions to create and approve pull requests" must be on
   #     (Settings > Actions > General), or opening the release PR fails with a
   #     403.
-  #   - Anything GITHUB_TOKEN creates triggers no workflows: this file does not
-  #     run on the release PR, and the vX.Y.Z tag does not fire docker.yml's
-  #     `push: tags` trigger. Merging the release PR runs this file on main,
-  #     where publish builds the image and docker/tag-release.sh adds the
-  #     X.Y.Z and X.Y tags to it.
+  #   - Anything GITHUB_TOKEN creates runs no jobs: the vX.Y.Z tag does not
+  #     fire docker.yml's `push: tags` trigger, and the release PR gets a
+  #     CI run that GitHub holds for approval and closes as "failure" (no
+  #     jobs) when the PR merges. That red X is expected; leave it unapproved.
+  #     Merging the release PR runs this file on main, which runs the full
+  #     checks, and publish builds the image and docker/tag-release.sh adds
+  #     the X.Y.Z and X.Y tags to it.
   release:
-    name: Release PR
+    name: Release
     needs: [checks, publish]
     if: >-
       !cancelled() && github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       needs.checks.result == 'success' &&
       (needs.publish.result == 'success' || needs.publish.result == 'skipped')
-    runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
-    # Only API calls, no checkout -- but self-hosted jobs queue behind the host
-    # job lock, and that wait counts toward the timeout.
-    timeout-minutes: ${{ vars.CI_RUNNER && 30 || 5 }}
-
-    # Serialised, so two quick merges do not race to rebuild and force-push the
-    # same release PR. Never cancelled: the tag and GitHub Release are one API
-    # call, but relabelling the PR from "autorelease: pending" to "autorelease:
-    # tagged" is a separate one after it, and a run cancelled in between leaves
-    # the next run failing on a duplicate release.
-    concurrency:
-      group: release-please
-      cancel-in-progress: false
-
+    # installer-toolkit's shared release workflow: release-please, and on the
+    # run that cuts vX.Y.Z, the shared-hosting package -- the full zip
+    # (install.php, readme.html, the app with vendor/ and public/build) and
+    # the signed .update -- built from the tag and attached to the GitHub
+    # Release. Its release-please job is serialised in the release-please
+    # concurrency group and never cancelled, so two quick merges cannot race
+    # to rebuild the release PR, and a run cannot be cut off between tagging
+    # and relabelling the PR (which leaves the next run failing on a duplicate
+    # release). Manual rebuilds of an existing tag are package.yml.
+    #
+    # Pinned to the toolkit version composer.lock installs; bump the pins
+    # here and in package.yml with the composer package. The installer and
+    # updater come from the tag's vendor/ either way.
+    uses: johneady/installer-toolkit/.github/workflows/release.yml@v2.10.0
+    with:
+      # Self-hosted jobs queue behind the host job lock, and that wait counts
+      # toward the timeouts.
+      runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+      release-timeout-minutes: ${{ vars.CI_RUNNER && 30 || 5 }}
+      package-timeout-minutes: ${{ vars.CI_RUNNER && 120 || 45 }}
     permissions:
-      # Tags, releases and the release branch.
       contents: write
       pull-requests: write
-      # The autorelease: pending / tagged labels on the release PR.
       issues: write
-
-    steps:
-      - uses: googleapis/release-please-action@v5
+    # inherit, not an explicit mapping: UPDATE_SIGNING_KEY lives in the
+    # main-only `release` environment, which only the toolkit's package job
+    # enters, so this job cannot read it to pass it on by name.
+    secrets: inherit

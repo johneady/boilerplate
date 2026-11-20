@@ -283,3 +283,47 @@ register_shutdown_function(function (): void {
 expect()->extend('toBeOne', function () {
     return $this->toBe(1);
 });
+
+/**
+ * Run a callback with the given environment variables set (null = unset),
+ * through every source Laravel's env() reads -- $_ENV, $_SERVER and getenv()
+ * -- and put back whatever was there before.
+ *
+ * @param  array<string, string|null>  $variables
+ */
+function withEnvironment(array $variables, Closure $callback): mixed
+{
+    $previous = [];
+
+    foreach ($variables as $key => $value) {
+        $previous[$key] = [$_ENV[$key] ?? null, $_SERVER[$key] ?? null, getenv($key)];
+        unset($_ENV[$key], $_SERVER[$key]);
+        putenv($key);
+
+        if ($value !== null) {
+            $_ENV[$key] = $_SERVER[$key] = $value;
+            putenv("{$key}={$value}");
+        }
+    }
+
+    try {
+        return $callback();
+    } finally {
+        foreach ($previous as $key => [$env, $server, $process]) {
+            unset($_ENV[$key], $_SERVER[$key]);
+            putenv($key);
+
+            if ($env !== null) {
+                $_ENV[$key] = $env;
+            }
+
+            if ($server !== null) {
+                $_SERVER[$key] = $server;
+            }
+
+            if ($process !== false) {
+                putenv("{$key}={$process}");
+            }
+        }
+    }
+}

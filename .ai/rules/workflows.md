@@ -1,6 +1,8 @@
 ---
 paths:
   - '.github/workflows/**, .github/dependabot.yml'
+  - 'package/**'
+  - release-please-config.json
 ---
 
 # Workflows
@@ -24,3 +26,11 @@ The MariaDB service's data directory is a tmpfs (`--tmpfs /var/lib/mysql` in its
 - docker.yml's PR `paths` deliberately exclude composer/package manifests and lockfiles, so Dependabot PRs do not pay a 5-15 minute image build. The publish build on main still runs the extension assertion before anything reaches GHCR.
 - dependabot.yml is monthly with one group per ecosystem; see its header comment before splitting a group.
 - `runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}` in both workflows: set the CI_RUNNER repository variable to `self-hosted` to move onto a self-hosted runner, delete it to fall back.
+
+## Releases and the package come from the toolkit's release.yml, gated on the checks
+ci.yml's `release` job calls `johneady/installer-toolkit/.github/workflows/release.yml` (as appt-scheduler and pet-adoption do) after `checks` and, on a release commit, `publish`: release-please, then on the run that cuts vX.Y.Z the toolkit's package job builds the tag and attaches `boilerplate-vX.Y.Z-full.zip` and the signed `boilerplate-vX.Y.Z.update`. The package job fails the release if no `.update` named after the tag was built, so config/app.php's `'version'` line must keep its `// x-release-please-version` marker (release-please-config.json's extra-files rewrites it). package.yml calls the same workflow with `rebuild-tag` to rebuild an existing release by hand. Both pin the toolkit tag composer.lock installs: bump the pins with the composer package. Call release.yml, not build-package.yml, which the toolkit documents as internal.
+
+The signing key is the UPDATE_SIGNING_KEY secret of this repo's own `release` environment (deployment branches: main only), never a repository secret: PR and Dependabot jobs run third-party code and must not be able to read it. Environment secrets are per repo -- it is the same key as appt-scheduler's and pet-adoption's (key id key-2026-07-b, package/package-config.php), but each repo holds its own copy. It reaches the toolkit's package job only through `secrets: inherit`; naming `secrets.UPDATE_SIGNING_KEY` in the caller passes an empty value, because the caller's job is not in that environment. Without the key `package:build` fails rather than ship an unsigned .update.
+
+## The release PR's failed CI run is expected
+release-please opens its PR with GITHUB_TOKEN, so the PR's CI run is held for approval, runs no jobs, and is closed as "failure" ("a workflow file issue") when the PR merges. Do not approve it or try to fix it: the merge to main runs the full checks before release-please tags. Running real CI on the release PR would need an App/PAT token, and its tag would then also fire docker.yml's tag build.

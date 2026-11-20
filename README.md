@@ -172,9 +172,10 @@ php artisan migrate:fresh --seed
 
 Demo accounts with **fixed credentials** — the admin's in
 [`config/first.php`](config/first.php), the rest (with their roles) in
-[`config/dev-login.php`](config/dev-login.php) — no environment
-variables, so a fresh clone and a fresh deployment both come up usable with
-nothing to configure:
+[`config/dev-login.php`](config/dev-login.php) — so a fresh clone and a fresh
+deployment both come up usable with nothing to configure. The admin can be
+replaced with `FIRST_USER_NAME`/`FIRST_USER_EMAIL`/`FIRST_USER_PASSWORD`,
+which is how the web installer creates the buyer's own:
 
 | Account | Email | Password | Access |
 | --- | --- | --- | --- |
@@ -678,10 +679,27 @@ minor, `feat!:` / `BREAKING CHANGE` the major; nobody edits a version by hand.
 It needs "Allow GitHub Actions to create and approve pull requests" on
 (Settings > Actions > General).
 
+The job is [installer-toolkit](https://github.com/johneady/installer-toolkit)'s
+shared release workflow. On the run that cuts `vX.Y.Z` it also builds the
+shared-hosting package from the tag and attaches both files to the GitHub
+Release: `boilerplate-vX.Y.Z-full.zip` (`install.php`, `readme.html`, and the
+app with its `vendor/` and `public/build`) and the signed
+`boilerplate-vX.Y.Z.update` for the in-app updater. The signing key is the
+`UPDATE_SIGNING_KEY` secret of the repository's `release` environment, which
+is limited to `main`. [`package.yml`](.github/workflows/package.yml) rebuilds
+an existing tag by hand. Locally, `php artisan package:build` builds the same
+files (signed with `~/.config/installer-toolkit/signing.key`), and
+`php artisan package:test` runs the installer against them end to end.
+
 **Starting a new project from this boilerplate:** reset
-`.release-please-manifest.json` to `{}` and delete `CHANGELOG.md`, or the new
-project inherits the boilerplate's version and history. Its first release is
-then 1.0.0 (`initial-version` in `release-please-config.json`).
+`.release-please-manifest.json` to `{}`, set `config/app.php`'s `version` to
+`0.0.0`, and delete `CHANGELOG.md`, or the new project inherits the
+boilerplate's version and history. Its first release is then 1.0.0
+(`initial-version` in `release-please-config.json`). Also rename the package:
+`name` and `slug` in [`package/package-config.php`](package/package-config.php)
+and the `UPDATE_SLUG` default in [`config/updates.php`](config/updates.php),
+which must match. Then give the new repository its own `release` environment
+with the `UPDATE_SIGNING_KEY` secret.
 
 ## Code style and static analysis
 

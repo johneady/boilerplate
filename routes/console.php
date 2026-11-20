@@ -205,3 +205,49 @@ Schedule::command('payments:prune-webhook-events')
     ->withoutOverlapping(60)
     ->onOneServer()
     ->description('Delete webhook events past their retention period');
+
+/*
+ * Daily: deletes upload parts and staged packages an abandoned System Update
+ * left in storage (installer-toolkit). Off the 03:00 queue restart.
+ */
+Schedule::command('update:prune')
+    ->dailyAt('03:30')
+    ->withoutOverlapping(60)
+    ->onOneServer()
+    ->description('Delete files left behind by abandoned system updates');
+
+/*
+|--------------------------------------------------------------------------
+| Cron-only queue (QUEUE_MODE=cron)
+|--------------------------------------------------------------------------
+|
+| Shared hosting allows no long-running worker, so the scheduler drains the
+| queue itself each minute. --max-time=50 hands back before the next minute's
+| run; withoutOverlapping() skips a minute if a long job is still going, and
+| its 10-minute expiry frees the lock after a run killed by the host. The
+| queue order and the tries/backoff/memory floors match the long-running
+| worker (docker/entrypoint/supervisord.worker.conf), so a job behaves the
+| same in either mode.
+|
+| Not on the sync connection: jobs already ran inline when dispatched, so
+| there is nothing queued to drain.
+|
+| Registered LAST on purpose: schedule:run runs due tasks one after another,
+| so every other task starts before the queue takes its 50 seconds.
+|
+*/
+
+if (config('queue.mode') === 'cron' && config('queue.default') !== 'sync') {
+    Schedule::command('queue:work', [
+        '--queue' => 'high,default',
+        '--stop-when-empty',
+        '--max-time' => 50,
+        '--tries' => 3,
+        '--backoff' => 10,
+        '--memory' => 192,
+    ])
+        ->everyMinute()
+        ->withoutOverlapping(10)
+        ->onOneServer()
+        ->description('Run queued jobs (cron-only queue mode)');
+}

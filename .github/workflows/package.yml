@@ -1,0 +1,35 @@
+name: Package
+
+# Rebuilds the shared-hosting package for a release that already exists and
+# attaches it again: for a release whose package job failed (the signing key
+# missing, a flaky runner) or one cut before ci.yml built packages. Run it
+# from main with the tag ("Run workflow", tag v1.2.3); re-running replaces the
+# assets already attached. With a tag, the toolkit's release workflow skips
+# release-please and only builds.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to rebuild, e.g. v1.4.0
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    # Pinned like ci.yml's release job: the toolkit version composer.lock installs.
+    uses: johneady/installer-toolkit/.github/workflows/release.yml@v2.10.0
+    with:
+      runs-on: ${{ vars.CI_RUNNER || 'ubuntu-latest' }}
+      package-timeout-minutes: ${{ vars.CI_RUNNER && 120 || 45 }}
+      rebuild-tag: ${{ inputs.tag }}
+    # All three, though a rebuild only writes contents: GitHub checks every
+    # nested job's permissions at startup, including the release-please job a
+    # rebuild skips, and refuses the run if the caller grants less.
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    secrets: inherit

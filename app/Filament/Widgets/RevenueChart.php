@@ -53,6 +53,7 @@ class RevenueChart extends ChartWidget
     {
         $months = $this->monthlyNetRevenue();
         $settings = app(Settings::class);
+        $currency = app(PaymentManager::class)->currency();
 
         return [
             'datasets' => [
@@ -60,7 +61,7 @@ class RevenueChart extends ChartWidget
                     'label' => __('dashboard.revenue_chart.dataset'),
                     // Decimals, not minor units, so the axis and tooltip read
                     // as money.
-                    'data' => array_map(fn (Money $money): float => (float) $money->toDecimal(), array_values($months)),
+                    'data' => array_map(fn (int $minor): float => (float) Money::of($minor, $currency)->toDecimal(), array_values($months)),
                 ],
             ],
             'labels' => array_map(
@@ -71,9 +72,11 @@ class RevenueChart extends ChartWidget
     }
 
     /**
-     * The chart's twelve months behind the widget's short TTL.
+     * The chart's twelve months behind the widget's short TTL, in minor
+     * units: the cache unserializes no objects, so a Money would come back
+     * as an incomplete class on the next load.
      *
-     * @return array<string, Money>
+     * @return array<string, int>
      */
     private function monthlyNetRevenue(): array
     {
@@ -82,7 +85,7 @@ class RevenueChart extends ChartWidget
 
         return $this->rememberMetrics(
             'revenue-chart.'.$payments->mode()->value.'.'.$payments->currency()->value.'.'.$metrics->monthStart()->toDateString(),
-            fn (): array => $metrics->monthlyNetRevenue(12),
+            fn (): array => array_map(fn (Money $money): int => $money->amount, $metrics->monthlyNetRevenue(12)),
         );
     }
 

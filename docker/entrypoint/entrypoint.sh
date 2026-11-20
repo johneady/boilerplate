@@ -125,8 +125,8 @@ fi
 # is safe to leave enabled across redeploys. The demo user is seeded in every
 # environment but production, matching where the quick logins are offered.
 #
-# The admin credentials are fixed demo values in config/first.php, so there is
-# nothing to configure and nothing that can be forgotten here.
+# The admin comes from FIRST_USER_* (config/first.php); with those unset it is
+# the fixed demo admin, so there is nothing that must be configured here.
 if [ "${RUN_SEEDERS:-true}" = "true" ]; then
     log "Seeding (idempotent) ..."
     php artisan db:seed --force || {
