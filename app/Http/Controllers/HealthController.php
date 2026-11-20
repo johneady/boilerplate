@@ -135,7 +135,11 @@ class HealthController extends Controller
      *   has stopped, which an idle queue cannot produce while the hourly
      *   scheduled task keeps feeding it.
      *
-     * @return array{status: string, last_processed_age?: int}
+     * Every state but skipped also names the queue mode (config/queue.php):
+     * "worker" for a long-running process, "cron" when the scheduler drains
+     * the queue each minute -- so the operator can see which must be running.
+     *
+     * @return array{status: string, mode?: string, last_processed_age?: int}
      */
     private function checkQueue(): array
     {
@@ -143,16 +147,18 @@ class HealthController extends Controller
             return ['status' => 'skipped'];
         }
 
+        $mode = (string) config('queue.mode');
+
         try {
             $lastProcessedAt = Cache::get(RecordWorkerHeartbeat::CACHE_KEY);
         } catch (Throwable) {
             // The cache check above already reports an unreachable store;
             // repeating it here would turn one fault into two alerts.
-            return ['status' => 'unknown'];
+            return ['status' => 'unknown', 'mode' => $mode];
         }
 
         if (! is_numeric($lastProcessedAt)) {
-            return ['status' => 'unknown'];
+            return ['status' => 'unknown', 'mode' => $mode];
         }
 
         $age = now()->getTimestamp() - (int) $lastProcessedAt;
@@ -160,6 +166,7 @@ class HealthController extends Controller
 
         return [
             'status' => $age > $maxAge ? 'failing' : 'ok',
+            'mode' => $mode,
             'last_processed_age' => $age,
         ];
     }

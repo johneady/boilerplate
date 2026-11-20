@@ -17,6 +17,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Application Version
+    |--------------------------------------------------------------------------
+    |
+    | The released version. release-please rewrites this line on each release
+    | (the x-release-please-version marker), so it matches the vX.Y.Z tag; the
+    | System Update page shows it and the updater compares packages against it.
+    |
+    */
+
+    'version' => '1.0.2', // x-release-please-version
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1953193919e36d247e9089e5b2cd52f7",
+    "content-hash": "24a8e4db03d66720ab68e7cbd4ae1889",
     "packages": [
         {
             "name": "achyutn/filament-log-viewer",
@@ -2794,6 +2794,88 @@
                 }
             ],
             "time": "2026-10-30T13:38:01+00:00"
+        },
+        {
+            "name": "johneady/installer-toolkit",
+            "version": "v2.10.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/johneady/installer-toolkit.git",
+                "reference": "ae0835cdd9a372383553cb7145faef4b7418fff8"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/johneady/installer-toolkit/zipball/ae0835cdd9a372383553cb7145faef4b7418fff8",
+                "reference": "ae0835cdd9a372383553cb7145faef4b7418fff8",
+                "shasum": ""
+            },
+            "require": {
+                "ext-json": "*",
+                "ext-sodium": "*",
+                "ext-zip": "*",
+                "illuminate/console": "^11.0|^12.0|^13.0",
+                "illuminate/database": "^11.0|^12.0|^13.0",
+                "illuminate/support": "^11.0|^12.0|^13.0",
+                "league/commonmark": "^2.4",
+                "php": "^8.5",
+                "symfony/process": "^6.0|^7.0|^8.0"
+            },
+            "require-dev": {
+                "larastan/larastan": "^3.0",
+                "laravel/pint": "^1.29",
+                "orchestra/testbench": "^11.0",
+                "pestphp/pest": "^5.0"
+            },
+            "type": "library",
+            "extra": {
+                "laravel": {
+                    "providers": [
+                        "InstallerToolkit\\Update\\UpdateServiceProvider"
+                    ]
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "InstallerToolkit\\": "src/"
+                }
+            },
+            "autoload-dev": {
+                "psr-4": {
+                    "InstallerToolkit\\Tests\\": "tests/"
+                }
+            },
+            "scripts": {
+                "analyse": [
+                    "vendor/bin/phpstan analyse --memory-limit=2G"
+                ],
+                "lint": [
+                    "vendor/bin/pint"
+                ],
+                "lint:check": [
+                    "vendor/bin/pint --test"
+                ],
+                "test": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@lint:check",
+                    "@analyse",
+                    "vendor/bin/pest --parallel --no-tia"
+                ],
+                "ci:check": [
+                    "Composer\\Config::disableProcessTimeout",
+                    "@lint:check",
+                    "@analyse",
+                    "vendor/bin/pest --parallel --ci"
+                ]
+            },
+            "license": [
+                "proprietary"
+            ],
+            "description": "Shared installer wizard, self-update engine, and package:build command for Laravel apps distributed as self-installing zips.",
+            "support": {
+                "source": "https://github.com/johneady/installer-toolkit/tree/v2.10.0",
+                "issues": "https://github.com/johneady/installer-toolkit/issues"
+            },
+            "time": "2026-11-19T18:08:29+00:00"
         },
         {
             "name": "kirschbaum-development/eloquent-power-joins",

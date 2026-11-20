@@ -74,6 +74,11 @@ x-app-base: &app-base
     SESSION_ENCRYPT: "true"
     CACHE_STORE: database
     QUEUE_CONNECTION: database
+    # This stack runs its own worker container; without this the queue mode
+    # defaults to cron and the scheduler would drain the queue as well.
+    QUEUE_MODE: worker
+    # Images are updated by redeploying, never by the in-app updater.
+    UPDATER_ENABLED: "false"
 
     # REDIS_CLIENT: phpredis
     # REDIS_HOST: redis

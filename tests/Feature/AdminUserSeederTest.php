@@ -208,3 +208,65 @@ test('the seeded accounts can actually sign in with the documented password', fu
     expect(Hash::check(config('first.user.password'), $admin->password))->toBeTrue()
         ->and(Hash::check('password', $demo->password))->toBeTrue();
 });
+
+/**
+ * Load config/first.php against the given FIRST_USER_* environment; every
+ * key not given is unset.
+ *
+ * @param  array<string, string>  $environment
+ * @return array{name: string, email: string, password: string}
+ */
+function firstUserConfigWith(array $environment): array
+{
+    $keys = ['FIRST_USER_NAME', 'FIRST_USER_EMAIL', 'FIRST_USER_FIRST_NAME', 'FIRST_USER_LAST_NAME', 'FIRST_USER_PASSWORD'];
+
+    return withEnvironment(
+        [...array_fill_keys($keys, null), ...$environment],
+        fn (): array => (require config_path('first.php'))['user'],
+    );
+}
+
+test('the first user is the fixed demo admin when nothing configures one', function () {
+    expect(firstUserConfigWith([]))->toBe([
+        'name' => 'Admin User',
+        'email' => 'admin@example.com',
+        'password' => 'password',
+    ]);
+});
+
+test('the first user is the admin the web installer describes', function () {
+    expect(firstUserConfigWith([
+        'FIRST_USER_EMAIL' => 'owner@example.org',
+        'FIRST_USER_FIRST_NAME' => 'Rosa',
+        'FIRST_USER_LAST_NAME' => 'Diaz',
+        'FIRST_USER_PASSWORD' => 'chosen-secret',
+    ]))->toBe([
+        'name' => 'Rosa Diaz',
+        'email' => 'owner@example.org',
+        'password' => 'chosen-secret',
+    ]);
+});
+
+test('an installed copy whose installer scrubbed the first user has no admin to seed', function () {
+    $user = firstUserConfigWith([
+        'FIRST_USER_EMAIL' => '',
+        'FIRST_USER_FIRST_NAME' => '',
+        'FIRST_USER_LAST_NAME' => '',
+        'FIRST_USER_PASSWORD' => '',
+    ]);
+
+    config(['first.user' => $user]);
+
+    $this->seed(AdminUserSeeder::class);
+
+    expect($user['email'])->toBe('')
+        ->and(User::count())->toBe(0);
+});
+
+test('an address with a blank password seeds no admin', function () {
+    config(['first.user' => ['name' => 'Owner', 'email' => 'owner@example.org', 'password' => '']]);
+
+    $this->seed(AdminUserSeeder::class);
+
+    expect(User::count())->toBe(0);
+});

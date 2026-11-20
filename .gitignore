@@ -31,3 +31,7 @@ yarn-error.log
 
 # Local BuildKit layer cache (docker/publish-image.sh).
 /.docker-cache
+
+# Built release zips (php artisan package:build); only the build config is tracked.
+/package/*
+!/package/package-config.php

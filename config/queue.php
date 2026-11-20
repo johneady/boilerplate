@@ -17,6 +17,28 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Queue Mode
+    |--------------------------------------------------------------------------
+    |
+    | Who runs the queue. "worker" expects a long-running `queue:work` -- the
+    | Docker worker role, or supervisor on a bare host. "cron" is for shared
+    | hosting, where no process may outlive a request: the scheduler starts
+    | `queue:work --stop-when-empty` every minute (routes/console.php), so the
+    | one cron line runs both. Either mode needs a real queue connection
+    | (database); on sync, jobs already ran inline and there is nothing to run.
+    |
+    | Unset means cron, because the web installer writes a .env without this
+    | key and a shared host has no worker: defaulting to "worker" would leave
+    | every queued job unrun. The Docker compose files set "worker". A host
+    | that runs a worker AND the scheduler without setting it gets a second
+    | drain each minute, which the database queue's row locks make safe.
+    |
+    */
+
+    'mode' => strtolower(trim((string) env('QUEUE_MODE', 'cron'))) === 'worker' ? 'worker' : 'cron',
+
+    /*
+    |--------------------------------------------------------------------------
     | Queue Connections
     |--------------------------------------------------------------------------
     |

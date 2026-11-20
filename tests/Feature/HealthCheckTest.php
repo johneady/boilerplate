@@ -146,3 +146,11 @@ test('a page cannot claim the health slug', function () {
     // saved at this slug would shadow the endpoint were it not reserved.
     expect(Page::RESERVED_SLUGS)->toContain('health');
 });
+
+test('the queue check names the queue mode', function (string $mode) {
+    config()->set('queue.default', 'database');
+    config()->set('queue.mode', $mode);
+
+    $this->getJson(route('health'))
+        ->assertJsonPath('checks.queue.mode', $mode);
+})->with(['worker', 'cron']);

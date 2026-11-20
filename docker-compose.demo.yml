@@ -43,13 +43,11 @@ services:
       service: app
     environment:
       QUEUE_CONNECTION: sync
-      # Read only by images built before config/first.php stopped reading
-      # env() (the esthetician and window-cleaning slots): their seeders and
-      # one-click admin login take the admin account from these, and without
-      # them fall back to an admin@example.com that does not exist there.
-      # Current images ignore them. The defaults are those old images' own
-      # defaults -- never empty, since env() returns "" for an empty value
-      # rather than falling back.
+      # The demo admin account (config/first.php reads these, as did the
+      # older esthetician and window-cleaning images). The defaults match the
+      # file's own fallbacks -- never empty: env() returns "" for an empty
+      # value rather than falling back, and a blank FIRST_USER_EMAIL is how
+      # config/first.php recognises an installed copy that seeds no admin.
       FIRST_USER_NAME: ${FIRST_USER_NAME:-Admin User}
       FIRST_USER_EMAIL: ${FIRST_USER_EMAIL:-admin@example.com}
       FIRST_USER_PASSWORD: ${FIRST_USER_PASSWORD:-password}

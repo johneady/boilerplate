@@ -43,12 +43,12 @@ Before planning or editing, find the row whose globs match the file's path and r
 | app/Payments/** | .ai/rules/payments.md |
 | app/Audit/**, app/Concerns/Auditable.php, app/Models/AuditLog.php, app/Policies/AuditLogPolicy.php, config/audit.php | .ai/rules/policies.md |
 | app/Auth/**, app/Policies/**, app/Concerns/HasRoles.php, app/Providers/AuthServiceProvider.php | .ai/rules/providers.md |
-| app/Jobs/**, app/Console/Commands/**, routes/console.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php, .env.production.example, app/Console/Commands/AdoptPageBodyImages.php | .ai/rules/queues-and-scheduling.md |
+| app/Jobs/**, app/Console/Commands/**, routes/console.php, config/queue.php, config/updates.php, docker/entrypoint/supervisord.conf, docker/entrypoint/supervisord.worker.conf, docker/entrypoint/supervisord.scheduler.conf, docker/entrypoint/entrypoint.sh, docker-compose.yml, docker-compose.dokploy.yml, app/Jobs/ProcessUploadedImage.php, .env.production.example, app/Console/Commands/AdoptPageBodyImages.php | .ai/rules/queues-and-scheduling.md |
 | app/Models/Page.php, resources/views/pages/**, app/Filament/Resources/Pages/** | .ai/rules/resources-pages.md |
-| database/seeders/** | .ai/rules/seeders.md |
+| database/seeders/**, config/first.php, package/** | .ai/rules/seeders.md |
 | app/Settings/** | .ai/rules/settings.md |
 | tests/** | .ai/rules/tests.md |
 | resources/views/layouts/app/**, resources/views/components/desktop-user-menu.blade.php | .ai/rules/views-components.md |
 | resources/views/filament/** | .ai/rules/views-filament.md |
 | resources/views/** | .ai/rules/views.md |
-| .github/workflows/**, .github/dependabot.yml | .ai/rules/workflows.md |
+| .github/workflows/**, .github/dependabot.yml, package/**, release-please-config.json | .ai/rules/workflows.md |

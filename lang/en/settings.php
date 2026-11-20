@@ -72,4 +72,19 @@ return [
         ],
     ],
 
+    'system_update' => [
+        'title' => 'System update',
+    ],
+
+    'documentation' => [
+        'title' => 'Documentation',
+        'guides_label' => 'Guides',
+        'none' => 'No guides are installed.',
+        'guides' => [
+            'overview' => 'Overview',
+            'installation' => 'Installing and updating',
+            'changelog' => 'Changelog',
+        ],
+    ],
+
 ];
