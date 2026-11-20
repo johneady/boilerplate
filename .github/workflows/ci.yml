@@ -69,7 +69,13 @@ jobs:
         # healthcheck.sh ships in the MariaDB image. --innodb_initialized waits
         # for the storage engine, not just the socket, so the first migration
         # never races a server that is still starting.
+        # --tmpfs keeps the throwaway test database in memory. On a runner
+        # with slow storage (a self-hosted box on spinning disks), every CREATE
+        # and ALTER waits on a disk sync, and the parallel workers migrate at
+        # once: it can take minutes. In appt-scheduler that outran PHPUnit's
+        # per-test time limit and stalled CI until the job timed out (Nov 2026).
         options: >-
+          --tmpfs /var/lib/mysql
           --health-cmd="healthcheck.sh --connect --innodb_initialized"
           --health-interval=10s
           --health-timeout=5s
