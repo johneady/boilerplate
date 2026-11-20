@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/johneady/boilerplate/compare/v1.0.2...v1.1.0) (2026-11-20)
+
+
+### Features
+
+* package the app for shared hosting with installer-toolkit ([48dfc1b](https://github.com/johneady/boilerplate/commit/48dfc1bbdbf8e96042f2026e61cbc1f5ae7a8e67))
+
+
+### Bug Fixes
+
+* credit the sample blog's admin posts to the configured administrator ([43f89cb](https://github.com/johneady/boilerplate/commit/43f89cb8babba88e939ced4df263e526ade21eed))
+* keep the admin dashboard's revenue chart working after its first load ([80b1a82](https://github.com/johneady/boilerplate/commit/80b1a8281f0dca409b04208b680bda724af93607))
+
 ## [1.0.2](https://github.com/johneady/boilerplate/compare/v1.0.1...v1.0.2) (2026-11-16)
 
 
